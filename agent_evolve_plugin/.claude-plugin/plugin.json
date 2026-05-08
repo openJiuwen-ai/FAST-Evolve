@@ -1,6 +1,6 @@
 {
   "name": "agent_evolve_plugin",
-  "description": "",
+  "description": "Evolution Controller plugin providing skills for memory compression and architecture documentation",
   "version": "1.0.0",
   "author": {
     "name": "Huawei Taylor Lab"
