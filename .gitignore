@@ -218,3 +218,10 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+.wiki/
+wiki/
+
+# Local MCP smoke-test state
+agent_evolve_smoke_*/
+.agent_evolve_smoke*/

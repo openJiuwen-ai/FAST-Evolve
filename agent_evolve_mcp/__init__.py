@@ -1,4 +1,8 @@
-from mcp_server import mcp as mcp_server
-import public_tools
+"""Agent Evolve MCP package exports."""
 
-__all__ = ["mcp_server"]
+from agent_evolve_mcp.mcp_server import mcp
+
+# Importing public_tools registers the FastMCP tools on the server instance.
+from . import public_tools as public_tools
+
+__all__ = ["mcp", "public_tools"]
