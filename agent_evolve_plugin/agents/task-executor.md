@@ -61,10 +61,13 @@ Use the exact path with correct run_id, task_id, attempt_id.
 
 ### 3.2 Generate or Debug Solution
 
+**Evolution Strategy**:
+The parent solution is the foundation of this evolution - use it as the primary reference for improvement and optimization; inspirations can be used as supplementary references for crossover, mutation, and borrowing optimization ideas.
+
 **For attempt 1**:
 Based on:
-- Parent (if exists)
-- Inspirations (if any)
+- Parent (if exists) - PRIMARY REFERENCE, build upon it
+- Inspirations (if any) - SECONDARY REFERENCE, borrow ideas from them
 - Task description
 
 Generate a complete solution to the task. Use available skills as needed to complete the work.
