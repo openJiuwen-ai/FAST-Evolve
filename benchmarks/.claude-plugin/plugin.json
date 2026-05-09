@@ -1,6 +1,6 @@
 {
   "name": "benchmarks",
-  "description": "",
+  "description": "Benchmark problems for program optimization",
   "version": "1.0.0",
   "author": {
     "name": "Huawei Taylor Lab"
