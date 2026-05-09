@@ -225,3 +225,5 @@ wiki/
 # Local MCP smoke-test state
 agent_evolve_smoke_*/
 .agent_evolve_smoke*/
+
+.claude/settings.local.json

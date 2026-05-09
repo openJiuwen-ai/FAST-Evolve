@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "agent_evolve_mcp": {
+      "command": "python",
+      "args": ["-m", "agent_evolve_mcp"]
+    }
+  }
+}
