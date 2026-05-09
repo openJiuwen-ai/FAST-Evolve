@@ -1,7 +1,7 @@
 ---
 name: circle_packing
 description: Circle packing problem - arrange 26 circles in a unit square to maximize the sum of their radii. The AlphaEvolve paper achieved a sum of 2.635 for n=26.
-argument-hint: [run_id] [task_id] [program_name]
+argument-hint: [run_id] [task_id] [artifact_ref]
 ---
 
 # Circle Packing Problem
@@ -10,22 +10,36 @@ You are an expert mathematician specializing in circle packing problems and comp
 
 ## Evaluator
 
+When this benchmark is used by `task-executor`, use the standard attempt-local artifact contract:
+
+```text
+main_artifact_name = solution.py
+artifact_ref = runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/solution.py
+```
+
+For each attempt, write the candidate program to that exact `artifact_ref`.
+The `attempt_id` comes from the task-executor workflow and must be one of
+`attempt_001`, `attempt_002`, or `attempt_003`.
+Do not write the candidate program to `benchmarks/outputs` for task-executor
+runs. The verifier evaluates the attempt-local artifact path directly.
+
 **IMPORTANT**: To evaluate a program, run the evaluator script directly:
 
 ```bash
-python benchmarks/skills/circle_packing/scripts/evaluator.py --run_id <run_id> --task_id <task_id> --program_name <program_name>
+python benchmarks/skills/circle_packing/scripts/evaluator.py --run-id <run_id> --task-id <task_id> --artifact-ref <artifact_ref> --out runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/eval_result.json
 ```
 
 The arguments are parsed from the skill invocation:
 - `run_id`: The run identifier (e.g., "circle_packing_test")
 - `task_id`: The task identifier (e.g., "task_001")
-- `program_name`: The program file name (e.g., "success.py")
+- `artifact_ref`: The attempt-local program file path, normally `runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/solution.py`
 
 The evaluator will:
-1. Load the program from `benchmarks/outputs/<run_id>/<task_id>/<program_name>`
+1. Load the program from `artifact_ref`
 2. Execute `run_packing()` and validate the result
-3. Save results to `benchmarks/outputs/<run_id>/<task_id>/eval_result.json`
+3. Save results to the `--out` path
 4. Print the result file path on success, error message on failure
+5. Include the same `artifact_ref` in the result JSON so Evolution Controller MCP can record the attempt.
 
 ## Key Geometric Insights
 

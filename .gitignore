@@ -226,4 +226,8 @@ wiki/
 agent_evolve_smoke_*/
 .agent_evolve_smoke*/
 
+# Local self-evolution runtime state
+.agent_evolve/
+runs/
+
 .claude/settings.local.json
