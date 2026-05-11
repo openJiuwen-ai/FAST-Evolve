@@ -48,6 +48,18 @@ the following entries into `.claude/settings.local.json`:
 
 `settings.local.json` is intentionally local-only and should not be committed.
 
+## Runtime Switches
+
+Convergence checking is enabled by default. To run without MCP-triggered stops,
+restart Claude Code/MCP with:
+
+```powershell
+$env:AGENT_EVOLVE_CONVERGENCE_ENABLED = "false"
+```
+
+When this switch is false, `evolve_check_convergence` always returns
+`should_stop=false`, including convergence, task-limit, and time-limit checks.
+
 ## Run Circle Packing E2E
 
 Start Claude Code with both plugins:

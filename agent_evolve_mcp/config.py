@@ -6,6 +6,7 @@ override solver parameters from a YAML file without changing tool schemas.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any, Dict, Optional
 
@@ -57,6 +58,10 @@ def load_evolution_controller_config(
             T_end=float(insp.get("T_end", inspiration_defaults.T_end)),
         ),
         convergence=ConvergenceConfig(
+            enabled=_bool_from_env_or_config(
+                "AGENT_EVOLVE_CONVERGENCE_ENABLED",
+                conv.get("enabled", conv.get("enable_convergence", convergence_defaults.enabled)),
+            ),
             convergence_window=int(
                 conv.get("convergence_window", convergence_defaults.convergence_window)
             ),
@@ -84,3 +89,20 @@ def _load_yaml(path: Path) -> Dict[str, Any]:
         return {}
     with path.open("r", encoding="utf-8") as handle:
         return yaml.safe_load(handle) or {}
+
+
+def _bool_from_env_or_config(env_name: str, config_value: Any) -> bool:
+    """Parse a boolean from an environment override or config value."""
+    value = os.getenv(env_name)
+    if value is None:
+        value = config_value
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    normalized = str(value).strip().lower()
+    if normalized in {"1", "true", "yes", "on", "enabled"}:
+        return True
+    if normalized in {"0", "false", "no", "off", "disabled"}:
+        return False
+    return bool(config_value)

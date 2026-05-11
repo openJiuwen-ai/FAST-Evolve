@@ -35,6 +35,14 @@ Override it with:
 AGENT_EVOLVE_CONTROLLER_DIR
 ```
 
+Convergence checking is enabled by default. To force
+`evolve_check_convergence` to always return `{"should_stop": false}`, restart
+the MCP process with:
+
+```text
+AGENT_EVOLVE_CONVERGENCE_ENABLED=false
+```
+
 The MCP owns `success_db.json`, `attempts.jsonl`, `task_contexts.json`, and `run_state.json`. Artifact files, verifier logs, and run workspaces are owned by the caller/plugin and are referenced by path-like refs.
 
 Run summaries are generated as experiment artifacts under:

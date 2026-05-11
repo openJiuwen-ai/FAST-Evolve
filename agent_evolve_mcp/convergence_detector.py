@@ -24,6 +24,7 @@ class MultiDimensionalConvergenceDetector:
     """State machine that returns EXPLORING, WATCHING, or STOPPED."""
 
     def __init__(self, config: ConvergenceConfig):
+        self.enabled = config.enabled
         self.window = config.convergence_window
         self.perf_threshold = config.perf_improvement_threshold
         self.diversity_threshold = config.diversity_change_threshold
@@ -71,6 +72,16 @@ class MultiDimensionalConvergenceDetector:
         convergence logic only runs after enough successful records exist to
         compute a meaningful window.
         """
+        if not self.enabled:
+            self._state = SearchState.EXPLORING
+            self._stop_reason = ""
+            diagnostics = self._build_diagnostics(db, lineage_tree)
+            diagnostics["state"] = self._state.value
+            diagnostics["stop_reason"] = self._stop_reason
+            diagnostics["convergence_disabled_reason"] = "disabled_by_config"
+            self._diagnostics = diagnostics
+            return False, ""
+
         if self._state == SearchState.STOPPED and self._stop_reason:
             diagnostics = self._build_diagnostics(db, lineage_tree)
             diagnostics["state"] = self._state.value
@@ -183,6 +194,7 @@ class MultiDimensionalConvergenceDetector:
         return {
             "state": self._state.value,
             "stop_reason": self._stop_reason,
+            "convergence_enabled": self.enabled,
             "plateau_count": plateau_count,
             "patience": self.patience,
             "window": window,

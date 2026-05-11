@@ -397,6 +397,7 @@ T_end
 字段：
 
 ```python
+enabled
 convergence_window
 perf_improvement_threshold
 diversity_change_threshold
@@ -523,11 +524,12 @@ inspiration:
   T_end: 0.5
 
 convergence:
+  enabled: true
   convergence_window: 5
-  perf_improvement_threshold: 0.02
+  perf_improvement_threshold: 0.01
   diversity_change_threshold: 0.05
-  activity_threshold: 0.8
-  patience: 3
+  activity_threshold: 0.9
+  patience: 6
   max_time_seconds: 1800
 ```
 
@@ -1689,7 +1691,31 @@ export AGENT_EVOLVE_CONTROLLER_DIR=/path/to/.agent_evolve/controller
 .agent_evolve/controller
 ```
 
-### 8.3 内部支持但 MCP 暂未公开的配置
+### 8.3 建议配置：收敛检测开关
+
+默认启用收敛检测。如果希望临时关闭 MCP stop 判断，可以在启动 Claude Code/MCP 前设置：
+
+PowerShell：
+
+```powershell
+$env:AGENT_EVOLVE_CONVERGENCE_ENABLED = "false"
+```
+
+bash：
+
+```bash
+export AGENT_EVOLVE_CONVERGENCE_ENABLED=false
+```
+
+关闭后，`evolve_check_convergence` 会始终返回：
+
+```json
+{"should_stop": false}
+```
+
+这个开关会覆盖收敛早停、`max_total_tasks` 和 `max_time_seconds` 的停止判断。也就是说，关闭后主循环不会因为 MCP 判断而停止，需要由外部流程或用户中断来结束 run。
+
+### 8.4 内部支持但 MCP 暂未公开的配置
 
 `config.py` 支持 YAML：
 
@@ -1710,11 +1736,12 @@ inspiration:
   T_end: 0.5
 
 convergence:
+  enabled: true
   convergence_window: 5
-  perf_improvement_threshold: 0.02
+  perf_improvement_threshold: 0.01
   diversity_change_threshold: 0.05
-  activity_threshold: 0.8
-  patience: 3
+  activity_threshold: 0.9
+  patience: 6
   max_time_seconds: 1800
 ```
 

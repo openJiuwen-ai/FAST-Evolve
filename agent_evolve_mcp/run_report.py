@@ -336,6 +336,8 @@ def _diagnostics_table(diagnostics: Dict[str, Any], stop_reason: str) -> List[st
     preferred = [
         "state",
         "stop_reason",
+        "convergence_enabled",
+        "convergence_disabled_reason",
         "plateau_count",
         "patience",
         "window",

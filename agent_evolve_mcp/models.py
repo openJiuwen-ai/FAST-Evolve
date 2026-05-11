@@ -77,6 +77,7 @@ class InspirationSelectionConfig:
 class ConvergenceConfig:
     """Configuration for the multi-dimensional convergence detector."""
 
+    enabled: bool = True
     convergence_window: int = 5
     perf_improvement_threshold: float = 0.01
     diversity_change_threshold: float = 0.05

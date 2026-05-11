@@ -178,6 +178,14 @@ WATCHING  -> should_stop=false
 STOPPED   -> should_stop=true
 ```
 
+如果配置或环境变量关闭收敛检测：
+
+```text
+AGENT_EVOLVE_CONVERGENCE_ENABLED=false
+```
+
+则 `evolve_check_convergence` 始终返回 `should_stop=false`。这个开关会覆盖 STOPPED 粘性状态、收敛早停、最大 task 数和时间上限。
+
 WATCHING 的策略信号不返回给 agent。MCP 将 WATCHING 写入 `run_state.json`，后续 `evolve_select_parent` 和 `evolve_select_inspirations` 读取该状态并内部应用：
 
 ```text
