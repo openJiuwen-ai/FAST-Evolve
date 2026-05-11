@@ -41,6 +41,18 @@ The evaluator will:
 4. Print the result file path on success, error message on failure
 5. Include the same `artifact_ref` in the result JSON so Evolution Controller MCP can record the attempt.
 
+For the self-evolution workflow, evaluator success means the candidate is valid
+and the evaluator exits with code 0 / writes `"status": "success"`. The
+AlphaEvolve value is a reference objective, not a pass/fail threshold. If the
+evaluator succeeds, stop this task attempt and record it through MCP; do not
+keep editing and rerunning the same attempt just because the fitness could be
+higher.
+
+Do not run extra shell commands to probe the Python environment. The verifier
+command above is the only execution command needed by task-executor. Candidate
+solutions should rely on Python standard library and numpy unless the benchmark
+explicitly declares another dependency; do not assume scipy is available.
+
 ## Key Geometric Insights
 
 - Circle packings often follow hexagonal patterns in the densest regions
