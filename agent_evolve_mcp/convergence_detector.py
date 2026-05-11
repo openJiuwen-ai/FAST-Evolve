@@ -71,6 +71,13 @@ class MultiDimensionalConvergenceDetector:
         convergence logic only runs after enough successful records exist to
         compute a meaningful window.
         """
+        if self._state == SearchState.STOPPED and self._stop_reason:
+            diagnostics = self._build_diagnostics(db, lineage_tree)
+            diagnostics["state"] = self._state.value
+            diagnostics["stop_reason"] = self._stop_reason
+            self._diagnostics = diagnostics
+            return True, self._stop_reason
+
         if total_submitted >= self.max_total_tasks:
             self._state = SearchState.STOPPED
             self._stop_reason = f"Reached max_total_tasks ({self.max_total_tasks})"

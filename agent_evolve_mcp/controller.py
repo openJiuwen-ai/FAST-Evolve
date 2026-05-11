@@ -16,10 +16,11 @@ from agent_evolve_mcp.config import load_evolution_controller_config
 from agent_evolve_mcp.convergence_detector import MultiDimensionalConvergenceDetector
 from agent_evolve_mcp.inspiration_selector import LineageBoltzmannInspirationSelector
 from agent_evolve_mcp.lineage_tree import LineageTree
-from agent_evolve_mcp.models import AttemptRecord, EvolutionControllerConfig, RunState, SuccessRecord
+from agent_evolve_mcp.models import AttemptRecord, EvolutionControllerConfig, RunState, SearchState, SuccessRecord
 from agent_evolve_mcp.parent_selector import LineageAwareParentSelector
 from agent_evolve_mcp.state_store import RunStateStore, TaskContextStore
 from agent_evolve_mcp.success_db import AttemptLog, SuccessDB
+from agent_evolve_mcp.run_report import write_run_report
 
 
 class EvolutionController:
@@ -260,6 +261,33 @@ class EvolutionController:
             )
         )
         return {"should_stop": should_stop}
+
+    def finalize_run(self, stop_reason: Optional[str] = None) -> Dict[str, Any]:
+        """Write deterministic run summary artifacts and return compact refs.
+
+        Finalization is intentionally idempotent.  Repeated calls regenerate the
+        same report files from current persisted state without changing
+        SuccessDB or attempt history.
+        """
+        self._load_state()
+        run_state = self.run_state_store.load()
+        final_reason = stop_reason or run_state.stop_reason or "manual_finalize"
+        finalized_state = RunState(
+            run_id=self.run_id,
+            started_at=run_state.started_at,
+            search_state=SearchState.STOPPED.value,
+            stop_reason=final_reason,
+            diagnostics=run_state.diagnostics,
+            last_checked_attempt_count=self.attempt_log.count(),
+        )
+        self.run_state_store.save(finalized_state)
+        self._load_state()
+        return write_run_report(
+            run_id=self.run_id,
+            db=self.db,
+            lineage_tree=self.lineage_tree,
+            run_state=self.run_state_store.load(),
+        )
 
     def _load_state(self) -> None:
         """Reload all disk-backed state needed for a decision."""

@@ -186,6 +186,32 @@ p_migrate_multiplier
 T_insp_multiplier
 ```
 
+### `evolve_finalize_run`
+
+输入：
+
+```python
+evolve_finalize_run(run_id: str, stop_reason: str = "")
+```
+
+输出：
+
+```json
+{
+  "report_ref": "runs/run_20260509_001/run_summary.md",
+  "summary_ref": "runs/run_20260509_001/run_summary.json"
+}
+```
+
+说明：
+
+- `evolve_check_convergence` 仍然只负责判断收敛和预算停止，只返回 `should_stop`。
+- `evolve_finalize_run` 负责确定性写入 run 总结文档，不返回完整报告内容。
+- 正常收敛、达到最大 task 数、达到时间上限时，`stop_reason` 留空，MCP 使用 `run_state.json` 中已有的停止原因。
+- 用户中断或主 agent 外部错误停止时，可以传入 `user_interrupted`、`mcp_error` 等短字符串。
+- 报告固定写入 `runs/<run_id>/run_summary.md` 和 `runs/<run_id>/run_summary.json`。
+- 该接口幂等，重复调用会根据当前本地状态重新生成报告，不修改 SuccessDB 或 attempt log。
+
 ## 3. 本地状态文件
 
 默认根目录：
@@ -260,11 +286,12 @@ MVP 可以先在 self-evolution skill 中用自然语言规则要求 subagent �
 
 ## 6. 代码实现清单
 
-1. `public_tools.py` 使用四个最小签名。
+1. `public_tools.py` 使用五个最小签名。
 2. `controller.py` 让 `select_parent/select_inspirations/check_convergence` 自己计算 progress。
 3. `state_store.py` 提供 task context 持久化层。
 4. `state_store.py` 提供 run state 持久化层，用于保存 WATCHING/STOPPED 等内部状态。
 5. `record_attempt` 从 `verification_result_ref` 读取 JSON，不再接收完整 `verification_result`。
 6. `select_inspirations` 公开返回时过滤 parent，只返回额外 inspirations 的 id/ref。
 7. `check_convergence` 公开返回只保留 `should_stop`。
-8. 所有选择与入库接口按 `(run_id, task_id)` 做幂等处理。
+8. `finalize_run` 公开返回只保留 `report_ref` 和 `summary_ref`。
+9. 所有选择与入库接口按 `(run_id, task_id)` 做幂等处理，finalize 接口按 `run_id` 做幂等处理。

@@ -2,7 +2,7 @@
 
 This module is the only layer that should expose FastMCP tools.  Each function
 keeps the public schema small and delegates immediately to the internal
-controller.  The separation is intentional: callers see only the four
+controller.  The separation is intentional: callers see only the compact
 ``evolve_*`` operations, while algorithms and persistence remain ordinary
 Python modules.
 """
@@ -74,3 +74,14 @@ def evolve_record_attempt(
 def evolve_check_convergence(run_id: str) -> Dict[str, Any]:
     """Return only whether the host should stop submitting new tasks."""
     return _controller(run_id).check_convergence()
+
+
+@mcp.tool()
+def evolve_finalize_run(run_id: str, stop_reason: str = "") -> Dict[str, Any]:
+    """Write deterministic run summary artifacts and return only refs.
+
+    The optional stop reason is for external stops such as user interruption.
+    Normal convergence and budget stops should leave it empty so the controller
+    uses the reason already stored in run state.
+    """
+    return _controller(run_id).finalize_run(stop_reason=stop_reason or None)

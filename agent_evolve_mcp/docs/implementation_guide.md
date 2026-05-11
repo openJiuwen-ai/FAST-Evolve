@@ -27,7 +27,7 @@
 - 不实现 heartbeat；
 - 不依赖原 AKG / `akg_agents` 代码。
 
-后续主循环应该放在 `agent_evolve_plugin` 中。主循环通过 MCP tools 调用这里的四个接口。
+后续主循环应该放在 `agent_evolve_plugin` 中。主循环通过 MCP tools 调用这里的五个接口。
 
 ---
 
@@ -43,7 +43,7 @@
 长内容统一用 ref 指代。
 ```
 
-这条原则直接影响四个公开 tool：
+这条原则直接影响五个公开 tool：
 
 | Tool | 最小输入 | 最小输出 |
 |------|----------|----------|
@@ -51,6 +51,7 @@
 | `evolve_select_inspirations` | `run_id`, `task_id` | 额外 inspirations 的 id/ref，不重复返回 parent |
 | `evolve_record_attempt` | `run_id`, `task_id`, `verification_result_ref` | `entered_success_db`, `success_record_id` |
 | `evolve_check_convergence` | `run_id` | `should_stop` |
+| `evolve_finalize_run` | `run_id`, 可选 `stop_reason` | `report_ref`, `summary_ref` |
 
 `progress`、`parent_id`、`inspiration_ids`、`artifact_ref`、完整 `verification_result`、`strategy_signal` 等字段不再由 agent 在公开接口之间传来传去。
 
@@ -293,13 +294,14 @@ import agent_evolve_mcp.mcp_server
 
 它不应该塞入复杂算法。
 
-当前公开四个 MCP tools：
+当前公开五个 MCP tools：
 
 ```python
 evolve_select_parent(...)
 evolve_select_inspirations(...)
 evolve_record_attempt(...)
 evolve_check_convergence(...)
+evolve_finalize_run(...)
 ```
 
 内部有一个简单 cache：
@@ -1076,7 +1078,7 @@ StrategySignal(
 内部总门面，串起所有模块。
 ```
 
-它不是 MCP tool，但 `public_tools.py` 的四个公开函数都会调用它。
+它不是 MCP tool，但 `public_tools.py` 的五个公开函数都会调用它。
 
 初始化：
 
@@ -1115,7 +1117,7 @@ self.lineage_tree.rebuild(self.db)
 
 ---
 
-## 5. 四个 MCP tools 的详细说明
+## 5. 五个 MCP tools 的详细说明
 
 ### 5.1 `evolve_select_parent`
 
@@ -1347,6 +1349,55 @@ STOPPED 示例：
 }
 ```
 
+### 5.5 `evolve_finalize_run`
+
+签名：
+
+```python
+evolve_finalize_run(
+  run_id: str,
+  stop_reason: str = "",
+) -> Dict[str, Any]
+```
+
+输入：
+
+| 字段 | 含义 |
+|------|------|
+| `run_id` | 当前搜索 run ID |
+| `stop_reason` | 可选。仅用于用户中断、主 agent 错误等 MCP 外部停止原因 |
+
+返回示例：
+
+```json
+{
+  "report_ref": "runs/run_20260509_001/run_summary.md",
+  "summary_ref": "runs/run_20260509_001/run_summary.json"
+}
+```
+
+职责：
+
+1. 从 `success_db.json`、`attempts.jsonl`、`task_contexts.json`、`run_state.json` 重建 run 总结；
+2. 在 `runs/<run_id>/run_summary.md` 写入人工可读报告；
+3. 在 `runs/<run_id>/run_summary.json` 写入机器可读总结；
+4. 只返回 ref，不返回完整报告正文；
+5. 保持幂等，重复调用不会重复写 SuccessDB 或 attempt log。
+
+报告内容由 `agent_evolve_mcp/run_report.py` 确定性生成，包括：
+
+- Overview / Best Result；
+- 停止原因和收敛诊断指标；
+- 按 generation 分组的 Mermaid 谱系图；
+- 初始/root 节点的 lineage size；
+- Top Results；
+- Fitness Progression；
+- Lineage Statistics；
+- Attempts 明细；
+- 基于 SuccessDB 和 LineageTree 计算出的确定性观察。
+
+报告不生成 LLM 自由总结的 Key Insights。若 benchmark 需要语义化策略说明，应由 verifier 或 subagent 写入结构化 `summary` 字段，报告器只展示已有字段，不编造内容。
+
 ---
 
 ## 6. 一次完整运行流程
@@ -1358,13 +1409,13 @@ STOPPED 示例：
 主 agent / plugin 决定一个 run：
 
 ```text
-run_id = "run_20260506_001"
+run_id = "run_20260506143310"
 ```
 
 它也会创建自己的 workspace，例如：
 
 ```text
-memory_hub/runs/run_20260506_001/
+runs/run_20260506143310/
 ```
 
 注意这个 workspace 不归 MCP 管。
@@ -1372,7 +1423,7 @@ memory_hub/runs/run_20260506_001/
 MCP 只会在默认位置创建自己的 controller 状态：
 
 ```text
-.agent_evolve/controller/run_20260506_001/
+.agent_evolve/controller/run_20260506143310/
 ```
 
 ### Step 2：generator subagent 领取 parent
@@ -1480,7 +1531,26 @@ should_stop = false
 should_stop = true
 ```
 
-主 agent 停止提交新 task，进入总结。
+主 agent 停止提交新 task，但不立刻结束 run。它需要等待已经启动的 running tasks 全部完成并完成 `evolve_record_attempt`，然后再调用一次 `evolve_check_convergence(run_id)` 刷新最终 `run_state`。
+
+最后调用：
+
+```python
+evolve_finalize_run(
+  run_id="run_20260506143310"
+)
+```
+
+返回：
+
+```json
+{
+  "report_ref": "runs/run_20260506143310/run_summary.md",
+  "summary_ref": "runs/run_20260506143310/run_summary.json"
+}
+```
+
+主 agent 只需要把这两个 ref 告诉用户，不应把完整报告粘贴进上下文。
 
 ---
 
@@ -2057,6 +2127,7 @@ from agent_evolve_mcp.public_tools import (
     evolve_record_attempt,
     evolve_select_inspirations,
     evolve_check_convergence,
+    evolve_finalize_run,
 )
 
 run_id = "demo_run"
@@ -2083,6 +2154,11 @@ print(evolve_select_inspirations(
 print(evolve_check_convergence(
     run_id
 ))
+
+print(evolve_finalize_run(
+    run_id,
+    stop_reason="manual_test",
+))
 ```
 
 ---
@@ -2092,7 +2168,7 @@ print(evolve_check_convergence(
 当前 `agent_evolve_mcp` 是一个通用 fitness 最大化的 Evolution Controller MCP：
 
 ```text
-public_tools.py 暴露四个 evolve_* MCP tools
+public_tools.py 暴露五个 evolve_* MCP tools
 controller.py 串起 SuccessDB、LineageTree 和三求解器
 SuccessDB 保存成功经验
 AttemptLog 保存全部尝试
@@ -2101,4 +2177,4 @@ InspirationSelector 选灵感
 ConvergenceDetector 判断继续/观察/停止
 ```
 
-它已经从 AKG 场景迁移成了通用自进化底座组件，后续主循环只需要按协议调用这四个 MCP tools 即可。
+它已经从 AKG 场景迁移成了通用自进化底座组件，后续主循环只需要按协议调用这五个 MCP tools 即可。
