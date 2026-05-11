@@ -80,8 +80,8 @@ class ConvergenceConfig:
     convergence_window: int = 5
     perf_improvement_threshold: float = 0.02
     diversity_change_threshold: float = 0.05
-    activity_threshold: float = 0.8
-    patience: int = 3
+    activity_threshold: float = 0.9
+    patience: int = 6
     max_total_tasks: int = 100
     max_time_seconds: Optional[float] = None
 

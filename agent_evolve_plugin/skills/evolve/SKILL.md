@@ -78,7 +78,7 @@ finalize_result = evolve_finalize_run(run_id)
 2. 如果此时还有正在运行的 task，必须等待它们全部完成，不能直接结束 run。
 3. 所有已启动 task 都完成后，必须调用一次 `evolve_finalize_run(run_id)`。
 4. `evolve_finalize_run` 返回的是报告 ref，不要把完整报告内容粘贴到上下文里。
-5. 运行过程中，每当 task 完成、补位 task 启动、或等待剩余 running tasks 时，在终端维护一个简洁的 `Progress Update`。使用适合终端阅读的 Unicode 框线表格，并保留状态 emoji。表格至少包含 `Task`、`Status`、`Fitness`、`Artifact/Note` 四列；已完成 task 使用 `✅ Completed` 并填入 verifier/MCP 记录中的 fitness 和 artifact/ref；正在运行 task 使用 `🔄 Running`；失败或未入 SuccessDB 的 task 使用 `⚠️ Issue` 或 `⚠️ Failed`。表格后用一行写当前 best fitness 和当前 running task 数量。
+5. 运行过程中，每当 task 完成、补位 task 启动、或等待剩余 running tasks 时，在终端维护一个简洁的 `Progress Update`。使用适合终端阅读的 Unicode 框线表格，并保留状态 emoji。表格至少包含 `Task`、`Status`、`Fitness`、`Note` 四列。`Note` 填入与 fitness 对应的 benchmark 核心实际指标，而不是 artifact 路径；例如 circle_packing 填 `sum_radii`，算子生成任务可以填运行时间等核心实测值。已完成 task 使用 `✅ Completed` 并填入 verifier/MCP 记录中的 fitness 和 `Note`；正在运行 task 使用 `🔄 Running`；失败或未入 SuccessDB 的 task 使用 `⚠️ Issue` 或 `⚠️ Failed`。表格后用一行写当前 best fitness 和当前 running task 数量。
 
 ---
 
@@ -185,7 +185,7 @@ Critical constraints:
 2. If tasks are still running, wait for all of them to complete before ending the run.
 3. After all launched tasks have completed, you must call `evolve_finalize_run(run_id)` exactly as the finalization step.
 4. `evolve_finalize_run` returns report refs. Do not paste the full report into the conversation context.
-5. During the run, maintain a concise terminal `Progress Update` whenever a task completes, a replacement task is launched, or the workflow is waiting for remaining running tasks. Use a Unicode box-drawing table optimized for terminal readability, and keep status emoji. The table must include at least `Task`, `Status`, `Fitness`, and `Artifact/Note`; completed tasks should use `✅ Completed` and show fitness plus artifact/ref from verifier or MCP records, running tasks should use `🔄 Running`, and failed or non-success-db tasks should use `⚠️ Issue` or `⚠️ Failed`. After the table, print one short line with the current best fitness and number of running tasks.
+5. During the run, maintain a concise terminal `Progress Update` whenever a task completes, a replacement task is launched, or the workflow is waiting for remaining running tasks. Use a Unicode box-drawing table optimized for terminal readability, and keep status emoji. The table must include at least `Task`, `Status`, `Fitness`, and `Note`. `Note` must contain the benchmark's core measured value that corresponds to the abstract fitness score, not an artifact path; for example, circle_packing should show `sum_radii`, while an operator-generation benchmark may show runtime or another core measured value. Completed tasks should use `✅ Completed` and show fitness plus `Note` from verifier or MCP records, running tasks should use `🔄 Running`, and failed or non-success-db tasks should use `⚠️ Issue` or `⚠️ Failed`. After the table, print one short line with the current best fitness and number of running tasks.
 
 ---
 

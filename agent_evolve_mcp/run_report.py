@@ -359,7 +359,35 @@ def _diagnostics_table(diagnostics: Dict[str, Any], stop_reason: str) -> List[st
             emitted.add(key)
     for key in sorted(set(diagnostics) - emitted):
         lines.append(f"| {key} | {_format_value(diagnostics[key])} |")
+    explanation = _convergence_explanation(diagnostics, stop_reason)
+    if explanation:
+        lines.extend(["", explanation])
     return lines
+
+
+def _convergence_explanation(diagnostics: Dict[str, Any], stop_reason: str) -> str:
+    """Return a concise deterministic explanation for convergence stops."""
+    diagnostic_reason = str(diagnostics.get("stop_reason") or "")
+    if stop_reason != "converged" and diagnostic_reason != "converged":
+        return ""
+
+    plateau_count = diagnostics.get("plateau_count")
+    patience = diagnostics.get("patience")
+    improvement = diagnostics.get("s1_fitness_improvement")
+    improvement_threshold = diagnostics.get("s1_fitness_threshold")
+    activity = diagnostics.get("s3_activity")
+    activity_threshold = diagnostics.get("s3_activity_threshold")
+
+    return (
+        "**Convergence explanation:** The run stopped because the convergence "
+        f"condition was satisfied: S1 fitness improvement was {_format_optional_float(improvement)}, "
+        f"which is below the plateau threshold {_format_optional_float(improvement_threshold)}; "
+        f"the plateau count was {_format_value(plateau_count)} against patience "
+        f"{_format_value(patience)}; and S3 activity was {_format_optional_float(activity)}, "
+        f"which is at or above the activity threshold {_format_optional_float(activity_threshold)}. "
+        "Together these signals indicate that recent successful attempts were no longer "
+        "improving the best fitness enough while the search activity condition remained active."
+    )
 
 
 def _top_results_table(records: List[Dict[str, Any]]) -> List[str]:
