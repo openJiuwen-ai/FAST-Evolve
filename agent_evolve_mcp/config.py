@@ -29,31 +29,49 @@ def load_evolution_controller_config(
     ps = data.get("parent_selection", {})
     insp = data.get("inspiration", {})
     conv = data.get("convergence", {})
+    parent_defaults = ParentSelectionConfig()
+    inspiration_defaults = InspirationSelectionConfig()
+    convergence_defaults = ConvergenceConfig(max_total_tasks=max_total_tasks)
 
     return EvolutionControllerConfig(
         parent_selection=ParentSelectionConfig(
-            tau_start=float(ps.get("tau_start", 1.5)),
-            tau_end=float(ps.get("tau_end", 0.5)),
-            c_local_start=float(ps.get("c_local_start", 1.5)),
-            c_local_end=float(ps.get("c_local_end", 0.5)),
-            p_exploit=float(ps.get("p_exploit", 0.7)),
-            quality_bonus_strength=float(ps.get("quality_bonus_strength", 0.3)),
+            tau_start=float(ps.get("tau_start", parent_defaults.tau_start)),
+            tau_end=float(ps.get("tau_end", parent_defaults.tau_end)),
+            c_local_start=float(ps.get("c_local_start", parent_defaults.c_local_start)),
+            c_local_end=float(ps.get("c_local_end", parent_defaults.c_local_end)),
+            p_exploit=float(ps.get("p_exploit", parent_defaults.p_exploit)),
+            quality_bonus_strength=float(
+                ps.get("quality_bonus_strength", parent_defaults.quality_bonus_strength)
+            ),
         ),
         inspiration=InspirationSelectionConfig(
-            inspiration_sample_num=int(insp.get("sample_num", insp.get("inspiration_sample_num", 3))),
-            p_migrate=float(insp.get("p_migrate", 0.2)),
-            foreign_elite_num=int(insp.get("foreign_elite_num", 2)),
-            T_start=float(insp.get("T_start", 1.5)),
-            T_end=float(insp.get("T_end", 0.5)),
+            inspiration_sample_num=int(
+                insp.get(
+                    "sample_num",
+                    insp.get("inspiration_sample_num", inspiration_defaults.inspiration_sample_num),
+                )
+            ),
+            p_migrate=float(insp.get("p_migrate", inspiration_defaults.p_migrate)),
+            foreign_elite_num=int(insp.get("foreign_elite_num", inspiration_defaults.foreign_elite_num)),
+            T_start=float(insp.get("T_start", inspiration_defaults.T_start)),
+            T_end=float(insp.get("T_end", inspiration_defaults.T_end)),
         ),
         convergence=ConvergenceConfig(
-            convergence_window=int(conv.get("convergence_window", 5)),
-            perf_improvement_threshold=float(conv.get("perf_improvement_threshold", 0.02)),
-            diversity_change_threshold=float(conv.get("diversity_change_threshold", 0.05)),
-            activity_threshold=float(conv.get("activity_threshold", 0.8)),
-            patience=int(conv.get("patience", 3)),
+            convergence_window=int(
+                conv.get("convergence_window", convergence_defaults.convergence_window)
+            ),
+            perf_improvement_threshold=float(
+                conv.get("perf_improvement_threshold", convergence_defaults.perf_improvement_threshold)
+            ),
+            diversity_change_threshold=float(
+                conv.get("diversity_change_threshold", convergence_defaults.diversity_change_threshold)
+            ),
+            activity_threshold=float(
+                conv.get("activity_threshold", convergence_defaults.activity_threshold)
+            ),
+            patience=int(conv.get("patience", convergence_defaults.patience)),
             max_total_tasks=max_total_tasks,
-            max_time_seconds=conv.get("max_time_seconds"),
+            max_time_seconds=conv.get("max_time_seconds", convergence_defaults.max_time_seconds),
         ),
     )
 

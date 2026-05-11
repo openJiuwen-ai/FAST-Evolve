@@ -78,7 +78,7 @@ class ConvergenceConfig:
     """Configuration for the multi-dimensional convergence detector."""
 
     convergence_window: int = 5
-    perf_improvement_threshold: float = 0.02
+    perf_improvement_threshold: float = 0.01
     diversity_change_threshold: float = 0.05
     activity_threshold: float = 0.9
     patience: int = 6

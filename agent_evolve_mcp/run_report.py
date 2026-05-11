@@ -350,6 +350,7 @@ def _diagnostics_table(diagnostics: Dict[str, Any], stop_reason: str) -> List[st
         "current_best_fitness",
         "current_diversity",
         "total_success_tracked",
+        "latest_success_is_new_best",
     ]
     lines = ["| Signal | Value |", "|---|---|", f"| final_stop_reason | {stop_reason} |"]
     emitted = set()

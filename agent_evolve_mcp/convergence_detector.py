@@ -105,8 +105,14 @@ class MultiDimensionalConvergenceDetector:
         plateau = bool(diagnostics["s1_plateau"])
         plateau_count = int(diagnostics["plateau_count"])
         activity = diagnostics["s3_activity"] or 0.0
+        latest_is_new_best = bool(diagnostics["latest_success_is_new_best"])
 
-        if plateau and plateau_count >= self.patience and activity >= self.activity_threshold:
+        if (
+            plateau
+            and not latest_is_new_best
+            and plateau_count >= self.patience
+            and activity >= self.activity_threshold
+        ):
             self._state = SearchState.STOPPED
             self._stop_reason = "converged"
             diagnostics["state"] = self._state.value
@@ -147,7 +153,8 @@ class MultiDimensionalConvergenceDetector:
         best_history = self._best_fitness_history(records)
         diversity_history = self._diversity_history(records)
         total_success = len(records)
-        window = min(self.window, max(total_success // 2, 1))
+        window = max(self.window, 1)
+        latest_success_is_new_best = self._latest_success_is_new_best(records)
 
         improvement = None
         s1_plateau = False
@@ -190,6 +197,7 @@ class MultiDimensionalConvergenceDetector:
             "current_best_fitness": best_history[-1] if best_history else None,
             "current_diversity": round(current_diversity, 4),
             "total_success_tracked": total_success,
+            "latest_success_is_new_best": latest_success_is_new_best,
         }
 
     @staticmethod
@@ -230,6 +238,14 @@ class MultiDimensionalConvergenceDetector:
             else:
                 break
         return count
+
+    @staticmethod
+    def _latest_success_is_new_best(records: List[SuccessRecord]) -> bool:
+        """Return true when the newest success strictly improved the run best."""
+        if len(records) < 2:
+            return bool(records)
+        previous_best = max(record.fitness for record in records[:-1])
+        return records[-1].fitness > previous_best
 
 
 class _RecordsView:
