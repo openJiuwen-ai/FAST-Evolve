@@ -184,7 +184,7 @@ STOPPED   -> should_stop=true
 AGENT_EVOLVE_CONVERGENCE_ENABLED=false
 ```
 
-则 `evolve_check_convergence` 始终返回 `should_stop=false`。这个开关会覆盖 STOPPED 粘性状态、收敛早停、最大 task 数和时间上限。
+则 `evolve_check_convergence` 会跳过 plateau 软收敛早停。这个开关不会覆盖硬预算：达到最大 task 数或时间上限时，仍然返回 `should_stop=true`。
 
 WATCHING 的策略信号不返回给 agent。MCP 将 WATCHING 写入 `run_state.json`，后续 `evolve_select_parent` 和 `evolve_select_inspirations` 读取该状态并内部应用：
 

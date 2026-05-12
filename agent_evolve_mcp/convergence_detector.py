@@ -72,6 +72,22 @@ class MultiDimensionalConvergenceDetector:
         convergence logic only runs after enough successful records exist to
         compute a meaningful window.
         """
+        if total_submitted >= self.max_total_tasks:
+            self._state = SearchState.STOPPED
+            self._stop_reason = f"Reached max_total_tasks ({self.max_total_tasks})"
+            self._diagnostics = self._build_diagnostics(db, lineage_tree)
+            return True, self._stop_reason
+
+        if (
+            self.max_time_seconds is not None
+            and elapsed_seconds is not None
+            and elapsed_seconds >= self.max_time_seconds
+        ):
+            self._state = SearchState.STOPPED
+            self._stop_reason = f"Time budget exhausted ({self.max_time_seconds}s)"
+            self._diagnostics = self._build_diagnostics(db, lineage_tree)
+            return True, self._stop_reason
+
         if not self.enabled:
             self._state = SearchState.EXPLORING
             self._stop_reason = ""
@@ -87,22 +103,6 @@ class MultiDimensionalConvergenceDetector:
             diagnostics["state"] = self._state.value
             diagnostics["stop_reason"] = self._stop_reason
             self._diagnostics = diagnostics
-            return True, self._stop_reason
-
-        if total_submitted >= self.max_total_tasks:
-            self._state = SearchState.STOPPED
-            self._stop_reason = f"Reached max_total_tasks ({self.max_total_tasks})"
-            self._diagnostics = self._build_diagnostics(db, lineage_tree)
-            return True, self._stop_reason
-
-        if (
-            self.max_time_seconds is not None
-            and elapsed_seconds is not None
-            and elapsed_seconds >= self.max_time_seconds
-        ):
-            self._state = SearchState.STOPPED
-            self._stop_reason = f"Time budget exhausted ({self.max_time_seconds}s)"
-            self._diagnostics = self._build_diagnostics(db, lineage_tree)
             return True, self._stop_reason
 
         min_success = max(self.window, 5)
