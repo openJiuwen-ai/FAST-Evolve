@@ -28,6 +28,7 @@ Call MCP tool `evolve_select_parent` with:
 Store the result:
 - parent_id: May be null if no parent exists
 - artifact_ref: Path to parent artifact file (may be null)
+- fitness: Parent fitness score (may be null). Higher is better.
 
 If parent exists, read the artifact file at `artifact_ref` to understand the parent solution.
 
@@ -41,8 +42,12 @@ Call MCP tool `evolve_select_inspirations` with:
 Store the result as a list of inspirations, each with:
 - inspiration_id
 - artifact_ref
+- fitness: Inspiration fitness score. Higher is better.
 
 Read each inspiration artifact file to understand their approaches.
+When comparing multiple inspirations, prefer higher-fitness artifacts and avoid
+copying strategies from lower-fitness artifacts when they conflict with better
+references.
 
 ---
 
@@ -99,6 +104,10 @@ Use the exact path with correct run_id, task_id, attempt_id.
 
 **Evolution Strategy**:
 The parent solution is the foundation of this evolution - use it as the primary reference for improvement and optimization; inspirations can be used as supplementary references for crossover, mutation, and borrowing optimization ideas.
+Fitness is the task-generic quality score and higher is always better. Use the
+parent as the primary reference, and use inspiration fitness to rank secondary
+references. Borrow more from higher-fitness inspirations; treat lower-fitness
+inspirations as optional contrastive examples rather than templates to copy.
 
 **For attempt 1**:
 Based on:

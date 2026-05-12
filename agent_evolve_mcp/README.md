@@ -16,7 +16,7 @@ evolve_finalize_run(run_id: str, stop_reason: str = "")
 
 Public responses are intentionally compact:
 
-- parent/inspiration calls return ids and `artifact_ref`
+- parent/inspiration calls return ids, `artifact_ref`, and compact `fitness`
 - attempt recording returns `entered_success_db` and `success_record_id`
 - convergence returns only `should_stop`
 - finalization writes `runs/<run_id>/run_summary.md` and `runs/<run_id>/run_summary.json`, then returns only refs

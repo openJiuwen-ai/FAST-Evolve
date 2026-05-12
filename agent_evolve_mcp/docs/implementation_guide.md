@@ -47,8 +47,8 @@
 
 | Tool | 最小输入 | 最小输出 |
 |------|----------|----------|
-| `evolve_select_parent` | `run_id`, `task_id` | `parent_id`, `artifact_ref` |
-| `evolve_select_inspirations` | `run_id`, `task_id` | 额外 inspirations 的 id/ref，不重复返回 parent |
+| `evolve_select_parent` | `run_id`, `task_id` | `parent_id`, `artifact_ref`, `fitness` |
+| `evolve_select_inspirations` | `run_id`, `task_id` | 额外 inspirations 的 id/ref/fitness，不重复返回 parent |
 | `evolve_record_attempt` | `run_id`, `task_id`, `verification_result_ref` | `entered_success_db`, `success_record_id` |
 | `evolve_check_convergence` | `run_id` | `should_stop` |
 | `evolve_finalize_run` | `run_id`, 可选 `stop_reason` | `report_ref`, `summary_ref` |
@@ -847,7 +847,7 @@ submitted_count / max_total_tasks
 [parent, inspiration_1, inspiration_2, ...]
 ```
 
-但公开 MCP tool 会过滤掉 parent，只把额外 inspiration 的 id/ref 返回给 agent，避免 `evolve_select_parent` 和 `evolve_select_inspirations` 重复占用上下文。
+但公开 MCP tool 会过滤掉 parent，只把额外 inspiration 的 id/ref/fitness 返回给 agent，避免 `evolve_select_parent` 和 `evolve_select_inspirations` 重复占用上下文。
 
 然后选若干 inspiration。
 
@@ -1144,7 +1144,8 @@ SuccessDB 为空时返回：
 ```json
 {
   "parent_id": null,
-  "artifact_ref": null
+  "artifact_ref": null,
+  "fitness": null
 }
 ```
 
@@ -1153,7 +1154,8 @@ SuccessDB 非空时返回：
 ```json
 {
   "parent_id": "task_003",
-  "artifact_ref": "memory_hub/runs/run_001/tasks/task_003/final.patch"
+  "artifact_ref": "memory_hub/runs/run_001/tasks/task_003/final.patch",
+  "fitness": 0.9415
 }
 ```
 
@@ -1197,11 +1199,13 @@ evolve_select_inspirations(
   "inspirations": [
     {
       "inspiration_id": "task_002",
-      "artifact_ref": "memory_hub/runs/run_001/tasks/task_002/final.patch"
+      "artifact_ref": "memory_hub/runs/run_001/tasks/task_002/final.patch",
+      "fitness": 0.9352
     },
     {
       "inspiration_id": "task_005",
-      "artifact_ref": "memory_hub/runs/run_001/tasks/task_005/final.patch"
+      "artifact_ref": "memory_hub/runs/run_001/tasks/task_005/final.patch",
+      "fitness": 0.9288
     }
   ]
 }
@@ -1211,6 +1215,7 @@ evolve_select_inspirations(
 
 ```text
 返回值只包含额外 inspiration，不重复返回 parent。
+fitness 越高越好，用于帮助 task-executor 判断参考优先级。
 sample_num 使用控制器配置，不需要 agent 传入。
 ```
 
@@ -1444,7 +1449,8 @@ evolve_select_parent(
 ```json
 {
   "parent_id": null,
-  "artifact_ref": null
+  "artifact_ref": null,
+  "fitness": null
 }
 ```
 
