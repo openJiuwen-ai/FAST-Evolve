@@ -44,6 +44,12 @@ def load_evolution_controller_config(
             quality_bonus_strength=float(
                 ps.get("quality_bonus_strength", parent_defaults.quality_bonus_strength)
             ),
+            elite_rank_fraction=float(
+                ps.get("elite_rank_fraction", parent_defaults.elite_rank_fraction)
+            ),
+            elite_selection_shield=float(
+                ps.get("elite_selection_shield", parent_defaults.elite_selection_shield)
+            ),
         ),
         inspiration=InspirationSelectionConfig(
             inspiration_sample_num=int(

@@ -60,6 +60,8 @@ class ParentSelectionConfig:
     c_local_end: float = 0.5
     p_exploit: float = 0.7
     quality_bonus_strength: float = 0.3
+    elite_rank_fraction: float = 0.15
+    elite_selection_shield: float = 0.6
 
 
 @dataclass

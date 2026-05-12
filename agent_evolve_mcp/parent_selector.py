@@ -29,6 +29,8 @@ class LineageAwareParentSelector:
         self.c_local_end = config.c_local_end
         self.p_exploit = config.p_exploit
         self.quality_bonus_strength = config.quality_bonus_strength
+        self.elite_rank_fraction = config.elite_rank_fraction
+        self.elite_selection_shield = config.elite_selection_shield
         self.lineage_tree = lineage_tree
 
     def select(
@@ -140,14 +142,19 @@ class LineageAwareParentSelector:
         rank_map = {record.id: index + 1 for index, record in enumerate(sorted_all)}
         total_count = len(sorted_all)
         lineage_selection_count = sum(record.selection_count for record in lineage_records)
+        elite_cutoff = max(1, math.ceil(total_count * self.elite_rank_fraction))
+        shield = min(max(self.elite_selection_shield, 0.0), 1.0)
 
         best_score = -float("inf")
         best_record = None
         for record in lineage_records:
             rank = rank_map[record.id]
             quality = (total_count - rank) / max(total_count - 1, 1)
+            effective_selection_count = record.selection_count
+            if rank <= elite_cutoff:
+                effective_selection_count *= 1.0 - shield
             exploration = c_local * math.sqrt(
-                math.log(lineage_selection_count + 1) / (record.selection_count + 1)
+                math.log(lineage_selection_count + 1) / (effective_selection_count + 1)
             )
             score = quality + exploration
             if score > best_score:

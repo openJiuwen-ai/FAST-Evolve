@@ -374,6 +374,8 @@ c_local_start
 c_local_end
 p_exploit
 quality_bonus_strength
+elite_rank_fraction
+elite_selection_shield
 ```
 
 #### `InspirationSelectionConfig`
@@ -515,6 +517,8 @@ parent_selection:
   c_local_end: 0.5
   p_exploit: 0.7
   quality_bonus_strength: 0.3
+  elite_rank_fraction: 0.15
+  elite_selection_shield: 0.6
 
 inspiration:
   sample_num: 3
@@ -798,10 +802,16 @@ else:
 
 #### Step 2：在谱系内选择具体 parent
 
-在选中的谱系内部，用局部 UCB：
+在选中的谱系内部，用带 elite shield 的局部 UCB：
 
 ```text
-score = rank_quality + c_local * sqrt(log(S_lineage + 1) / (selection_count + 1))
+elite_cutoff = max(1, ceil(total_count * elite_rank_fraction))
+effective_selection_count = selection_count
+
+if global_rank <= elite_cutoff:
+    effective_selection_count = selection_count * (1 - elite_selection_shield)
+
+score = rank_quality + c_local * sqrt(log(S_lineage + 1) / (effective_selection_count + 1))
 ```
 
 其中：
@@ -809,6 +819,8 @@ score = rank_quality + c_local * sqrt(log(S_lineage + 1) / (selection_count + 1)
 - `rank_quality` 来自全局 fitness 排名；
 - `S_lineage` 是该谱系内所有记录被选次数总和；
 - `selection_count` 是该记录自身被选次数。
+- `elite_rank_fraction` 定义全局 fitness 排名前多少比例属于 elite。
+- `elite_selection_shield` 减弱 elite record 的 selection_count 惩罚，让顶尖实现被选中过多次后概率下降更慢。
 
 选中后会立即：
 
@@ -1733,6 +1745,8 @@ parent_selection:
   c_local_end: 0.5
   p_exploit: 0.7
   quality_bonus_strength: 0.3
+  elite_rank_fraction: 0.15
+  elite_selection_shield: 0.6
 
 inspiration:
   sample_num: 3
