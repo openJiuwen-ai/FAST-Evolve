@@ -24,7 +24,8 @@ evolve_select_parent(run_id: str, task_id: str)
 ```json
 {
   "parent_id": "task_003",
-  "artifact_ref": "memory_hub/runs/run_001/tasks/task_003/final.patch"
+  "artifact_ref": "memory_hub/runs/run_001/tasks/task_003/final.patch",
+  "fitness": 0.9415
 }
 ```
 
@@ -33,7 +34,8 @@ SuccessDB 为空时：
 ```json
 {
   "parent_id": null,
-  "artifact_ref": null
+  "artifact_ref": null,
+  "fitness": null
 }
 ```
 
@@ -61,7 +63,8 @@ evolve_select_inspirations(run_id: str, task_id: str)
   "inspirations": [
     {
       "inspiration_id": "task_002",
-      "artifact_ref": "memory_hub/runs/run_001/tasks/task_002/final.patch"
+      "artifact_ref": "memory_hub/runs/run_001/tasks/task_002/final.patch",
+      "fitness": 0.9352
     }
   ]
 }
@@ -70,7 +73,8 @@ evolve_select_inspirations(run_id: str, task_id: str)
 注意：
 
 - 返回值不重复包含 parent。
-- 不返回 fitness、metrics、profile、sketch、generation。
+- 返回 `fitness`，因为它是短且关键的质量信号，越高越好。
+- 不返回 metrics、profile、sketch、generation。
 - MCP 从 `task_contexts.json` 找回本 task 的 parent。
 - 选中的 inspiration ids 会写回 `task_contexts.json`。
 
@@ -299,7 +303,7 @@ MVP 可以先在 self-evolution skill 中用自然语言规则要求 subagent �
 3. `state_store.py` 提供 task context 持久化层。
 4. `state_store.py` 提供 run state 持久化层，用于保存 WATCHING/STOPPED 等内部状态。
 5. `record_attempt` 从 `verification_result_ref` 读取 JSON，不再接收完整 `verification_result`。
-6. `select_inspirations` 公开返回时过滤 parent，只返回额外 inspirations 的 id/ref。
+6. `select_inspirations` 公开返回时过滤 parent，只返回额外 inspirations 的 id/ref/fitness。
 7. `check_convergence` 公开返回只保留 `should_stop`。
 8. `finalize_run` 公开返回只保留 `report_ref` 和 `summary_ref`。
 9. 所有选择与入库接口按 `(run_id, task_id)` 做幂等处理，finalize 接口按 `run_id` 做幂等处理。

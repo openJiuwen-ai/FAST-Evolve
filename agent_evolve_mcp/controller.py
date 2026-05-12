@@ -309,11 +309,12 @@ class EvolutionController:
     def _parent_ref(self, parent_id: Optional[str]) -> Dict[str, Any]:
         """Return the minimal public parent payload."""
         if parent_id is None:
-            return {"parent_id": None, "artifact_ref": None}
+            return {"parent_id": None, "artifact_ref": None, "fitness": None}
         record = self.db.get(parent_id)
         return {
             "parent_id": parent_id,
             "artifact_ref": record.artifact_ref if record else None,
+            "fitness": record.fitness if record else None,
         }
 
     def _inspiration_refs(self, inspiration_ids: List[str]) -> Dict[str, Any]:
@@ -327,6 +328,7 @@ class EvolutionController:
                 {
                     "inspiration_id": inspiration_id,
                     "artifact_ref": record.artifact_ref,
+                    "fitness": record.fitness,
                 }
             )
         return {"inspirations": inspirations}
