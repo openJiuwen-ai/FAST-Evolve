@@ -35,13 +35,16 @@ Override it with:
 AGENT_EVOLVE_CONTROLLER_DIR
 ```
 
-Convergence checking is enabled by default. To force
-`evolve_check_convergence` to always return `{"should_stop": false}`, restart
-the MCP process with:
+Convergence checking is enabled by default. To disable soft convergence early
+stops, restart the MCP process with:
 
 ```text
 AGENT_EVOLVE_CONVERGENCE_ENABLED=false
 ```
+
+This switch does not disable hard budgets. `max_total_tasks` and
+`max_time_seconds` can still make `evolve_check_convergence` return
+`{"should_stop": true}`.
 
 The MCP owns `success_db.json`, `attempts.jsonl`, `task_contexts.json`, and `run_state.json`. Artifact files, verifier logs, and run workspaces are owned by the caller/plugin and are referenced by path-like refs.
 

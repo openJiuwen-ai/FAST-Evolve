@@ -1707,13 +1707,13 @@ bash：
 export AGENT_EVOLVE_CONVERGENCE_ENABLED=false
 ```
 
-关闭后，`evolve_check_convergence` 会始终返回：
+关闭后，`evolve_check_convergence` 会跳过 plateau 软收敛早停。只要没有触发硬预算，它会返回：
 
 ```json
 {"should_stop": false}
 ```
 
-这个开关会覆盖收敛早停、`max_total_tasks` 和 `max_time_seconds` 的停止判断。也就是说，关闭后主循环不会因为 MCP 判断而停止，需要由外部流程或用户中断来结束 run。
+这个开关不会覆盖硬预算。即使关闭收敛检测，只要达到 `max_total_tasks` 或 `max_time_seconds`，MCP 仍然会返回 `should_stop=true`。也就是说，关闭后主循环的自动退出条件只剩硬预算，而不会因为 plateau 收敛早停。
 
 ### 8.4 内部支持但 MCP 暂未公开的配置
 

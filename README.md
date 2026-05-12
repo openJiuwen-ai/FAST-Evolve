@@ -50,15 +50,16 @@ the following entries into `.claude/settings.local.json`:
 
 ## Runtime Switches
 
-Convergence checking is enabled by default. To run without MCP-triggered stops,
-restart Claude Code/MCP with:
+Convergence checking is enabled by default. To disable soft convergence early
+stops, restart Claude Code/MCP with:
 
 ```powershell
 $env:AGENT_EVOLVE_CONVERGENCE_ENABLED = "false"
 ```
 
-When this switch is false, `evolve_check_convergence` always returns
-`should_stop=false`, including convergence, task-limit, and time-limit checks.
+When this switch is false, `evolve_check_convergence` skips plateau-based
+convergence stops. Hard budgets still apply: `max_total_tasks` and
+`max_time_seconds` can still return `should_stop=true`.
 
 ## Run Circle Packing E2E
 
