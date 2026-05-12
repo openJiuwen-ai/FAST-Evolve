@@ -19,35 +19,6 @@ runs/
 pip install -r requirements.txt
 ```
 
-## Claude Code Permissions
-
-Claude Code background agents need explicit local permissions for writing
-artifacts, running the benchmark evaluator, and calling MCP tools. Add or merge
-the following entries into `.claude/settings.local.json`:
-
-```json
-{
-  "permissions": {
-    "allow": [
-      "Skill(agent_evolve_plugin:evolve)",
-      "Skill(benchmarks:circle_packing)",
-      "Agent(task-executor)",
-      "Write(/runs/**)",
-      "Edit(/runs/**)",
-      "Bash(mkdir *)",
-      "Bash(python benchmarks/skills/circle_packing/scripts/evaluator.py *)",
-      "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_select_parent",
-      "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_select_inspirations",
-      "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_record_attempt",
-      "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_check_convergence",
-      "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_finalize_run"
-    ]
-  }
-}
-```
-
-`settings.local.json` is intentionally local-only and should not be committed.
-
 ## Runtime Switches
 
 Convergence checking is enabled by default. To disable soft convergence early
