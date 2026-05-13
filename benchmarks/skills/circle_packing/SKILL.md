@@ -26,7 +26,7 @@ runs. The verifier evaluates the attempt-local artifact path directly.
 **IMPORTANT**: To evaluate a program, run the evaluator script directly:
 
 ```bash
-python benchmarks/skills/circle_packing/scripts/evaluator.py --run-id <run_id> --task-id <task_id> --artifact-ref <artifact_ref> --out runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/eval_result.json
+uv run python benchmarks/skills/circle_packing/scripts/evaluator.py --run-id <run_id> --task-id <task_id> --artifact-ref <artifact_ref> --out runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/eval_result.json
 ```
 
 The arguments are parsed from the skill invocation:
@@ -49,9 +49,7 @@ keep editing and rerunning the same attempt just because the fitness could be
 higher.
 
 Do not run extra shell commands to probe the Python environment. The verifier
-command above is the only execution command needed by task-executor. Candidate
-solutions should rely on Python standard library and numpy unless the benchmark
-explicitly declares another dependency; do not assume scipy is available.
+command above is the only execution command needed by task-executor. 
 
 ## Key Geometric Insights
 
