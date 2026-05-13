@@ -4,7 +4,7 @@ Agent Evolve is a self-evolution experiment scaffold. It currently contains:
 
 - `agent_evolve_mcp/`: Evolution Controller MCP. It selects parents and inspirations, records verifier results, checks convergence, and writes deterministic run summaries.
 - `agent_evolve_plugin/`: Claude Code workflow plugin. It provides the main `evolve` skill and the `task-executor` subagent workflow.
-- `benchmarks/`: benchmark skills and evaluators. The current end-to-end benchmark is `circle_packing`.
+- `benchmarks/`: benchmark skills and evaluators. Currently there are 14 math problems including `circle_packing` added to benchmarks.
 
 Runtime state is local and ignored by git:
 
@@ -17,6 +17,7 @@ runs/
 
 ```powershell
 pip install -r requirements.txt
+uv sync --extra math
 ```
 
 ## Runtime Switches
