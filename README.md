@@ -61,6 +61,42 @@ runs/<run_id>/run_summary.md
 runs/<run_id>/run_summary.json
 ```
 
+## Run Artifacts
+
+Each run leaves two main groups of local files. They are runtime artifacts and
+should normally stay out of git.
+
+`runs/<run_id>/` is the run workspace. It contains task artifacts, verifier
+outputs, and final summaries:
+
+```text
+runs/<run_id>/run_summary.md      # human-readable final report, if finalized
+runs/<run_id>/run_summary.json    # structured final summary, if finalized
+runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/
+```
+
+Each attempt directory usually contains the generated artifact and verifier
+result:
+
+```text
+solution.py        # or the benchmark-specific artifact
+eval_result.json   # verifier output used by MCP recording
+```
+
+`.agent_evolve/controller/<run_id>/` is the Evolution Controller MCP state. The
+important files are:
+
+```text
+success_db.json      # successful records reusable as parents/inspirations
+attempts.jsonl       # append-only audit log of recorded attempts
+task_contexts.json   # cached parent/inspiration choices for each task
+run_state.json       # convergence state, stop reason, and diagnostics
+```
+
+For sharing results, prefer `run_summary.md`, `run_summary.json`, or a curated
+benchmark report instead of committing the full `runs/` or `.agent_evolve/`
+directories.
+
 ## Local Checks
 
 ```powershell
