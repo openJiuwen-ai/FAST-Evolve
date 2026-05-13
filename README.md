@@ -18,6 +18,7 @@ runs/
 ```powershell
 pip install -r requirements.txt
 uv sync --extra math
+uv run python benchmarks/install.py --all --clear
 ```
 
 ## Runtime Switches
