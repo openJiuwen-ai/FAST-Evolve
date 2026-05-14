@@ -24,6 +24,7 @@ from typing import Any, Dict
 import numpy as np
 
 TARGET_VALUE = 2.635  # AlphaEvolve result for n=26
+TOL = 1e-6
 
 
 # =============================================================================
@@ -32,32 +33,115 @@ TARGET_VALUE = 2.635  # AlphaEvolve result for n=26
 
 def validate_packing(centers, radii):
     """Validate that circles don't overlap and are inside the unit square."""
+    return validate_packing_details(centers, radii)["valid"]
+
+
+def validate_packing_details(centers, radii) -> Dict[str, Any]:
+    """Validate circle packing and return structured failure details."""
+    if centers.shape != (26, 2) or radii.shape != (26,):
+        return _validation_failure(
+            "invalid_shape",
+            "Expected centers shape (26, 2) and radii shape (26,).",
+            centers_shape=list(centers.shape),
+            radii_shape=list(radii.shape),
+        )
+
     n = centers.shape[0]
 
-    # Check for NaN values
-    if np.isnan(centers).any() or np.isnan(radii).any():
-        return False
+    # Check for NaN/Inf values
+    if not np.isfinite(centers).all():
+        index = np.argwhere(~np.isfinite(centers))[0]
+        circle_index = int(index[0])
+        return _validation_failure(
+            "nan_or_inf",
+            f"Circle {circle_index} center contains NaN or Inf.",
+            circle_indices=[circle_index],
+            center=_safe_vector(centers[circle_index]),
+        )
+    if not np.isfinite(radii).all():
+        circle_index = int(np.argwhere(~np.isfinite(radii))[0][0])
+        return _validation_failure(
+            "nan_or_inf",
+            f"Circle {circle_index} radius is NaN or Inf.",
+            circle_indices=[circle_index],
+            radius=_safe_float(radii[circle_index]),
+        )
 
     # Check if radii are nonnegative
     for i in range(n):
         if radii[i] < 0:
-            return False
+            return _validation_failure(
+                "negative_radius",
+                f"Circle {i} has a negative radius.",
+                circle_indices=[i],
+                center=_safe_vector(centers[i]),
+                radius=_safe_float(radii[i]),
+            )
 
     # Check if circles are inside the unit square
     for i in range(n):
         x, y = centers[i]
         r = radii[i]
-        if x - r < -1e-6 or x + r > 1 + 1e-6 or y - r < -1e-6 or y + r > 1 + 1e-6:
-            return False
+        margins = {
+            "left": _safe_float(x - r),
+            "right": _safe_float(1 - (x + r)),
+            "bottom": _safe_float(y - r),
+            "top": _safe_float(1 - (y + r)),
+        }
+        boundary_margin = min(margins.values())
+        if boundary_margin < -TOL:
+            side = min(margins, key=margins.get)
+            return _validation_failure(
+                "boundary_violation",
+                f"Circle {i} crosses the unit square boundary on the {side} side.",
+                circle_indices=[i],
+                center=_safe_vector(centers[i]),
+                radius=_safe_float(r),
+                boundary_margin=boundary_margin,
+                margins=margins,
+                tolerance=TOL,
+            )
 
     # Check for overlaps
     for i in range(n):
         for j in range(i + 1, n):
             dist = np.sqrt(np.sum((centers[i] - centers[j]) ** 2))
-            if dist < radii[i] + radii[j] - 1e-6:
-                return False
+            required_dist = radii[i] + radii[j]
+            overlap_amount = required_dist - dist
+            if overlap_amount > TOL:
+                return _validation_failure(
+                    "overlap",
+                    f"Circles {i} and {j} overlap.",
+                    circle_indices=[i, j],
+                    centers=[_safe_vector(centers[i]), _safe_vector(centers[j])],
+                    radii=[_safe_float(radii[i]), _safe_float(radii[j])],
+                    distance=_safe_float(dist),
+                    required_distance=_safe_float(required_dist),
+                    overlap_amount=_safe_float(overlap_amount),
+                    tolerance=TOL,
+                )
 
-    return True
+    return {"valid": True}
+
+
+def _validation_failure(failure_type: str, message: str, **details: Any) -> Dict[str, Any]:
+    return {
+        "valid": False,
+        "failure_type": failure_type,
+        "message": message,
+        **details,
+    }
+
+
+def _safe_float(value: Any) -> Any:
+    numeric = float(value)
+    if np.isfinite(numeric):
+        return numeric
+    return str(numeric)
+
+
+def _safe_vector(values: Any) -> list:
+    return [_safe_float(value) for value in values]
 
 
 def run_program_with_timeout(program_path: str, timeout_seconds: int = 600):
@@ -149,18 +233,28 @@ def evaluate(program_path: str, timeout_seconds: int = 600) -> Dict[str, Any]:
         )
         eval_time = time.time() - start_time
 
-        # Ensure numpy arrays
-        if not isinstance(centers, np.ndarray):
-            centers = np.array(centers)
-        if not isinstance(radii, np.ndarray):
-            radii = np.array(radii)
+        # Ensure numeric numpy arrays
+        try:
+            centers = np.asarray(centers, dtype=float)
+            radii = np.asarray(radii, dtype=float)
+        except (TypeError, ValueError) as exc:
+            validation_error = _validation_failure(
+                "invalid_shape",
+                "Centers and radii must be numeric array-like values.",
+                error=str(exc),
+            )
+            return {
+                "sum_radii": 0.0,
+                "target_ratio": 0.0,
+                "validity": 0.0,
+                "eval_time": float(time.time() - start_time),
+                "combined_score": 0.0,
+                "validation_error": validation_error,
+            }
 
         # Validate
-        valid = validate_packing(centers, radii)
-        shape_valid = centers.shape == (26, 2) and radii.shape == (26,)
-
-        if not shape_valid:
-            valid = False
+        validation = validate_packing_details(centers, radii)
+        valid = bool(validation["valid"])
 
         sum_radii = np.sum(radii) if valid else 0.0
         target_ratio = sum_radii / TARGET_VALUE if valid else 0.0
@@ -173,6 +267,7 @@ def evaluate(program_path: str, timeout_seconds: int = 600) -> Dict[str, Any]:
             "validity": float(validity),
             "eval_time": float(eval_time),
             "combined_score": float(combined_score),
+            **({} if valid else {"validation_error": validation}),
         }
 
     except Exception as e:
@@ -209,10 +304,35 @@ def get_error_message(result: Dict[str, Any]) -> str:
         return result["traceback"]
     if result.get("error"):
         return str(result["error"])
+    if result.get("validation_error"):
+        validation_error = result["validation_error"]
+        return f"Validity check failed: {_format_validation_error(validation_error)}"
     validity = result.get("validity")
     if validity is not None and validity < 1.0:
         return f"Validity check failed: validity={validity}"
     return "Unknown error"
+
+
+def _format_validation_error(error: Dict[str, Any]) -> str:
+    """Return a compact one-line validation summary for subagent debugging."""
+    parts = [f"type={error.get('failure_type', 'unknown')}"]
+    if "circle_indices" in error:
+        parts.append(f"circles={error['circle_indices']}")
+    for key in [
+        "center",
+        "radius",
+        "boundary_margin",
+        "distance",
+        "required_distance",
+        "overlap_amount",
+        "centers_shape",
+        "radii_shape",
+    ]:
+        if key in error:
+            parts.append(f"{key}={error[key]}")
+    if error.get("message"):
+        parts.append(f"message={error['message']}")
+    return "; ".join(parts)
 
 
 def format_result(result: Dict[str, Any], artifact_ref: str) -> Dict[str, Any]:

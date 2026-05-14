@@ -231,3 +231,4 @@ agent_evolve_smoke_*/
 runs/
 
 .claude/settings.local.json
+uv.lock
