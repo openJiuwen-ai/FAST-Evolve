@@ -63,6 +63,10 @@ class TaskContextStore:
         self._contexts[context.task_id] = context
         self.save()
 
+    def count(self) -> int:
+        """Return how many tasks have been registered with the controller."""
+        return len(self._contexts)
+
 
 class RunStateStore:
     """JSON-backed state for convergence and selector strategy internals."""

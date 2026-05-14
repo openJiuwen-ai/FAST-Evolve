@@ -2034,7 +2034,7 @@ MCP 内部建议按本地 attempt 数计算：
 progress = min(total_submitted / max_total_tasks, 1.0)
 ```
 
-其中 `total_submitted` 来自 `attempts.jsonl` 行数，`max_total_tasks` 来自控制器配置，默认 100。后续如果 plugin 有自己的 budget，应保持 plugin 和 MCP 的 max_total_tasks 一致。
+其中 `total_submitted` 来自 `max(task_contexts 中已注册 task 数, attempts.jsonl 行数)`，`max_total_tasks` 来自控制器配置，默认 100。后续如果 plugin 有自己的 budget，应保持 plugin 和 MCP 的 max_total_tasks 一致。
 
 ### 10.2 total_success 如何计算
 

@@ -239,7 +239,7 @@ class EvolutionController:
         """Return only whether the host should stop submitting new tasks."""
         self._load_state()
         run_state = self.run_state_store.load()
-        total_submitted = self.attempt_log.count()
+        total_submitted = max(self.task_contexts.count(), self.attempt_log.count())
         total_success = len(self.db.get_all())
         elapsed_seconds = self.run_state_store.elapsed_seconds()
         should_stop, reason = self.convergence_detector.evaluate(
@@ -302,9 +302,10 @@ class EvolutionController:
         self.lineage_tree.rebuild(self.db)
 
     def _progress(self) -> float:
-        """Compute search progress internally from recorded attempts."""
+        """Compute search progress internally from registered tasks."""
         max_total = max(self.config.convergence.max_total_tasks, 1)
-        return min(self.attempt_log.count() / max_total, 1.0)
+        submitted_count = max(self.task_contexts.count(), self.attempt_log.count())
+        return min(submitted_count / max_total, 1.0)
 
     def _parent_ref(self, parent_id: Optional[str]) -> Dict[str, Any]:
         """Return the minimal public parent payload."""

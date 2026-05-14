@@ -46,7 +46,7 @@ MCP 写入 task_contexts.json:
 (run_id, task_id) -> parent_id
 ```
 
-`progress` 由 MCP 内部根据 attempt 数和 budget 计算，不再由 agent 传入。
+`progress` 由 MCP 内部根据已注册 task 数、attempt 数和 budget 计算，不再由 agent 传入。
 
 ### `evolve_select_inspirations`
 
@@ -160,7 +160,7 @@ evolve_check_convergence(run_id: str)
 MCP 内部从本地文件计算：
 
 ```text
-total_submitted = attempts.jsonl 行数
+total_submitted = max(task_contexts 中已注册 task 数, attempts.jsonl 行数)
 total_success = success_db.json records 数量
 progress = min(total_submitted / max_total_tasks, 1.0)
 elapsed_seconds = now - run_state.started_at
