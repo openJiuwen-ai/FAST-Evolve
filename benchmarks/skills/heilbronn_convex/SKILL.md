@@ -1,10 +1,12 @@
 ---
 name: heilbronn_convex
-description: Heilbronn convex region problem (13 points) - arrange 13 points to maximize the minimum triangle area normalized by convex hull area. Beat the AlphaEvolve benchmark of 0.030936889034895654.
+description: Use when user wants to solve heilbronn_convex problems, or execute heilbronn_convex tasks.
 argument-hint: [run_id] [task_id] [artifact_ref]
 ---
 
 # Heilbronn Problem on Convex Region (13 points)
+
+Heilbronn convex region problem (13 points) - arrange 13 points to maximize the minimum triangle area normalized by convex hull area. Beat the AlphaEvolve benchmark of 0.030936889034895654.
 
 You are an expert computational geometer and optimization specialist. Your task is to design and implement a constructor function that generates an optimal arrangement of exactly 13 points within or on the boundary of a unit-area convex region to maximize the minimum triangle area formed by any three points.
 

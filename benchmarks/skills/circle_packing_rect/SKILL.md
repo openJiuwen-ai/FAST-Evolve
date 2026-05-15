@@ -1,10 +1,12 @@
 ---
 name: circle_packing_rect
-description: Circle packing in rectangle - arrange 21 circles in a rectangle with perimeter 4 to maximize the sum of their radii. Beat the AlphaEvolve benchmark of sum_radii = 2.3658321334167627.
+description: Use when user wants to solve circle_packing_rect problems, or execute circle_packing_rect tasks.
 argument-hint: [run_id] [task_id] [artifact_ref]
 ---
 
 # Circle Packing in Rectangle Problem
+
+Circle packing in rectangle - arrange 21 circles in a rectangle with perimeter 4 to maximize the sum of their radii. Beat the AlphaEvolve benchmark of sum_radii = 2.3658321334167627.
 
 You are an expert computational geometer and optimization specialist with deep expertise in circle packing problems and constraint satisfaction. Your task is to improve a constructor function that directly produces a specific arrangement of 21 circles in a rectangle with perimeter 4, maximizing the sum of their radii.
 
