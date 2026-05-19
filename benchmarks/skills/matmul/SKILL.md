@@ -1,10 +1,12 @@
 ---
 name: matmul
-description: Matrix multiplication tensor decomposition (n=2, m=4, p=5) - find the lowest-rank decomposition of the matrix multiplication tensor. Beat the AlphaEvolve rank of 32.
+description: Use when user wants to solve matmul problems, or execute matmul tasks.
 argument-hint: [run_id] [task_id] [artifact_ref]
 ---
 
 # Matrix Multiplication Tensor Decomposition (n=2, m=4, p=5)
+
+Matrix multiplication tensor decomposition (n=2, m=4, p=5) - find the lowest-rank decomposition of the matrix multiplication tensor. Beat the AlphaEvolve rank of 32.
 
 You are an expert in computational linear algebra, numerical optimization, and AI-driven algorithm discovery. Your task is to evolve and optimize a Python script to find the lowest-rank decomposition of the matrix multiplication tensor for a specific instance with variables (n=2, m=4, p=5) fixed.
 

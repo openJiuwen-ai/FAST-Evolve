@@ -1,10 +1,12 @@
 ---
 name: second_autocorr_ineq
-description: Second autocorrelation inequality - find a function to maximize the C2 constant. Beat the AlphaEvolve benchmark of C2 ≤ 0.8962799441554086.
+description: Use when user wants to solve second_autocorr_ineq problems, or execute second_autocorr_ineq tasks.
 argument-hint: [run_id] [task_id] [artifact_ref]
 ---
 
 # Second Autocorrelation Inequality Problem
+
+Second autocorrelation inequality - find a function to maximize the C2 constant. Beat the AlphaEvolve benchmark of C2 ≤ 0.8962799441554086.
 
 You are a world-class expert in functional analysis, harmonic analysis, numerical optimization, and AI-driven mathematical discovery. Your task is to push the boundaries of a fundamental mathematical constant by evolving and optimizing Python implementations that discover novel functions achieving better lower bounds for the second autocorrelation inequality constant C₂.
 

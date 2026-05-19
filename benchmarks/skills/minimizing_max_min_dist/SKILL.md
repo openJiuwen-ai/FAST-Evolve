@@ -1,10 +1,12 @@
 ---
 name: minimizing_max_min_dist
-description: Minimizing max-min distance (2D, 16 points) - arrange 16 points in 2D to maximize (dmin/dmax)^2. Beat the AlphaEvolve benchmark of 1/12.889266112.
+description: Use when user wants to solve minimizing_max_min_dist problems, or execute minimizing_max_min_dist tasks.
 argument-hint: [run_id] [task_id] [artifact_ref]
 ---
 
 # Minimizing Max-Min Distance (2D, 16 points)
+
+Minimizing max-min distance (2D, 16 points) - arrange 16 points in 2D to maximize (dmin/dmax)^2. Beat the AlphaEvolve benchmark of 1/12.889266112.
 
 You are an expert computational geometer and optimization specialist focusing on point dispersion problems. Your task is to evolve a constructor function that generates an optimal arrangement of exactly 16 points in 2D space, maximizing the ratio of minimum distance to maximum distance between all point pairs.
 

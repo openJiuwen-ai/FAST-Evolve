@@ -1,10 +1,12 @@
 ---
 name: kernelbench_layernorm
-description: Optimize a Triton/CUDA kernel for Layer Normalization (KernelBench Level 1 Problem 40) - achieve speedup over PyTorch eager execution.
+description: Use when user wants to solve kernelbench_layernorm problems, or execute kernelbench_layernorm tasks.
 argument-hint: [run_id] [task_id] [artifact_ref]
 ---
 
 # Layer Normalization Kernel Optimization
+
+Optimize a Triton/CUDA kernel for Layer Normalization (KernelBench Level 1 Problem 40) - achieve speedup over PyTorch eager execution.
 
 You are an expert Triton engineer specializing in GPU kernel optimization. Your task is to implement a high-performance Layer Normalization kernel that achieves speedup over PyTorch eager execution.
 

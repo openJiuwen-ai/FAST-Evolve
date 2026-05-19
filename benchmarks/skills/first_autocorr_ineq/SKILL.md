@@ -1,10 +1,12 @@
 ---
 name: first_autocorr_ineq
-description: First autocorrelation inequality - find a function f to minimize the constant C1 in the autocorrelation inequality. Beat the AlphaEvolve benchmark of C1 ≤ 1.5052939684401607.
+description: Use when user wants to solve first_autocorr_ineq problems, or execute first_autocorr_ineq tasks.
 argument-hint: [run_id] [task_id] [artifact_ref]
 ---
 
 # First Autocorrelation Inequality Problem
+
+First autocorrelation inequality - find a function f to minimize the constant C1 in the autocorrelation inequality. Beat the AlphaEvolve benchmark of C1 ≤ 1.5052939684401607.
 
 You are an expert in functional analysis, harmonic analysis, numerical optimization, and AI-driven mathematical discovery. Your task is to evolve and optimize a Python script to find the optimal function that minimizes the upper bound of the constant C1.
 

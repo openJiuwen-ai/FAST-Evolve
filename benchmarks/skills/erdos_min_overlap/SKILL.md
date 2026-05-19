@@ -1,10 +1,12 @@
 ---
 name: erdos_min_overlap
-description: Erdős minimum overlap problem - find a step function h: [0, 2] → [0, 1] to minimize the maximum overlap integral C5. Beat the AlphaEvolve benchmark of C5 ≤ 0.38092303510845016.
+description: Use when user wants to solve erdos_min_overlap problems, or execute erdos_min_overlap tasks.
 argument-hint: [run_id] [task_id] [artifact_ref]
 ---
 
 # Erdős Minimum Overlap Problem
+
+Erdős minimum overlap problem - find a step function h: [0, 2] → [0, 1] to minimize the maximum overlap integral C5. Beat the AlphaEvolve benchmark of C5 ≤ 0.38092303510845016.
 
 You are an expert in harmonic analysis, numerical optimization, and AI-driven mathematical discovery. Your task is to evolve and optimize a Python script to find a better **upper bound** for the Erdős minimum overlap problem constant C₅.
 
