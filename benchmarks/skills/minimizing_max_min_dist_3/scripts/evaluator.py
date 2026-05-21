@@ -1,116 +1,102 @@
-#!/usr/bin/env python
-"""Standalone evaluator for 3D minimizing max-min distance benchmark."""
+﻿# ===--------------------------------------------------------------------------------------===#
+#
+# This file implements the evaluator for problem of minimizing the ratio of maximum
+# to minimum distance on dimension 3 and with 14 points.
+#
+# ===--------------------------------------------------------------------------------------===#
+#
+# Some of the code in this file is adapted from:
+#
+# google-deepmind/alphaevolve_results:
+# Licensed under the Apache License v2.0.
+#
+# ===--------------------------------------------------------------------------------------===#
 
-import argparse
-import json
-import os
-import pickle
-import subprocess
 import sys
-import tempfile
+import os
+from importlib import __import__
+import scipy as sp
 import time
-import traceback
-from typing import Any, Dict
-
 import numpy as np
-
 
 NUM_POINTS = 14
 DIMENSION = 3
 BENCHMARK = 1 / 4.165849767
 
+# Scoring: (dmin/dmax)^2.
+# Key reformulation: maximize auxiliary variable t
+#   subject to d(i,j)^2 >= t AND d(i,j)^2 <= 1 for every pair (i,j).
+# This is a constrained NLP with O(n^2) pairwise inequality constraints.
 
-def run_program_with_timeout(program_path: str, timeout_seconds: int = 600):
-    program_path_escaped = program_path.replace("\\", "/")
-    with tempfile.NamedTemporaryFile(suffix=".py", delete=False) as temp_file:
-        temp_path_escaped = temp_file.name.replace("\\", "/")
-        script = f"""
-import os
-import pickle
-import sys
-import traceback
 
-sys.path.insert(0, os.path.dirname('{program_path_escaped}'))
-try:
-    spec = __import__('importlib.util').util.spec_from_file_location("program", '{program_path_escaped}')
-    program = __import__('importlib.util').util.module_from_spec(spec)
-    spec.loader.exec_module(program)
-    points = program.min_max_dist_dim3_14()
-    with open('{temp_path_escaped}.results', 'wb') as f:
-        pickle.dump({{'points': points}}, f)
-except Exception as e:
-    with open('{temp_path_escaped}.results', 'wb') as f:
-        pickle.dump({{'error': str(e), 'traceback': traceback.format_exc()}}, f)
-"""
-        temp_file.write(script.encode())
-        temp_file_path = temp_file.name
-    results_path = f"{temp_file_path}.results"
+def evaluate(program_path: str):
     try:
-        process = subprocess.Popen([sys.executable, temp_file_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        abs_program_path = os.path.abspath(program_path)
+        program_dir = os.path.dirname(abs_program_path)
+        module_name = os.path.splitext(os.path.basename(program_path))[0]
+
         try:
-            process.communicate(timeout=timeout_seconds)
-            if not os.path.exists(results_path):
-                raise RuntimeError("Results file not found")
-            with open(results_path, "rb") as handle:
-                results = pickle.load(handle)
-            if "error" in results:
-                raise RuntimeError(results["error"])
-            return results["points"]
-        except subprocess.TimeoutExpired:
-            process.kill()
-            process.wait()
-            raise TimeoutError(f"Execution timed out after {timeout_seconds} seconds")
-    finally:
-        for path in (temp_file_path, results_path):
-            if os.path.exists(path):
-                os.unlink(path)
+            sys.path.insert(0, program_dir)
+            program = __import__(module_name)
+            start_time = time.time()
+            points = program.min_max_dist_dim3_14()
+            end_time = time.time()
+            eval_time = end_time - start_time
+        except Exception as err:
+            raise err
+        finally:
+            if program_dir in sys.path:
+                sys.path.remove(program_dir)
 
-
-def min_max_ratio(points: np.ndarray) -> float:
-    distances = []
-    for i in range(len(points)):
-        for j in range(i + 1, len(points)):
-            distances.append(float(np.linalg.norm(points[i] - points[j])))
-    if not distances:
-        return 0.0
-    dmin = min(distances)
-    dmax = max(distances)
-    return float((dmin / dmax) ** 2) if dmax > 0 else 0.0
-
-
-def evaluate(program_path: str, timeout_seconds: int = 600) -> Dict[str, Any]:
-    start_time = time.time()
-    try:
-        points = run_program_with_timeout(program_path, timeout_seconds)
-        eval_time = time.time() - start_time
         if not isinstance(points, np.ndarray):
             points = np.array(points)
-        valid = bool(points.shape == (NUM_POINTS, DIMENSION) and np.isfinite(points).all())
-        value = min_max_ratio(points) if valid else 0.0
-        target_ratio = value / BENCHMARK if valid else 0.0
+
+        if points.shape != (NUM_POINTS, DIMENSION):
+            raise ValueError(
+                f"Invalid shapes: points = {points.shape}, expected {(NUM_POINTS,DIMENSION)}"
+            )
+
+        pairwise_distances = sp.spatial.distance.pdist(points)
+        min_distance = np.min(pairwise_distances)
+        max_distance = np.max(pairwise_distances)
+
+        inv_ratio_squared = (min_distance / max_distance) ** 2 if max_distance > 0 else 0
         return {
-            "min_max_ratio": float(value),
-            "target_ratio": float(target_ratio),
-            "validity": 1.0 if valid else 0.0,
+            "min_max_ratio": float(inv_ratio_squared),
+            "combined_score": float(inv_ratio_squared / BENCHMARK),
             "eval_time": float(eval_time),
-            "combined_score": float(target_ratio if valid else 0.0),
         }
-    except Exception as exc:
-        return {"min_max_ratio": 0.0, "target_ratio": 0.0, "validity": 0.0, "eval_time": float(time.time() - start_time), "combined_score": 0.0, "error": str(exc), "traceback": traceback.format_exc()}
+    except Exception as e:
+        return {"combined_score": 0.0, "error": str(e)}
+# =============================================================================
+# Standalone Agent Evolve CLI
+# =============================================================================
+
+import argparse
+import json
 
 
-def is_successful(result: Dict[str, Any]) -> bool:
-    return not result.get("traceback") and not result.get("error") and result.get("validity", 0) >= 1.0
+def _is_successful(result):
+    return not result.get("error") and not result.get("traceback")
 
 
-def format_result(result: Dict[str, Any], artifact_ref: str) -> Dict[str, Any]:
-    metric_keys = ["min_max_ratio", "target_ratio", "validity", "eval_time"]
-    exclude_keys = {"combined_score", *metric_keys}
-    return {"status": "success" if is_successful(result) else "failure", "artifact_ref": artifact_ref, "fitness": result.get("combined_score", 0.0), "metrics": {key: result[key] for key in metric_keys if key in result}, "misc": {key: result[key] for key in result if key not in exclude_keys}}
+def _format_result(result, artifact_ref):
+    metric_keys = [
+        key for key, value in result.items()
+        if key != "combined_score" and isinstance(value, (int, float)) and not isinstance(value, bool)
+    ]
+    exclude_keys = set(metric_keys) | {"combined_score"}
+    return {
+        "status": "success" if _is_successful(result) else "failure",
+        "artifact_ref": artifact_ref,
+        "fitness": result.get("combined_score", 0.0),
+        "metrics": {key: result[key] for key in metric_keys},
+        "misc": {key: result[key] for key in result if key not in exclude_keys},
+    }
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Minimizing Max-Min Distance 3D Evaluator")
+def _main():
+    parser = argparse.ArgumentParser()
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--task-id", required=True)
     parser.add_argument("--subagent-id", default="")
@@ -119,23 +105,39 @@ def main() -> None:
     parser.add_argument("--timeout", type=int, default=600)
     parser.add_argument("--out", help="Output JSON file path")
     args = parser.parse_args()
+
     if not os.path.exists(args.artifact_ref):
         print(f"Program file not found: {args.artifact_ref}")
         sys.exit(1)
-    result = evaluate(args.artifact_ref, timeout_seconds=args.timeout)
-    result.update({"run_id": args.run_id, "task_id": args.task_id, "subagent_id": args.subagent_id, "mode": args.mode, "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")})
+
+    real_stdout = sys.stdout
+    sys.stdout = sys.stderr
+    try:
+        result = evaluate(args.artifact_ref)
+    finally:
+        sys.stdout = real_stdout
+    result.update({
+        "run_id": args.run_id,
+        "task_id": args.task_id,
+        "subagent_id": args.subagent_id,
+        "mode": args.mode,
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+    })
+
     output_path = args.out or os.path.join(os.path.dirname(args.artifact_ref), "eval_result.json")
     output_dir = os.path.dirname(output_path)
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as handle:
-        json.dump(format_result(result, args.artifact_ref), handle, indent=2, ensure_ascii=False)
-    if is_successful(result):
+        json.dump(_format_result(result, args.artifact_ref), handle, indent=2, ensure_ascii=False)
+
+    if _is_successful(result):
         print(output_path)
         sys.exit(0)
-    print(result.get("traceback") or result.get("error") or "Validity check failed")
+    print(result.get("error") or result.get("traceback") or "Unknown error")
     sys.exit(1)
 
 
 if __name__ == "__main__":
-    main()
+    _main()
+
