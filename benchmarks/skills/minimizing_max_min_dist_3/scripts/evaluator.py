@@ -1,0 +1,143 @@
+﻿# ===--------------------------------------------------------------------------------------===#
+#
+# This file implements the evaluator for problem of minimizing the ratio of maximum
+# to minimum distance on dimension 3 and with 14 points.
+#
+# ===--------------------------------------------------------------------------------------===#
+#
+# Some of the code in this file is adapted from:
+#
+# google-deepmind/alphaevolve_results:
+# Licensed under the Apache License v2.0.
+#
+# ===--------------------------------------------------------------------------------------===#
+
+import sys
+import os
+from importlib import __import__
+import scipy as sp
+import time
+import numpy as np
+
+NUM_POINTS = 14
+DIMENSION = 3
+BENCHMARK = 1 / 4.165849767
+
+# Scoring: (dmin/dmax)^2.
+# Key reformulation: maximize auxiliary variable t
+#   subject to d(i,j)^2 >= t AND d(i,j)^2 <= 1 for every pair (i,j).
+# This is a constrained NLP with O(n^2) pairwise inequality constraints.
+
+
+def evaluate(program_path: str):
+    try:
+        abs_program_path = os.path.abspath(program_path)
+        program_dir = os.path.dirname(abs_program_path)
+        module_name = os.path.splitext(os.path.basename(program_path))[0]
+
+        try:
+            sys.path.insert(0, program_dir)
+            program = __import__(module_name)
+            start_time = time.time()
+            points = program.min_max_dist_dim3_14()
+            end_time = time.time()
+            eval_time = end_time - start_time
+        except Exception as err:
+            raise err
+        finally:
+            if program_dir in sys.path:
+                sys.path.remove(program_dir)
+
+        if not isinstance(points, np.ndarray):
+            points = np.array(points)
+
+        if points.shape != (NUM_POINTS, DIMENSION):
+            raise ValueError(
+                f"Invalid shapes: points = {points.shape}, expected {(NUM_POINTS,DIMENSION)}"
+            )
+
+        pairwise_distances = sp.spatial.distance.pdist(points)
+        min_distance = np.min(pairwise_distances)
+        max_distance = np.max(pairwise_distances)
+
+        inv_ratio_squared = (min_distance / max_distance) ** 2 if max_distance > 0 else 0
+        return {
+            "min_max_ratio": float(inv_ratio_squared),
+            "combined_score": float(inv_ratio_squared / BENCHMARK),
+            "eval_time": float(eval_time),
+        }
+    except Exception as e:
+        return {"combined_score": 0.0, "error": str(e)}
+# =============================================================================
+# Standalone Agent Evolve CLI
+# =============================================================================
+
+import argparse
+import json
+
+
+def _is_successful(result):
+    return not result.get("error") and not result.get("traceback")
+
+
+def _format_result(result, artifact_ref):
+    metric_keys = [
+        key for key, value in result.items()
+        if key != "combined_score" and isinstance(value, (int, float)) and not isinstance(value, bool)
+    ]
+    exclude_keys = set(metric_keys) | {"combined_score"}
+    return {
+        "status": "success" if _is_successful(result) else "failure",
+        "artifact_ref": artifact_ref,
+        "fitness": result.get("combined_score", 0.0),
+        "metrics": {key: result[key] for key in metric_keys},
+        "misc": {key: result[key] for key in result if key not in exclude_keys},
+    }
+
+
+def _main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--run-id", required=True)
+    parser.add_argument("--task-id", required=True)
+    parser.add_argument("--subagent-id", default="")
+    parser.add_argument("--artifact-ref", required=True)
+    parser.add_argument("--mode", default="full")
+    parser.add_argument("--timeout", type=int, default=600)
+    parser.add_argument("--out", help="Output JSON file path")
+    args = parser.parse_args()
+
+    if not os.path.exists(args.artifact_ref):
+        print(f"Program file not found: {args.artifact_ref}")
+        sys.exit(1)
+
+    real_stdout = sys.stdout
+    sys.stdout = sys.stderr
+    try:
+        result = evaluate(args.artifact_ref)
+    finally:
+        sys.stdout = real_stdout
+    result.update({
+        "run_id": args.run_id,
+        "task_id": args.task_id,
+        "subagent_id": args.subagent_id,
+        "mode": args.mode,
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+    })
+
+    output_path = args.out or os.path.join(os.path.dirname(args.artifact_ref), "eval_result.json")
+    output_dir = os.path.dirname(output_path)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as handle:
+        json.dump(_format_result(result, args.artifact_ref), handle, indent=2, ensure_ascii=False)
+
+    if _is_successful(result):
+        print(output_path)
+        sys.exit(0)
+    print(result.get("error") or result.get("traceback") or "Unknown error")
+    sys.exit(1)
+
+
+if __name__ == "__main__":
+    _main()
+
