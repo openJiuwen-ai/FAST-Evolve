@@ -1,10 +1,12 @@
 ---
 name: minimizing_max_min_dist_2
-description: Minimizing max-min distance (2D, 16 points) - maximize squared min/max pairwise distance ratio. Beat the AlphaEvolve benchmark of 1/12.889266112.
+description: Use when user wants to solve minimizing_max_min_dist_2 problems, or execute minimizing_max_min_dist_2 tasks.
 argument-hint: [run_id] [task_id] [artifact_ref]
 ---
 
 # Minimizing Max-Min Distance (2D, 16 Points)
+
+Minimizing max-min distance (2D, 16 points) - maximize squared min/max pairwise distance ratio. Beat the AlphaEvolve benchmark of 1/12.889266112.
 
 Design an explicit deterministic constructor for 16 points in 2D, maximizing:
 

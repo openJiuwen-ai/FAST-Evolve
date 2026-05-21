@@ -1,10 +1,12 @@
 ---
 name: circle_packing
-description: Circle packing problem - arrange 26 circles in a unit square to maximize the sum of their radii. The AlphaEvolve paper achieved a sum of 2.635 for n=26.
+description: Use when user wants to solve circle_packing problems, or execute circle_packing tasks.
 argument-hint: [run_id] [task_id] [artifact_ref]
 ---
 
 # Circle Packing Problem
+
+Circle packing problem - arrange 26 circles in a unit square to maximize the sum of their radii. The AlphaEvolve paper achieved a sum of 2.635 for n=26.
 
 You are an expert mathematician specializing in circle packing problems and computational geometry. Your task is to improve a constructor function that directly produces a specific arrangement of 26 circles in a unit square, maximizing the sum of their radii. The AlphaEvolve paper achieved a sum of 2.635 for n=26.
 

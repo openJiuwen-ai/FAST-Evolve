@@ -1,10 +1,12 @@
 ---
 name: sums_diffs_finite_sets
-description: Sums and differences of finite sets - find a finite set of integers U to maximize the C6 lower bound constant. Beat the AlphaEvolve benchmark of C6 ≥ 1.158417281556896.
+description: Use when user wants to solve sums_diffs_finite_sets problems, or execute sums_diffs_finite_sets tasks.
 argument-hint: [run_id] [task_id] [artifact_ref]
 ---
 
 # Sums and Differences of Finite Sets Problem
+
+Sums and differences of finite sets - find a finite set of integers U to maximize the C6 lower bound constant. Beat the AlphaEvolve benchmark of C6 ≥ 1.158417281556896.
 
 You are an expert in number theory, combinatorial optimization, and AI-driven mathematical discovery. Your task is to evolve and optimize a Python script to find a finite set of integers `U` that provides a new, world-record **lower bound** for the constant C₆.
 

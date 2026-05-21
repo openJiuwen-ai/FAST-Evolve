@@ -1,10 +1,12 @@
 ---
 name: minimizing_max_min_dist_3
-description: Minimizing max-min distance (3D, 14 points) - maximize squared min/max pairwise distance ratio. Beat the AlphaEvolve benchmark of 1/4.165849767.
+description: Use when user wants to solve minimizing_max_min_dist_3 problems, or execute minimizing_max_min_dist_3 tasks.
 argument-hint: [run_id] [task_id] [artifact_ref]
 ---
 
 # Minimizing Max-Min Distance (3D, 14 Points)
+
+Minimizing max-min distance (3D, 14 points) - maximize squared min/max pairwise distance ratio. Beat the AlphaEvolve benchmark of 1/4.165849767.
 
 Design an explicit deterministic constructor for 14 points in 3D, maximizing:
 

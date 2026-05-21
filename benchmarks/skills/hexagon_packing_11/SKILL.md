@@ -1,10 +1,12 @@
 ---
 name: hexagon_packing_11
-description: Hexagon packing problem (11 unit hexagons) - pack unit regular hexagons inside a larger regular hexagon and maximize 1/outer side length. Beat the AlphaEvolve benchmark of 1/3.930092.
+description: Use when user wants to solve hexagon_packing_11 problems, or execute hexagon_packing_11 tasks.
 argument-hint: [run_id] [task_id] [artifact_ref]
 ---
 
 # Hexagon Packing (11 Unit Hexagons)
+
+Hexagon packing problem (11 unit hexagons) - pack unit regular hexagons inside a larger regular hexagon and maximize 1/outer side length. Beat the AlphaEvolve benchmark of 1/3.930092.
 
 Design an explicit deterministic packing of 11 unit regular hexagons inside a
 larger regular hexagon, maximizing:

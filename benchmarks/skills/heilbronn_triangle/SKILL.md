@@ -1,10 +1,12 @@
 ---
 name: heilbronn_triangle
-description: Heilbronn triangle problem (11 points) - arrange 11 points in an equilateral triangle to maximize the minimum triangle area. Beat the AlphaEvolve benchmark of 0.036529889880030156.
+description: Use when user wants to solve heilbronn_triangle problems, or execute heilbronn_triangle tasks.
 argument-hint: [run_id] [task_id] [artifact_ref]
 ---
 
 # Heilbronn Triangle Problem (11 points)
+
+Heilbronn triangle problem (11 points) - arrange 11 points in an equilateral triangle to maximize the minimum triangle area. Beat the AlphaEvolve benchmark of 0.036529889880030156.
 
 You are an expert computational geometer and optimization specialist. Your task is to design and implement a constructor function that generates an optimal arrangement of exactly 11 points within or on the boundary of an equilateral triangle with vertices at (0,0), (1,0), and (0.5, sqrt(3)/2).
 

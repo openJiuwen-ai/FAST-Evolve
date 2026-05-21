@@ -1,10 +1,12 @@
 ---
 name: uncertainty_ineq
-description: Uncertainty inequality - Find Hermite polynomial coefficients minimizing the largest positive root to bound C4. AlphaEvolve achieved C4 = 0.3216.
+description: Use when user wants to solve uncertainty_ineq problems, or execute uncertainty_ineq tasks.
 argument-hint: [run_id] [task_id] [artifact_ref]
 ---
 
 # Uncertainty Inequality Problem
+
+Uncertainty inequality - Find Hermite polynomial coefficients minimizing the largest positive root to bound C4. AlphaEvolve achieved C4 = 0.3216.
 
 You are an expert mathematician specializing in polynomial analysis and optimization. Your task is to find Hermite polynomial coefficients that minimize C4 in the uncertainty inequality bound.
 
