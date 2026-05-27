@@ -51,9 +51,7 @@ keep editing and rerunning the same attempt just because the fitness could be
 higher.
 
 Do not run extra shell commands to probe the Python environment. The verifier
-command above is the only execution command needed by task-executor. Candidate
-solutions should rely on Python standard library and numpy unless the benchmark
-explicitly declares another dependency; do not assume scipy is available.
+command above is the only execution command needed by task-executor.
 
 ## Problem Context
 
