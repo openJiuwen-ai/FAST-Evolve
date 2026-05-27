@@ -6,7 +6,7 @@
       "Agent(task-executor)",
       "Write(/runs/**)",
       "Edit(/runs/**)",
-      "Bash(mkdir -p runs/*)",
+      "Bash(mkdir *)",
       "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_select_parent",
       "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_select_inspirations",
       "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_record_attempt",

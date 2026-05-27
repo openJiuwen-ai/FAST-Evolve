@@ -9,7 +9,9 @@ description: Triggered when the user asks to evolve, optimize, search, or iterat
 
 ## 调度器边界约束
 
-调度器只负责队列调度和 MCP 调用，不得自行读取项目文件、调用其他 skill 或介入 task 内容。所有业务逻辑（benchmark 定义、solution 生成、验证）由 task-executor agent 在独立上下文中完成。
+调度器只负责队列调度和 MCP 调用，不得自行读取项目文件、调用其他 skill 或介入 task 内容。派发 task-executor 时只传 `run_id`、`task_id`、`task_description`（用户原始输入原样传递），不得附带 SKILL.md 内容、benchmark 描述、验证规则或代码片段。所有业务逻辑由 task-executor agent 自行定位和读取。
+
+**`task_description` 忠实性约束**：`task_description` 必须与用户提交给 skill 的原始输入逐字一致，禁止任何形式的改写、扩展、补充、解释、翻译或推断——即使你认为改写后更清晰、更完整、或更便于 task-executor 理解。task-executor agent 负责自行定位和读取所有上下文（问题 SKILL.md、evaluator、已有 solution 等），调度器不具备也不应假设对这些上下文的准确理解。
 
 ## 架构角色分工
 
@@ -120,7 +122,9 @@ You are now running the **self-evolution master skill**, the orchestrator. Your 
 
 ## Orchestrator Boundary Constraint
 
-The orchestrator only handles queue scheduling and MCP calls. It must not read project files, invoke other skills, or get involved in task content. All domain logic (benchmark definitions, solution generation, verification) is executed by task-executor agents in their own isolated context.
+The orchestrator only handles queue scheduling and MCP calls. It must not read project files, invoke other skills, or get involved in task content. When dispatching to task-executor, pass only `run_id`, `task_id`, and `task_description` (the user's original input verbatim). Never attach SKILL.md content, benchmark descriptions, verification rules, or code snippets. All domain logic is executed by task-executor agents in their own isolated context.
+
+**`task_description` fidelity constraint**: `task_description` must be identical to the user's original input submitted to the skill, character by character. Any form of rewriting, expansion, supplementation, interpretation, translation, or inference is prohibited — even if you believe your version is clearer, more complete, or easier for task-executor to understand. The task-executor agent is responsible for locating and reading all context (problem SKILL.md, evaluator, existing solutions, etc.) on its own; the orchestrator neither possesses nor should assume an accurate understanding of that context.
 
 ## Architecture Roles
 

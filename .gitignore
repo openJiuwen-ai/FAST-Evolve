@@ -232,3 +232,5 @@ runs/
 
 .claude/settings.local.json
 uv.lock
+
+.vscode/
