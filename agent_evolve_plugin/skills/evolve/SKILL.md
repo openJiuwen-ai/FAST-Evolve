@@ -26,7 +26,7 @@ description: Triggered when the user asks to evolve, optimize, search, or iterat
 ## 步骤 1：运行初始化
 
 1. 生成 `run_id`：`run_YYYYMMDDHHMMSS`。
-   - 使用当前本地启动时间，精确到秒。
+   - 使用当前本地启动时间，精确到秒。使用 Bash 工具执行 `date +%Y%m%d%H%M%S` 获取时间字符串。
    - 不要使用 `run_YYYYMMDD_NNN` 这种需要读取历史目录并累计编号的格式。
 2. 和用户确认后开始运行。
 
