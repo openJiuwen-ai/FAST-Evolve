@@ -2,10 +2,11 @@
   "permissions": {
     "allow": [
       "Skill(agent_evolve_plugin:evolve)",
+      "Skill(agent_evolve_plugin:evolve-task-exec)",
       "Agent(task-executor)",
       "Write(/runs/**)",
       "Edit(/runs/**)",
-      "Bash(mkdir *)",
+      "Bash(mkdir -p runs/*)",
       "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_select_parent",
       "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_select_inspirations",
       "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_record_attempt",

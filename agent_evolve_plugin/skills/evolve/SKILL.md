@@ -1,13 +1,15 @@
 ---
 name: evolve
 description: Triggered when the user asks to evolve, optimize, search, or iteratively improve something. Starts the self-evolution loop.
-argument-hint: [task_description]
-allowed-tools: [Read, Grep, Glob, Bash, Write, Skill]
 ---
 
 # 自进化主 Skill
 
 你现在正在运行 **自进化主 skill**，也就是调度器。你的职责是：初始化 run、维护 task 队列、检测收敛、停止补位、等待已启动任务结束，并调用 Evolution Controller MCP 生成确定性的 run 总结报告。
+
+## 调度器边界约束
+
+调度器只负责队列调度和 MCP 调用，不得自行读取项目文件、调用其他 skill 或介入 task 内容。所有业务逻辑（benchmark 定义、solution 生成、验证）由 task-executor agent 在独立上下文中完成。
 
 ## 架构角色分工
 
@@ -115,6 +117,10 @@ runs/<run_id>/run_summary.json
 # Self-Evolution Master Skill
 
 You are now running the **self-evolution master skill**, the orchestrator. Your responsibilities are: initialize a run, maintain the task queue, detect convergence, stop replenishment, wait for already launched tasks to finish, and call Evolution Controller MCP to generate a deterministic run summary report.
+
+## Orchestrator Boundary Constraint
+
+The orchestrator only handles queue scheduling and MCP calls. It must not read project files, invoke other skills, or get involved in task content. All domain logic (benchmark definitions, solution generation, verification) is executed by task-executor agents in their own isolated context.
 
 ## Architecture Roles
 
