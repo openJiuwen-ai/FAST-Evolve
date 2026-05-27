@@ -2,6 +2,7 @@
   "permissions": {
     "allow": [
       "Skill(agent_evolve_plugin:evolve)",
+      "Skill(agent_evolve_plugin:evolve-task-exec)",
       "Agent(task-executor)",
       "Write(/runs/**)",
       "Edit(/runs/**)",
