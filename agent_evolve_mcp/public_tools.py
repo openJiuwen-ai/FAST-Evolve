@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+from agent_evolve_mcp.config import load_evolution_controller_config
 from agent_evolve_mcp.controller import EvolutionController
 from agent_evolve_mcp.mcp_server import mcp
 
@@ -30,6 +31,32 @@ def _controller(run_id: str) -> EvolutionController:
         controller = EvolutionController(run_id)
         _controllers[run_id] = controller
     return controller
+
+
+@mcp.tool(run_in_thread=False)
+def evolve_configure_run(
+    run_id: str,
+    max_total_tasks: int = 50,
+) -> Dict[str, Any]:
+    """Configure evolution run parameters before starting tasks.
+
+    Must be called BEFORE any other evolve_* tool for the same run_id.
+    Subsequent calls for the same run_id are ignored (the configuration
+    is locked after the first call).
+    """
+    if run_id in _controllers:
+        return {
+            "configured": False,
+            "reason": "Controller already exists for this run_id; configuration locked.",
+            "max_total_tasks": _controllers[run_id].config.convergence.max_total_tasks,
+        }
+    config = load_evolution_controller_config(max_total_tasks=max_total_tasks)
+    controller = EvolutionController(run_id, config=config)
+    _controllers[run_id] = controller
+    return {
+        "configured": True,
+        "max_total_tasks": config.convergence.max_total_tasks,
+    }
 
 
 @mcp.tool(run_in_thread=False)
