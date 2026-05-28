@@ -32,7 +32,7 @@ def _controller(run_id: str) -> EvolutionController:
     return controller
 
 
-@mcp.tool(run_in_thread=False)
+@mcp.tool()
 def evolve_select_parent(run_id: str, task_id: str) -> Dict[str, Any]:
     """Select a parent for a task and return only its id/ref.
 
@@ -42,7 +42,7 @@ def evolve_select_parent(run_id: str, task_id: str) -> Dict[str, Any]:
     return _controller(run_id).select_parent(task_id=task_id)
 
 
-@mcp.tool(run_in_thread=False)
+@mcp.tool()
 def evolve_select_inspirations(run_id: str, task_id: str) -> Dict[str, Any]:
     """Select extra inspiration refs for a task.
 
@@ -52,7 +52,7 @@ def evolve_select_inspirations(run_id: str, task_id: str) -> Dict[str, Any]:
     return _controller(run_id).select_inspirations(task_id=task_id)
 
 
-@mcp.tool(run_in_thread=False)
+@mcp.tool()
 def evolve_record_attempt(
     run_id: str,
     task_id: str,
@@ -70,13 +70,13 @@ def evolve_record_attempt(
     )
 
 
-@mcp.tool(run_in_thread=False)
+@mcp.tool()
 def evolve_check_convergence(run_id: str) -> Dict[str, Any]:
     """Return only whether the host should stop submitting new tasks."""
     return _controller(run_id).check_convergence()
 
 
-@mcp.tool(run_in_thread=False)
+@mcp.tool()
 def evolve_finalize_run(run_id: str, stop_reason: str = "") -> Dict[str, Any]:
     """Write deterministic run summary artifacts and return only refs.
 
