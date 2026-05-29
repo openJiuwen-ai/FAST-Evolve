@@ -1,0 +1,8 @@
+{
+  "name": "example_problem",
+  "description": "Example problem definition and solution evolution plugin for demonstration and testing purposes.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Huawei Taylor Lab"
+  }
+}
