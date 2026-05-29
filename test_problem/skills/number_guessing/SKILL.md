@@ -36,7 +36,7 @@ The `attempt_id` comes from the task-executor workflow and must be one of
 **IMPORTANT**: To evaluate, run the evaluator script directly:
 
 ```bash
-python example_problem/skills/number_guessing/scripts/verify.py --run-id <run_id> --task-id <task_id> --artifact-ref <artifact_ref> --out runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/eval_result.json
+python test_problem/skills/number_guessing/scripts/verify.py --run-id <run_id> --task-id <task_id> --artifact-ref <artifact_ref> --out runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/eval_result.json
 ```
 
 The arguments are parsed from the skill invocation:
