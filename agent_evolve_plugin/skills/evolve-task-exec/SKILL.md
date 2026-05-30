@@ -174,17 +174,23 @@ attempt workflow.
 - If verifier returns non-zero exit code: FAILURE
   - Capture ALL error output from stdout/stderr - you will need this for debugging the next attempt
   - If attempt_index < 3: increment attempt_index and continue to next attempt
-  - If attempt_index == 3: proceed to Step 5
+  - If attempt_index == 3: proceed to Step 4 (to record the failed attempt)
 
 ---
 
-## Step 4: Record Attempt (On Success Only)
-ONLY if `attempt_succeeded == true`:
+## Step 4: Record Attempt
+Always call `evolve_record_attempt` regardless of success or failure.
+
+Determine the verification_result_ref to use:
+- If `attempt_succeeded == true`: use `final_verification_result_ref`
+- If all attempts failed: use the eval_result.json from the last attempt:
+  `runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/eval_result.json`
+  (where attempt_id is the last attempt that was actually run)
 
 Call MCP tool `evolve_record_attempt` with:
 - run_id
 - task_id
-- verification_result_ref: `final_verification_result_ref`
+- verification_result_ref: the path determined above
 
 After this MCP call returns, proceed directly to Step 5. Do not generate,
 debug, verify, or improve another attempt for this task. This is the only MCP
@@ -210,7 +216,7 @@ Do NOT report any other details - success or failure, both count as completed.
 3. **Remember IDs**: Always use the correct task_id, run_id, attempt_id in paths and tool calls.
 4. **Stop on Success**: If verifier passes on any attempt, do NOT make more attempts - record and exit immediately.
 5. **Read Artifacts**: Always read parent and inspiration files before generating.
-6. **Verification First**: Only call `evolve_record_attempt` AFTER verifier succeeds with exit code 0.
+6. **Record Always**: Always call `evolve_record_attempt` after all attempts are done, regardless of success or failure. The backend handles the distinction automatically.
 7. **Minimal Output**: At the end, only report "Task <task_id> completed" - nothing else.
 8. **Same Parent/Inspirations**: Parent and inspirations are selected ONCE at the beginning - they NEVER change between attempts.
 9. **Debug, Don't Regenerate**: Attempts 2 and 3 are for DEBUGGING the previous attempt, not generating a brand new solution. Fix the specific errors while keeping the same overall approach.
