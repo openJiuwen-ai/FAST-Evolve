@@ -28,7 +28,11 @@ description: Triggered when the user asks to evolve, optimize, search, or iterat
 1. 生成 `run_id`：`run_YYYYMMDDHHMMSS`。
    - 使用当前本地启动时间，精确到秒。使用 Bash 工具执行 `date +%Y%m%d%H%M%S` 获取时间字符串。
    - 不要使用 `run_YYYYMMDD_NNN` 这种需要读取历史目录并累计编号的格式。
-2. 和用户确认后开始运行。
+2. 确定最大迭代轮数 `max_total_tasks`：
+   - 如果用户在输入中指定了迭代数（如"200轮"、"200次"、"max 200"、"跑200个"等），提取该数字。
+   - 如果用户未指定，默认为 50。
+   - 在任何其他 `evolve_*` 调用之前，调用 `evolve_configure_run(run_id, max_total_tasks=<value>)`。
+3. 和用户确认后开始运行。
 
 ---
 
@@ -143,7 +147,11 @@ The orchestrator only handles queue scheduling and MCP calls. It must not read p
 1. Generate `run_id`: `run_YYYYMMDDHHMMSS`.
    - Use the current local start time with second-level precision.
    - Do not use `run_YYYYMMDD_NNN`, because that format requires reading historical run directories and incrementing a counter.
-2. Confirm with the user and start.
+2. Determine `max_total_tasks` from the user's request:
+   - If the user specified an iteration count (e.g., "200 iterations", "200 tasks", "max 200", "run 200 rounds"), extract that number.
+   - If the user did not specify, default to 50.
+   - Call `evolve_configure_run(run_id, max_total_tasks=<value>)` BEFORE any other `evolve_*` call for this run.
+3. Confirm with the user and start.
 
 ---
 
