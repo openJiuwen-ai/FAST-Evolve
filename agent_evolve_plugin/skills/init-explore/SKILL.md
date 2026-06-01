@@ -24,23 +24,76 @@ Then execute the following steps in EXACT ORDER:
 
 ---
 
-## Step 2: Generate Directions
+## Step 2: Analyze Problem Structure
 
-Generate exactly `num_directions` different directions. Each direction must be:
-- One line, 10-50 words in English
-- Clearly distinct from the other directions
-- Feasible and meaningful for the given task
+Before generating directions, analyze the problem to identify its key structural decision points — the places where a solver can meaningfully diverge into different approaches.
 
-The directions should explore different approaches such as:
-- Different architectural styles (functional, object-oriented, etc.)
-- Different algorithmic approaches
-- Using different standard libraries or minimal dependencies
-- Focusing on readability vs performance vs simplicity
-- Different data structures or design patterns
+Ask yourself:
+- What are the **core decisions** a solution must make? (e.g., one-shot vs iterative, exact vs heuristic, deterministic vs random)
+- What **information is available** to the solver? (e.g., feedback after each step, no feedback at all, partial observability)
+- What **constraints shape the solution space**? (e.g., fixed budget of attempts, single attempt only, time limit)
+- What **failure modes** are possible? (e.g., wrong on first try, converges slowly, overshoots)
+
+Write a brief problem analysis (3-5 lines) covering:
+1. Problem type (one-shot, iterative, optimization, construction, etc.)
+2. Available information and feedback
+3. Key decision axes where approaches can diverge
+
+This analysis is internal — do not save it to a file. It guides direction generation.
 
 ---
 
-## Step 3: Save Directions
+## Step 3: Generate Directions
+
+Generate exactly `num_directions` different directions. Each direction must be:
+- One line, 8-25 words in English (SHORT and PRECISE)
+- Clearly distinct from the other directions
+- Actionable, focusing on a specific approach
+- Feasible and meaningful for the given task
+
+Directions MUST be diverse enough so that following them produces significantly different solutions. Use the problem analysis from Step 2 to identify **problem-specific** axes of divergence — the decision points unique to this particular problem — rather than applying generic coding-style axes.
+
+Examples of problem-specific axes for different types of tasks:
+- **Sorting**: different algorithms (bubble, merge, heap, radix) — each uses fundamentally different logic
+- **Pathfinding**: different strategies (BFS, DFS, Dijkstra, A*) — each explores the graph differently
+- **String matching**: different approaches (brute force, KMP, Rabin-Karp, Boyer-Moore) — each has distinct pattern
+
+Generic coding-style axes (architecture, dependencies, readability, etc.) are SECONDARY — use them only after exhausting problem-specific axes, and always in combination with a problem-specific angle.
+
+EXAMPLES of good precise directions:
+- "Pure functional approach with no classes, just functions"
+- "Object-oriented design with clear class hierarchy"
+- "Minimal dependencies, only basic Python built-ins"
+- "Use Python standard library modules like itertools, collections"
+
+EXAMPLES of BAD directions (avoid):
+- "Good implementation" (too vague)
+- "Write some code" (not actionable)
+- "Better solution" (no specific direction)
+
+---
+
+## Step 4: Cross-Check Diversity
+
+Compare all generated directions pairwise. For each pair, ask:
+
+**Would following direction A and direction B produce solutions that are essentially the same?**
+
+If two directions would converge to the same solution or use the same core strategy:
+- Replace the weaker/less diverse direction with a new one that explores a genuinely different axis
+- Re-check the new direction against all others
+- Repeat until every pair is clearly distinct
+
+Specific red flags to catch:
+- Two directions that rely on the same mathematical insight (e.g., both use halving/midpoint logic)
+- Two directions that differ only in surface details but share the same core algorithm
+- Two directions that are both "generic good coding" without a specific strategy angle
+
+This is a text-level comparison only — never execute or simulate tasks during this step.
+
+---
+
+## Step 5: Save Directions
 
 For each task, create the directory and save the direction file:
 
@@ -51,17 +104,19 @@ For each task, create the directory and save the direction file:
 
 Example:
 ```
-runs/<run_id>/tasks/task_001/direction.txt: Simple implementation using pure mathematical calculations
-runs/<run_id>/tasks/task_002/direction.txt: Object-oriented design with class structure
-runs/<run_id>/tasks/task_003/direction.txt: Implementation leveraging Python standard libraries
-runs/<run_id>/tasks/task_004/direction.txt: Code focused on readability and maintainability
+runs/<run_id>/tasks/task_001/direction.txt: Greedy approach making locally optimal choices
+runs/<run_id>/tasks/task_002/direction.txt: Dynamic programming with memoization
+runs/<run_id>/tasks/task_003/direction.txt: Brute-force try all possibilities
+runs/<run_id>/tasks/task_004/direction.txt: Mathematical formula-based direct calculation
 ```
 
 ---
 
 ## CRITICAL RULES
 
-1. **Direction Minimalism**: Each direction.txt must contain exactly one line, 10-50 words.
+1. **Direction Minimalism**: Each direction.txt must contain exactly one line, 8-25 words.
 2. **English Only**: Directions must be written in English.
 3. **Minimal File I/O**: Only create the necessary directories and direction.txt files.
 4. **No Verifier Reading**: Do NOT read verifier scripts.
+5. **Problem-First Diversity**: Derive diversity axes from the problem's structure, not from generic coding style categories.
+6. **Pairwise Distinct**: Every direction must produce a fundamentally different solution; overlap in core strategy is unacceptable.
