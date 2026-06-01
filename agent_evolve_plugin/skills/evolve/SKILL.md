@@ -28,7 +28,11 @@ description: Triggered when the user asks to evolve, optimize, search, or iterat
 1. 生成 `run_id`：`run_YYYYMMDDHHMMSS`。
    - 使用当前本地启动时间，精确到秒。使用 Bash 工具执行 `date +%Y%m%d%H%M%S` 获取时间字符串。
    - 不要使用 `run_YYYYMMDD_NNN` 这种需要读取历史目录并累计编号的格式。
-2. 和用户确认后开始运行。
+2. 确定最大迭代轮数 `max_total_tasks`：
+   - 如果用户在输入中指定了迭代数（如"200轮"、"200次"、"max 200"、"跑200个"等），提取该数字。
+   - 如果用户未指定，默认为 50。
+   - 在任何其他 `evolve_*` 调用之前，调用 `evolve_configure_run(run_id, max_total_tasks=<value>)`。
+3. 和用户确认后开始运行。
 
 ---
 
@@ -93,6 +97,8 @@ finalize_result = evolve_finalize_run(run_id)
 3. 所有已启动 task 都完成后，必须调用一次 `evolve_finalize_run(run_id)`。
 4. `evolve_finalize_run` 返回的是报告 ref，不要把完整报告内容粘贴到上下文里。
 5. 运行过程中，每当 task 完成、补位 task 启动、或等待剩余 running tasks 时，在终端维护一个简洁的 `Progress Update`。使用适合终端阅读的 Unicode 框线表格，并保留状态 emoji。表格必须包含 `Task`、`Status`、`Fitness`、`Artifact` 四列，不要使用 `Note` 列。`Artifact` 必须填写确定性的 artifact 路径：如果某个 task 的任意 attempt 已经通过 `evolve_record_attempt` 进入 SuccessDB，则该 task 必须显示为 `✅ Completed`，并使用成功入库那次 attempt 的 fitness 和 `artifact_ref`，例如 `runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/solution.py`；不要用同一 task 的早期失败 attempt 覆盖最终成功状态。正在运行 task 使用 `🔄 Running`，`Fitness` 和 `Artifact` 填 `—`；只有当 task 已经结束且没有任何 attempt 进入 SuccessDB 时，才使用 `⚠️ Issue` 或 `⚠️ Failed`，并尽量显示失败 attempt 的 artifact 路径。表格后用一行写当前 best fitness 和当前 running task 数量。
+6. `stop_requested == false` 时，不得让释放的槽位空闲——每个完成的 task 必须在 convergence check 后立即补位一个新 task。
+7. 成功和失败都算 task 完成。失败的 task 仍然释放槽位并应被补位，除非 `should_stop == true`。
 
 ---
 
@@ -151,7 +157,11 @@ The orchestrator only handles queue scheduling and MCP calls. It must not read p
 1. Generate `run_id`: `run_YYYYMMDDHHMMSS`.
    - Use the current local start time with second-level precision.
    - Do not use `run_YYYYMMDD_NNN`, because that format requires reading historical run directories and incrementing a counter.
-2. Confirm with the user and start.
+2. Determine `max_total_tasks` from the user's request:
+   - If the user specified an iteration count (e.g., "200 iterations", "200 tasks", "max 200", "run 200 rounds"), extract that number.
+   - If the user did not specify, default to 50.
+   - Call `evolve_configure_run(run_id, max_total_tasks=<value>)` BEFORE any other `evolve_*` call for this run.
+3. Confirm with the user and start.
 
 ---
 
@@ -216,6 +226,8 @@ Critical constraints:
 3. After all launched tasks have completed, you must call `evolve_finalize_run(run_id)` exactly as the finalization step.
 4. `evolve_finalize_run` returns report refs. Do not paste the full report into the conversation context.
 5. During the run, maintain a concise terminal `Progress Update` whenever a task completes, a replacement task is launched, or the workflow is waiting for remaining running tasks. Use a Unicode box-drawing table optimized for terminal readability, and keep status emoji. The table must include exactly these semantic columns: `Task`, `Status`, `Fitness`, and `Artifact`; do not use a `Note` column. `Artifact` must contain the deterministic artifact path. The table is task-level, not attempt-level: if any attempt for a task has been accepted into SuccessDB through `evolve_record_attempt`, that task must be shown as `✅ Completed` using the successful recorded attempt's fitness and `artifact_ref`, for example `runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/solution.py`; do not let an earlier failed attempt for the same task override the final successful task status. Running tasks should use `🔄 Running` with `—` for both `Fitness` and `Artifact`. Use `⚠️ Issue` or `⚠️ Failed` only when the task has finished and no attempt for that task entered SuccessDB, and show the failed attempt artifact path when available. After the table, print one short line with the current best fitness and number of running tasks.
+6. Do not let a freed slot sit idle while `stop_requested == false`: for every single completed task, immediately launch exactly one replacement task after the convergence check.
+7. Success and failure both count as task completion. A failed task still frees its slot and should be replaced unless `should_stop == true`.
 
 ---
 
