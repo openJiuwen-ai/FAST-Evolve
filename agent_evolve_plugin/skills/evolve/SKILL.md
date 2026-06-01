@@ -32,6 +32,16 @@ description: Triggered when the user asks to evolve, optimize, search, or iterat
 
 ---
 
+## 步骤 1.5：生成初始探索方向
+
+调用 init-explorer agent，传入：
+- run_id
+- task_description
+- num_directions = 4（与 MAX_CONCURRENT_TASKS 一致）
+等待 init-explorer 完成。
+
+---
+
 ## 步骤 2：Task 队列调度
 
 维护 task 队列，最多同时运行 **4 个 task**。每个 task 完成后立刻调用 `evolve_check_convergence(run_id)`。达到任务上限、时间上限、或收敛早停，都由 MCP 判断并通过 `should_stop` 返回。
@@ -46,7 +56,7 @@ stop_requested = false
 FOR i = 1..MAX_CONCURRENT_TASKS:
   task_counter += 1
   task_id = f"task_{task_counter:03d}"
-  派发 {run_id, task_id, task_description} 给 task-executor agent
+  派发 {run_id, task_id, task_description, max_attempts = 10} 给 task-executor agent
   running_tasks.append(task_id)
 
 // 事件循环
@@ -65,7 +75,7 @@ WHILE running_tasks is not empty:
   IF NOT stop_requested:
     task_counter += 1
     task_id = f"task_{task_counter:03d}"
-    派发 {run_id, task_id, task_description} 给 task-executor agent
+    派发 {run_id, task_id, task_description, max_attempts = 3} 给 task-executor agent
     running_tasks.append(task_id)
 
 END WHILE
@@ -145,6 +155,16 @@ The orchestrator only handles queue scheduling and MCP calls. It must not read p
 
 ---
 
+## Step 1.5: Generate Initial Exploration Directions
+
+Invoke the init-explorer agent, passing:
+- run_id
+- task_description
+- num_directions = 4 (matches MAX_CONCURRENT_TASKS)
+Wait for init-explorer to complete.
+
+---
+
 ## Step 2: Task Queue Scheduling
 
 Maintain the task queue with at most **4 concurrent tasks**. After each task completes, immediately call `evolve_check_convergence(run_id)`. Task-limit stops, time-budget stops, and convergence early stops are all decided by MCP and returned through `should_stop`.
@@ -159,7 +179,7 @@ stop_requested = false
 FOR i = 1..MAX_CONCURRENT_TASKS:
   task_counter += 1
   task_id = f"task_{task_counter:03d}"
-  Dispatch {run_id, task_id, task_description} to task-executor agent
+  Dispatch {run_id, task_id, task_description, max_attempts = 10} to task-executor agent
   running_tasks.append(task_id)
 
 // Event loop
@@ -178,7 +198,7 @@ WHILE running_tasks is not empty:
   IF NOT stop_requested:
     task_counter += 1
     task_id = f"task_{task_counter:03d}"
-    Dispatch {run_id, task_id, task_description} to task-executor agent
+    Dispatch {run_id, task_id, task_description, max_attempts = 3} to task-executor agent
     running_tasks.append(task_id)
 
 END WHILE
