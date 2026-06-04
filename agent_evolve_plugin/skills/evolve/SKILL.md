@@ -139,7 +139,7 @@ While parsing, skip unparseable lines.
 
 ### Progress Update Table
 
-During the run, maintain a concise terminal `Progress Update` whenever a task completes, a replacement task is launched, or the workflow is waiting for remaining running tasks. Use a Unicode box-drawing table optimized for terminal readability, and keep status emoji. The table must include exactly these semantic columns: `Task`, `Status`, `Fitness`, and `Artifact`; do not use a `Note` column. **All values for completed tasks are extracted from completed_tasks.jsonl during the event loop. Running tasks show `—` for Fitness and Artifact.** Status mapping: `success` → `✅ Completed`, `failure` → `⚠️ Failed`, running task → `🔄 Running`. After the table, print one short line with the current best fitness and number of running tasks.
+During the run, maintain a concise terminal `Progress Update` whenever a task completes, a replacement task is launched, or the workflow is waiting for remaining running tasks. Use a Unicode box-drawing table and keep status emoji. The table must include exactly these semantic columns: `Task`, `Status`, `Fitness`, and `Artifact`; do not use a `Note` column. **All values for completed tasks are extracted from completed_tasks.jsonl during the event loop. Running tasks show `—` for Fitness and Artifact.** Status mapping: `success` → `✅ Completed`, `failure` → `⚠️ Failed`, running task → `🔄 Running`. **Display fidelity rules: fitness values must be shown exactly as they appear in completed_tasks.jsonl — never round, truncate, or reformat them; artifact_ref paths must be shown in full — never abbreviate, shorten, or truncate them.** After the table, print one short line with the current best fitness and number of running tasks.
 
 ### Critical Constraints
 

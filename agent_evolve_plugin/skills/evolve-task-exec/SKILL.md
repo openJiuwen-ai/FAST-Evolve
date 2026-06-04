@@ -203,16 +203,16 @@ record call for this task.
 Persist the task completion data to disk. Use the Bash tool to append one JSONL line to the run's completed tasks file:
 
 ```bash
-printf '{"task_id":"%s","fitness":%.4f,"status":"%s","artifact_ref":"%s"}\n' \
+printf '{"task_id":"%s","fitness":%s,"status":"%s","artifact_ref":"%s"}\n' \
   "<task_id>" "<fitness_value>" "<status>" "<artifact_ref>" >> "runs/<run_id>/completed_tasks.jsonl"
 ```
 
-Determine the values:
+Determine the values — **copy verbatim, no rounding, no path modification**:
 
 - `task_id`: the actual task_id for this task
-- `fitness_value`: if success, the numeric fitness from the successful attempt's eval_result.json; if fail, use `-`
+- `fitness_value`: if success, the **exact** numeric fitness string from the successful attempt's eval_result.json (do not round, do not truncate decimal places); if fail, use `-`
 - `status`: `success` if `attempt_succeeded == true`, otherwise `failure`
-- `artifact_ref`: if success, the `artifact_ref` from the successful attempt (e.g. `runs/<run_id>/tasks/<task_id>/attempts/attempt_001/solution.py`); if fail, the attempts directory path (e.g. `runs/<run_id>/tasks/<task_id>/attempts/`)
+- `artifact_ref`: the **exact** `artifact_ref` as-is — if success, the full artifact path from the successful attempt (e.g. `runs/<run_id>/tasks/<task_id>/attempts/attempt_001/solution.py`); if fail, the attempts directory path (e.g. `runs/<run_id>/tasks/<task_id>/attempts/`). Never abbreviate, never shorten, never modify the path in any way.
 
 After appending, proceed directly to Step 6.
 
