@@ -46,6 +46,15 @@ This switch does not disable hard budgets. `max_total_tasks` and
 `max_time_seconds` can still make `evolve_check_convergence` return
 `{"should_stop": true}`.
 
+By default, the best-fitness improvement threshold is `0.0`: any positive
+running-best improvement is progress, and equal running-best fitness is not
+counted as an S1 plateau. For noisy verifier domains such as operator profiling,
+set a relative fuzzy boundary before starting the MCP process:
+
+```text
+AGENT_EVOLVE_PERF_IMPROVEMENT_THRESHOLD=0.01
+```
+
 The MCP owns `success_db.json`, `attempts.jsonl`, `task_contexts.json`, and `run_state.json`. Artifact files, verifier logs, and run workspaces are owned by the caller/plugin and are referenced by path-like refs.
 
 Run summaries are generated as experiment artifacts under:

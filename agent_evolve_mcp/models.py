@@ -81,7 +81,7 @@ class ConvergenceConfig:
 
     enabled: bool = True
     convergence_window: int = 5
-    perf_improvement_threshold: float = 0.01
+    perf_improvement_threshold: float = 0.0
     diversity_change_threshold: float = 0.05
     activity_threshold: float = 0.9
     patience: int = 6

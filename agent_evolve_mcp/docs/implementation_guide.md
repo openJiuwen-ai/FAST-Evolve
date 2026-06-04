@@ -530,7 +530,7 @@ inspiration:
 convergence:
   enabled: true
   convergence_window: 5
-  perf_improvement_threshold: 0.01
+  perf_improvement_threshold: 0.0
   diversity_change_threshold: 0.05
   activity_threshold: 0.9
   patience: 6
@@ -991,10 +991,10 @@ improvement < perf_improvement_threshold
 默认：
 
 ```text
-perf_improvement_threshold = 0.02
+perf_improvement_threshold = 0.0
 ```
 
-即窗口内小于 2% 改善算停滞。
+即默认不启用模糊边界：任意正的 best fitness 改善都算进展，等值 running best 不累计 S1 plateau。对算子性能这类 verifier 有波动的任务，可以显式设置为 `0.01`，表示窗口内小于 1% 改善算停滞。
 
 #### S2：多样性趋势
 
@@ -1758,7 +1758,7 @@ inspiration:
 convergence:
   enabled: true
   convergence_window: 5
-  perf_improvement_threshold: 0.01
+  perf_improvement_threshold: 0.0
   diversity_change_threshold: 0.05
   activity_threshold: 0.9
   patience: 6
@@ -1941,10 +1941,10 @@ Boltzmann 采样后期温度。
 默认：
 
 ```text
-0.02
+0.0
 ```
 
-窗口内 best fitness 改善低于 2%，认为 plateau。
+默认不启用模糊边界：任意正的 best fitness 改善都算进展，等值 running best 不累计 S1 plateau。对算子性能这类 verifier 有波动的任务，可以显式设置为 `0.01`，表示窗口内小于 1% 改善算停滞。
 
 #### `diversity_change_threshold`
 

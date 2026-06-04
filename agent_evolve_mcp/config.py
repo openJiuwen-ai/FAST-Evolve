@@ -71,8 +71,9 @@ def load_evolution_controller_config(
             convergence_window=int(
                 conv.get("convergence_window", convergence_defaults.convergence_window)
             ),
-            perf_improvement_threshold=float(
-                conv.get("perf_improvement_threshold", convergence_defaults.perf_improvement_threshold)
+            perf_improvement_threshold=_float_from_env_or_config(
+                "AGENT_EVOLVE_PERF_IMPROVEMENT_THRESHOLD",
+                conv.get("perf_improvement_threshold", convergence_defaults.perf_improvement_threshold),
             ),
             diversity_change_threshold=float(
                 conv.get("diversity_change_threshold", convergence_defaults.diversity_change_threshold)
@@ -112,3 +113,14 @@ def _bool_from_env_or_config(env_name: str, config_value: Any) -> bool:
     if normalized in {"0", "false", "no", "off", "disabled"}:
         return False
     return bool(config_value)
+
+
+def _float_from_env_or_config(env_name: str, config_value: Any) -> float:
+    """Parse a float from an environment override or config value."""
+    value = os.getenv(env_name)
+    if value is None:
+        value = config_value
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return float(config_value)

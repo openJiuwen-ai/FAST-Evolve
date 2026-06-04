@@ -34,6 +34,18 @@ When this switch is false, `evolve_check_convergence` skips plateau-based
 convergence stops. Hard budgets still apply: `max_total_tasks` and
 `max_time_seconds` can still return `should_stop=true`.
 
+By default, convergence checking treats any positive best-fitness improvement
+as progress. Equal running-best fitness is not counted as an S1 plateau. For
+noisy verifier domains such as operator profiling, restart Claude Code/MCP with
+a relative fuzzy boundary:
+
+```powershell
+$env:AGENT_EVOLVE_PERF_IMPROVEMENT_THRESHOLD = "0.01"
+```
+
+With this setting, best-fitness improvement below 1% over the convergence
+window is treated as plateau.
+
 ## Run Circle Packing E2E
 
 Start Claude Code with both plugins:
