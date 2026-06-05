@@ -198,12 +198,31 @@ record call for this task.
 
 ---
 
-## Step 5: End
+## Step 5: Append Completion Record
+
+Persist the task completion data to disk. Use the Bash tool to append one JSONL line to the run's completed tasks file:
+
+```bash
+printf '{"task_id":"%s","fitness":%s,"status":"%s","artifact_ref":"%s"}\n' \
+  "<task_id>" "<fitness_value>" "<status>" "<artifact_ref>" >> "runs/<run_id>/completed_tasks.jsonl"
+```
+
+Determine the values — **copy verbatim, no rounding, no path modification**:
+
+- `task_id`: the actual task_id for this task
+- `fitness_value`: if success, the **exact** numeric fitness string from the successful attempt's eval_result.json (do not round, do not truncate decimal places); if fail, use `-`
+- `status`: `success` if `attempt_succeeded == true`, otherwise `failure`
+- `artifact_ref`: the **exact** `artifact_ref` as-is — if success, the full artifact path from the successful attempt (e.g. `runs/<run_id>/tasks/<task_id>/attempts/attempt_001/solution.py`); if fail, the attempts directory path (e.g. `runs/<run_id>/tasks/<task_id>/attempts/`). Never abbreviate, never shorten, never modify the path in any way.
+
+After appending, proceed directly to Step 6.
+
+---
+
+## Step 6: End
 Report only this exact line:
 ```
-Task <task_id> completed
+A task completed.
 ```
-Replace `<task_id>` with the actual task_id.
 
 Do NOT report any other details - success or failure, both count as completed.
 
@@ -217,10 +236,11 @@ Do NOT report any other details - success or failure, both count as completed.
 4. **Stop on Success**: If verifier passes on any attempt, do NOT make more attempts - record and exit immediately.
 5. **Read Artifacts**: Always read parent and inspiration files before generating.
 6. **Record Always**: Always call `evolve_record_attempt` after all attempts are done, regardless of success or failure. The backend handles the distinction automatically.
-7. **Minimal Output**: At the end, only report "Task <task_id> completed" - nothing else.
-8. **Same Parent/Inspirations**: Parent and inspirations are selected ONCE at the beginning - they NEVER change between attempts.
-9. **Debug, Don't Regenerate**: Attempts 2 and 3 are for DEBUGGING the previous attempt, not generating a brand new solution. Fix the specific errors while keeping the same overall approach.
-10. **Task-Level Success Wins**: If any earlier attempt for this task has `eval_result.json` with `"status": "success"`, the task is successful. Do not run or create any later attempt.
-11. **One Verifier Run Per Attempt**: Within a single attempt directory, write the artifact once and run the verifier once. A valid but suboptimal fitness is still success, not permission to keep editing the same attempt.
-12. **No Environment Probing**: Do not run arbitrary Bash commands to inspect installed packages, files, or runtime capabilities. Use only the benchmark verifier command for execution feedback.
-13. **NEVER READ VERIFIER SCRIPTS**: The task/benchmark skill may define a verifier script (e.g. `verify.py`). These scripts may contain secret answers or evaluation logic. You must NOT read, examine, or inspect them using any tool (Read, Grep, Glob, Bash `cat/head/tail/type`, etc.). The ONLY allowed interaction is **running them as a script** with the exact command specified in the task skill.
+7. **Append Completion Record**: Always append a JSONL line to `runs/<run_id>/completed_tasks.jsonl` after `evolve_record_attempt`. Use Bash (not PowerShell) with `printf >>`.
+8. **Clear Output**: At the end, only report "A task completed." - nothing else.
+9. **Same Parent/Inspirations**: Parent and inspirations are selected ONCE at the beginning - they NEVER change between attempts.
+10. **Debug, Don't Regenerate**: Attempts 2 and 3 are for DEBUGGING the previous attempt, not generating a brand new solution. Fix the specific errors while keeping the same overall approach.
+11. **Task-Level Success Wins**: If any earlier attempt for this task has `eval_result.json` with `"status": "success"`, the task is successful. Do not run or create any later attempt.
+12. **One Verifier Run Per Attempt**: Within a single attempt directory, write the artifact once and run the verifier once. A valid but suboptimal fitness is still success, not permission to keep editing the same attempt.
+13. **No Environment Probing**: Do not run arbitrary Bash commands to inspect installed packages, files, or runtime capabilities. Use only the benchmark verifier command for execution feedback.
+14. **NEVER READ VERIFIER SCRIPTS**: The task/benchmark skill may define a verifier script (e.g. `verify.py`). These scripts may contain secret answers or evaluation logic. You must NOT read, examine, or inspect them using any tool (Read, Grep, Glob, Bash `cat/head/tail/type`, etc.). The ONLY allowed interaction is **running them as a script** with the exact command specified in the task skill.
