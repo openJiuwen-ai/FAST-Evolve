@@ -9,8 +9,9 @@ First, confirm these critical identifiers from the context:
 - task_id: Unique identifier for this task
 - run_id: Unique identifier for the evolution run
 - task_description: What the task should accomplish
+- max_attempts: (Optional) Maximum number of attempts, defaults to 3 if not provided
 
-CRITICAL: If any of these are missing, ask immediately before proceeding.
+CRITICAL: If task_id, run_id, or task_description are missing, ask immediately before proceeding.
 
 Then execute the following steps in EXACT ORDER:
 
@@ -47,16 +48,30 @@ references.
 
 ---
 
-## Step 3: Attempt Loop (Up To 3 Attempts)
+## Step 2.5: Read Direction (If Exists)
+
+Check for file: `runs/<run_id>/tasks/<task_id>/direction.txt`
+
+If the file exists:
+- Read the content as `direction_hint`
+- Reference this direction when generating the solution in Step 3.2
+
+---
+
+## Step 3: Attempt Loop (Up To MAX_ATTEMPTS Attempts)
+
+Determine MAX_ATTEMPTS from context:
+- If `max_attempts` is provided, use that value
+- Otherwise, default to 3
 
 Initialize `attempt_index = 1`.
 Initialize `attempt_succeeded = false`.
 Initialize `final_verification_result_ref = null`.
 
-This is a retry loop, not a fixed three-attempt workflow. Start with
+This is a retry loop, not a fixed MAX_ATTEMPTS-attempt workflow. Start with
 `attempt_001`. Run `attempt_002` only if `attempt_001` fails. Run
-`attempt_003` only if `attempt_002` also fails. If any attempt succeeds, stop
-immediately and do not create or run later attempts.
+`attempt_003` only if `attempt_002` also fails. Continue up to `attempt_<MAX_ATTEMPTS>`.
+If any attempt succeeds, stop immediately and do not create or run later attempts.
 
 The remaining attempt budget is only for debugging failures. It is never an
 optimization budget. Do not run a later attempt to improve a solution after a
@@ -70,17 +85,21 @@ verifier to chase a better fitness score.
 For the current attempt, derive the attempt id exactly as:
 
 ```text
-attempt_index = 1 -> attempt_id = attempt_001
-attempt_index = 2 -> attempt_id = attempt_002
-attempt_index = 3 -> attempt_id = attempt_003
+attempt_id = f"attempt_{attempt_index:03d}"
 ```
+
+Example:
+- attempt_index = 1 -> attempt_id = attempt_001
+- attempt_index = 2 -> attempt_id = attempt_002
+- attempt_index = 3 -> attempt_id = attempt_003
+- attempt_index = 10 -> attempt_id = attempt_010
 
 Use `attempt_id`, not `attempt_index`, in every filesystem path.
 
 Continue this loop only while the current attempt failed and
-`attempt_index < 3`.
+`attempt_index < MAX_ATTEMPTS`.
 
-Before starting `attempt_002` or `attempt_003`, read the previous attempt's
+Before starting any attempt after the first (attempt_002, attempt_003, ...), read the previous attempt's
 `eval_result.json` if it exists. If the previous result has
 `"status": "success"`, set:
 - `attempt_succeeded = true`
@@ -110,6 +129,7 @@ Based on:
 - Parent (if exists) - PRIMARY REFERENCE, build upon it
 - Inspirations (if any) - SECONDARY REFERENCE, borrow ideas from them
 - Task description
+- Direction hint (if exists) - Consider this exploration direction
 
 Generate a complete solution to the task. Use available skills as needed to complete the work.
 Do not run local search by repeatedly editing and verifying `attempt_001`.
@@ -117,12 +137,13 @@ Internal optimization code inside the artifact is allowed, but the agent
 workflow itself must produce one candidate artifact for this attempt and then
 verify it once.
 
-**For attempts 2 and 3 (debug mode)**:
+**For attempts 2 and beyond (debug mode)**:
 DO NOT generate a completely new solution. Instead:
 - Reuse the SAME parent and inspirations (they do NOT change between attempts)
 - Take the previous attempt's output from the previous attempt directory:
   - `attempt_001` when the current attempt is `attempt_002`
   - `attempt_002` when the current attempt is `attempt_003`
+  - `attempt_<n-1>` when the current attempt is `attempt_<n>`
 - Analyze the verifier error output from the previous attempt
 - Debug and fix the specific issues - make minimal, targeted changes to fix the errors
 - Use the same overall approach, just correct the bugs
@@ -166,15 +187,13 @@ attempt workflow.
   - Set `attempt_succeeded = true`
   - Set `final_verification_result_ref` to the verification result JSON path
   - Stop the attempt loop immediately and proceed to Step 4
-  - Do not create `attempt_002` or `attempt_003` after a successful
-    `attempt_001`
-  - Do not create `attempt_003` after a successful `attempt_002`
+  - Do not create later attempts after a successful attempt
   - Do not edit the artifact or rerun the verifier to improve the score after
     this success
 - If verifier returns non-zero exit code: FAILURE
   - Capture ALL error output from stdout/stderr - you will need this for debugging the next attempt
-  - If attempt_index < 3: increment attempt_index and continue to next attempt
-  - If attempt_index == 3: proceed to Step 4 (to record the failed attempt)
+  - If attempt_index < MAX_ATTEMPTS: increment attempt_index and continue to next attempt
+  - If attempt_index == MAX_ATTEMPTS: proceed to Step 4 (to record the failed attempt)
 
 ---
 
@@ -231,7 +250,7 @@ Do NOT report any other details - success or failure, both count as completed.
 ## CRITICAL RULES (NEVER BREAK THESE)
 
 1. **Order Matters**: Steps must execute in the exact order listed.
-2. **Count Carefully**: At most 3 attempts. Start with `attempt_001`; only run `attempt_002` after `attempt_001` fails, and only run `attempt_003` after `attempt_002` fails.
+2. **Count Carefully**: At most MAX_ATTEMPTS attempts. Start with `attempt_001`; only run `attempt_002` after `attempt_001` fails, and continue up to `attempt_<MAX_ATTEMPTS>`.
 3. **Remember IDs**: Always use the correct task_id, run_id, attempt_id in paths and tool calls.
 4. **Stop on Success**: If verifier passes on any attempt, do NOT make more attempts - record and exit immediately.
 5. **Read Artifacts**: Always read parent and inspiration files before generating.
@@ -239,7 +258,7 @@ Do NOT report any other details - success or failure, both count as completed.
 7. **Append Completion Record**: Always append a JSONL line to `runs/<run_id>/completed_tasks.jsonl` after `evolve_record_attempt`. Use Bash (not PowerShell) with `printf >>`.
 8. **Clear Output**: At the end, only report "A task completed." - nothing else.
 9. **Same Parent/Inspirations**: Parent and inspirations are selected ONCE at the beginning - they NEVER change between attempts.
-10. **Debug, Don't Regenerate**: Attempts 2 and 3 are for DEBUGGING the previous attempt, not generating a brand new solution. Fix the specific errors while keeping the same overall approach.
+10. **Debug, Don't Regenerate**: Attempts 2 and beyond are for DEBUGGING the previous attempt, not generating a brand new solution. Fix the specific errors while keeping the same overall approach.
 11. **Task-Level Success Wins**: If any earlier attempt for this task has `eval_result.json` with `"status": "success"`, the task is successful. Do not run or create any later attempt.
 12. **One Verifier Run Per Attempt**: Within a single attempt directory, write the artifact once and run the verifier once. A valid but suboptimal fitness is still success, not permission to keep editing the same attempt.
 13. **No Environment Probing**: Do not run arbitrary Bash commands to inspect installed packages, files, or runtime capabilities. Use only the benchmark verifier command for execution feedback.

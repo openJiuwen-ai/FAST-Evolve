@@ -9,9 +9,11 @@ You are now running the **self-evolution master skill**, the orchestrator. Your 
 
 ## Orchestrator Boundary Constraint
 
-The orchestrator only handles queue scheduling and MCP calls. It must not read project files, invoke other skills, or get involved in task content. When dispatching to task-executor, pass only `run_id`, `task_id`, and `task_description` (the user's original input verbatim). Never attach SKILL.md content, benchmark descriptions, verification rules, or code snippets. All domain logic is executed by task-executor agents in their own isolated context.
+The orchestrator only handles queue scheduling and MCP calls. It must not read project files, invoke other skills, or get involved in task content. When dispatching to task-executor, pass exactly four parameters: `run_id`, `task_id`, `task_description` (the user's original input verbatim), and `max_attempts`. Never attach SKILL.md content, benchmark descriptions, verification rules, or code snippets. All domain logic is executed by task-executor agents in their own isolated context.
 
 **`task_description` fidelity constraint**: `task_description` must be identical to the user's original input submitted to the skill, character by character. Any form of rewriting, expansion, supplementation, interpretation, translation, or inference is prohibited — even if you believe your version is clearer, more complete, or easier for task-executor to understand. The task-executor agent is responsible for locating and reading all context (problem SKILL.md, evaluator, existing solutions, etc.) on its own; the orchestrator neither possesses nor should assume an accurate understanding of that context.
+
+**`max_attempts` dispatch constraint**: `max_attempts` MUST be explicitly included in every dispatch. It is **never** omitted or left to default. Initial-fill tasks use `max_attempts = 10`; replenishment tasks use `max_attempts = 3`. This distinction is essential: initial tasks explore from scratch and need more attempts, while replenishment tasks build on parent/inspiration context and need fewer.
 
 ## Architecture Roles
 
@@ -52,6 +54,16 @@ The orchestrator only handles queue scheduling and MCP calls. It must not read p
 
 ---
 
+## Step 1.5: Generate Initial Exploration Directions
+
+Invoke the init-explorer agent, passing:
+- run_id
+- task_description
+- num_directions = 4 (matches MAX_CONCURRENT_TASKS)
+Wait for init-explorer to complete.
+
+---
+
 ## Step 2: Task Queue Scheduling
 
 Maintain the task queue with at most **4 concurrent tasks**. Task completion data is persisted in `completed_tasks.jsonl`, and notifications merely prompt the orchestrator to read the file.
@@ -76,7 +88,7 @@ stop_requested = false
 FOR i = 1..MAX_CONCURRENT_TASKS:
   task_counter += 1
   task_id = f"task_{task_counter:03d}"
-  Dispatch {run_id, task_id, task_description} to task-executor agent
+  Dispatch {run_id, task_id, task_description, max_attempts = 10} to task-executor agent
   running_tasks.append(task_id)
   Update running_tasks in scheduler_state.json
 
@@ -108,7 +120,7 @@ WHILE running_tasks is not empty:
   FOR each newly completed task (when stop_requested == false):
     task_counter += 1
     task_id = f"task_{task_counter:03d}"
-    Dispatch {run_id, task_id, task_description} to task-executor agent
+    Dispatch {run_id, task_id, task_description, max_attempts = 3} to task-executor agent
     running_tasks.append(task_id)
     Update scheduler_state.json
 
@@ -150,6 +162,7 @@ During the run, maintain a concise terminal `Progress Update` whenever a task co
 5. Do not let a freed slot sit idle while `stop_requested == false`: for every single completed task, immediately launch exactly one replacement task after the convergence check.
 6. Success and failure both count as task completion. A failed task still frees its slot and should be replaced unless `should_stop == true`.
 7. scheduler_state.json is written only by the orchestrator. Every modification must be immediately persisted to disk via Write.
+8. Every dispatch to task-executor MUST include `max_attempts`. Initial-fill tasks: `max_attempts = 10`. Replenishment tasks: `max_attempts = 3`. Never omit this parameter.
 
 ---
 
