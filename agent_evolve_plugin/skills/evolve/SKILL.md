@@ -9,11 +9,43 @@ You are now running the **self-evolution master skill**, the orchestrator. Your 
 
 ## Orchestrator Boundary Constraint
 
-The orchestrator only handles queue scheduling and MCP calls. It must not read project files, invoke other skills, or get involved in task content. When dispatching to task-executor, pass exactly four parameters: `run_id`, `task_id`, `task_description` (the user's original input verbatim), and `max_attempts`. Never attach SKILL.md content, benchmark descriptions, verification rules, or code snippets. All domain logic is executed by task-executor agents in their own isolated context.
+The orchestrator only handles queue scheduling and MCP calls. It must not read project files, invoke other skills, or get involved in task content. All domain logic is executed by subagent agents in their own isolated context — they are self-contained and know how to find and read all necessary context themselves.
 
-**`task_description` fidelity constraint**: `task_description` must be identical to the user's original input submitted to the skill, character by character. Any form of rewriting, expansion, supplementation, interpretation, translation, or inference is prohibited — even if you believe your version is clearer, more complete, or easier for task-executor to understand. The task-executor agent is responsible for locating and reading all context (problem SKILL.md, evaluator, existing solutions, etc.) on its own; the orchestrator neither possesses nor should assume an accurate understanding of that context.
+### Dispatch Template Constraint (ALL subagent dispatches)
 
-**`max_attempts` dispatch constraint**: `max_attempts` MUST be explicitly included in every dispatch. It is **never** omitted or left to default. Initial-fill tasks use `max_attempts = 10`; replenishment tasks use `max_attempts = 3`. This distinction is essential: initial tasks explore from scratch and need more attempts, while replenishment tasks build on parent/inspiration context and need fewer.
+The dispatch prompt MUST be produced by filling in the appropriate template below — **no other text is allowed**. Do not add, remove, or rearrange lines. Do not insert explanatory prose before, after, or between the parameter lines. Each `<placeholder>` is replaced with its actual value; everything else stays literal.
+
+**Template for init-explorer dispatch:**
+```
+run_id: <run_id>
+task_description: <task_description>
+num_directions: <num_directions>
+```
+
+**Template for task-executor dispatch:**
+```
+run_id: <run_id>
+task_id: <task_id>
+task_description: <task_description>
+max_attempts: <max_attempts>
+```
+
+These templates are **exclusive** — they define the exact and complete content of the dispatch prompt. Any deviation is a constraint violation, including but not limited to:
+
+- Adding workflow instructions ("first read X, then do Y")
+- Adding format specifications ("output as JSON with fields A, B, C")
+- Adding rationale or strategy guidance ("focus on diverse approaches")
+- Adding role descriptions ("You are the init-explorer agent...")
+- Adding any prose, commentary, or context that is not a parameter line
+- Reordering lines or changing the key names
+
+### `task_description` Fidelity Constraint
+
+`task_description` must be identical to the user's original input submitted to the skill, character by character. Any form of rewriting, expansion, supplementation, interpretation, translation, or inference is prohibited — even if you believe your version is clearer, more complete, or easier for the subagent to understand.
+
+### `max_attempts` Dispatch Constraint
+
+`max_attempts` MUST be explicitly included in every task-executor dispatch. It is **never** omitted or left to default. Initial-fill tasks use `max_attempts = 10`; replenishment tasks use `max_attempts = 3`. This distinction is essential: initial tasks explore from scratch and need more attempts, while replenishment tasks build on parent/inspiration context and need fewer.
 
 ## Architecture Roles
 
@@ -56,14 +88,12 @@ The orchestrator only handles queue scheduling and MCP calls. It must not read p
 
 ## Step 1.5: Generate Initial Exploration Directions
 
-Invoke the init-explorer agent, passing **only** these three parameters — no additional prompt text, no skill content excerpts, no rewritten instructions:
-- run_id
-- task_description
-- num_directions = 4 (matches MAX_CONCURRENT_TASKS)
+Invoke the `agent_evolve_plugin:init-explorer` agent using the **init-explorer dispatch template** (see Dispatch Template Constraint in Orchestrator Boundary Constraint section). Fill in:
+- `run_id`: the current run_id
+- `task_description`: the user's original input verbatim
+- `num_directions`: 4 (matches MAX_CONCURRENT_TASKS)
 
-The init-explorer agent will automatically execute its own skills. You must NOT override or supplement the subagent's workflow.
-
-Wait for init-explorer to complete before proceeding to Step 2.
+Wait for `agent_evolve_plugin:init-explorer` to complete before proceeding to Step 2.
 
 ---
 
@@ -93,7 +123,7 @@ stop_requested = false
 FOR i = 1..MAX_CONCURRENT_TASKS:
   task_counter += 1
   task_id = f"task_{task_counter:03d}"
-  Dispatch {run_id, task_id, task_description, max_attempts = 10} to task-executor agent
+  Dispatch to task-executor using the task-executor dispatch template (fill: run_id, task_id, task_description, max_attempts=10)
   running_tasks.append(task_id)
   Update running_tasks in scheduler_state.json
 
@@ -125,7 +155,7 @@ WHILE running_tasks is not empty:
   FOR each newly completed task (when stop_requested == false):
     task_counter += 1
     task_id = f"task_{task_counter:03d}"
-    Dispatch {run_id, task_id, task_description, max_attempts = 3} to task-executor agent
+    Dispatch to task-executor using the task-executor dispatch template (fill: run_id, task_id, task_description, max_attempts=3)
     running_tasks.append(task_id)
     Update scheduler_state.json
 
