@@ -33,7 +33,7 @@ The orchestrator only handles queue scheduling and MCP calls. It must not read p
    - If the user specified an iteration count (e.g., "200 iterations", "200 tasks", "max 200", "run 200 rounds"), extract that number.
    - If the user did not specify, default to 50.
    - Call `evolve_configure_run(run_id, max_total_tasks=<value>)` BEFORE any other `evolve_*` call for this run.
-3. Create the run workspace directory and persistent state files. Use Bash to execute:
+3. Create the run workspace directory and persistent state files. **All `runs/` paths are relative to the project root (cwd), not to the skill's base directory.** Use Bash to execute:
 
    ```bash
    mkdir -p "runs/<run_id>" && touch "runs/<run_id>/completed_tasks.jsonl"
@@ -72,6 +72,8 @@ Wait for init-explorer to complete before proceeding to Step 2.
 Maintain the task queue with at most **4 concurrent tasks**. Task completion data is persisted in `completed_tasks.jsonl`, and notifications merely prompt the orchestrator to read the file.
 
 ### Data Flow
+
+All `runs/` paths below are relative to the project root (cwd).
 
 ```
 runs/<run_id>/
