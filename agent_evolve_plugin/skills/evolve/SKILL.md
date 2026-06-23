@@ -56,11 +56,14 @@ The orchestrator only handles queue scheduling and MCP calls. It must not read p
 
 ## Step 1.5: Generate Initial Exploration Directions
 
-Invoke the init-explorer agent, passing:
+Invoke the init-explorer agent, passing **only** these three parameters — no additional prompt text, no skill content excerpts, no rewritten instructions:
 - run_id
 - task_description
 - num_directions = 4 (matches MAX_CONCURRENT_TASKS)
-Wait for init-explorer to complete.
+
+The init-explorer agent will automatically execute its own skills. You must NOT override or supplement the subagent's workflow.
+
+Wait for init-explorer to complete before proceeding to Step 2.
 
 ---
 
