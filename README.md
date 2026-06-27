@@ -57,7 +57,7 @@ claude --plugin-dir agent_evolve_plugin --plugin-dir benchmarks
 Then ask Claude Code:
 
 ```text
-Use the evolve skill to run the circle_packing benchmark end to end.
+/agent_evolve_plugin:evolve run the circle_packing benchmark end to end.
 ```
 
 The main skill should generate a timestamp run id such as:
