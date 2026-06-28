@@ -12,7 +12,9 @@
       "Bash(date *)",
       "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_select_parent",
       "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_select_inspirations",
+      "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_get_notes_prompt",
       "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_record_attempt",
+      "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_commit_generated_note",
       "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_check_convergence",
       "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_finalize_run"
     ]

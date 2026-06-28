@@ -16,7 +16,14 @@ from agent_evolve_mcp.config import load_evolution_controller_config
 from agent_evolve_mcp.convergence_detector import MultiDimensionalConvergenceDetector
 from agent_evolve_mcp.inspiration_selector import LineageBoltzmannInspirationSelector
 from agent_evolve_mcp.lineage_tree import LineageTree
-from agent_evolve_mcp.models import AttemptRecord, EvolutionControllerConfig, RunState, SearchState, SuccessRecord
+from agent_evolve_mcp.models import (
+    AttemptRecord,
+    EvolutionControllerConfig,
+    RunState,
+    SearchState,
+    SuccessRecord,
+)
+from agent_evolve_mcp.notes import NotesManager
 from agent_evolve_mcp.parent_selector import LineageAwareParentSelector
 from agent_evolve_mcp.state_store import RunStateStore, TaskContextStore
 from agent_evolve_mcp.success_db import AttemptLog, SuccessDB
@@ -40,6 +47,7 @@ class EvolutionController:
         self.config = config or load_evolution_controller_config()
         self.db = SuccessDB(run_id)
         self.attempt_log = AttemptLog(run_id)
+        self.notes = NotesManager(run_id)
         self.task_contexts = TaskContextStore(run_id)
         self.run_state_store = RunStateStore(run_id)
         self.lineage_tree = LineageTree()
@@ -89,7 +97,9 @@ class EvolutionController:
         self._load_state()
         context = self.task_contexts.get(task_id)
         if context is None or not context.parent_selected:
-            raise ValueError("Call evolve_select_parent before evolve_select_inspirations for this task.")
+            raise ValueError(
+                "Call evolve_select_parent before evolve_select_inspirations for this task."
+            )
 
         if context.inspirations_selected:
             return self._inspiration_refs(context.inspiration_ids)
@@ -119,46 +129,65 @@ class EvolutionController:
         self.task_contexts.put(context)
         return self._inspiration_refs(context.inspiration_ids)
 
-    def record_attempt(self, task_id: str, verification_result_ref: str) -> Dict[str, Any]:
-        """Record a final verifier result and optionally add it to SuccessDB.
+    def get_notes_prompt(self, task_id: str) -> Dict[str, Any]:
+        """Return the run-local Notes prompt after parent/inspirations are fixed."""
+        self._load_state()
+        context = self.task_contexts.get(task_id)
+        if context is None or not context.parent_selected:
+            raise ValueError("Call evolve_select_parent before evolve_get_notes_prompt.")
+        if not context.inspirations_selected:
+            raise ValueError("Call evolve_select_inspirations before evolve_get_notes_prompt.")
+        return self.notes.get_prompt(
+            task_id=task_id,
+            parent_id=context.parent_id,
+            inspiration_ids=context.inspiration_ids,
+        )
 
-        The verifier result is read from disk through ``verification_result_ref``.
-        Parent and inspiration ids are recovered from task context, keeping the
-        public MCP call small and less error-prone.
+    def record_attempt(
+        self,
+        task_id: str,
+        verification_result_ref: str,
+        attempt_id: Optional[str] = None,
+        artifact_ref: Optional[str] = None,
+        max_attempts: int = 3,
+    ) -> Dict[str, Any]:
+        """Record one verifier result and return any run-local note requests.
+
+        This is attempt-level, not task-level, because Notes needs failed
+        attempts as evidence. Repeated calls for the same task/attempt pair are
+        idempotent.
         """
         self._load_state()
         context = self.task_contexts.ensure(task_id)
 
-        if context.recorded:
-            if (
-                context.verification_result_ref
-                and context.verification_result_ref != verification_result_ref
-            ):
-                raise ValueError(
-                    "Task has already been recorded with a different verification_result_ref."
-                )
-            return _record_response(context.entered_success_db, context.success_record_id)
+        verification_result = _load_verification_result(verification_result_ref)
+        resolved_artifact_ref = str(artifact_ref or verification_result.get("artifact_ref") or "")
+        if not resolved_artifact_ref:
+            raise ValueError(
+                "artifact_ref must be supplied or present in verification_result_ref JSON."
+            )
 
-        existing_attempt = self.attempt_log.find_by_task_id(task_id)
+        resolved_attempt_id = str(
+            attempt_id
+            or verification_result.get("attempt_id")
+            or _infer_attempt_id(verification_result_ref)
+            or task_id
+            or uuid4()
+        )
+        existing_attempt = self.attempt_log.find_by_task_attempt(task_id, resolved_attempt_id)
         if existing_attempt is not None:
             existing_ref = existing_attempt.get("verification_result_ref")
             if existing_ref and existing_ref != verification_result_ref:
                 raise ValueError(
-                    "Attempt log already contains this task with a different verification_result_ref."
+                    "Attempt log already contains this task/attempt with a different verification_result_ref."
                 )
-            context.recorded = True
-            context.verification_result_ref = existing_ref or verification_result_ref
-            context.entered_success_db = bool(existing_attempt.get("entered_success_db", False))
-            context.success_record_id = existing_attempt.get("success_record_id")
-            self.task_contexts.put(context)
-            return _record_response(context.entered_success_db, context.success_record_id)
+            note_requests = self.notes.public_requests_for_attempt(task_id, resolved_attempt_id)
+            return _record_response_from_attempt(
+                existing_attempt,
+                note_requests=note_requests,
+                relative_delta_to_parent=_relative_delta_to_parent(existing_attempt, self.db),
+            )
 
-        verification_result = _load_verification_result(verification_result_ref)
-        artifact_ref = str(verification_result.get("artifact_ref") or "")
-        if not artifact_ref:
-            raise ValueError("verification_result_ref JSON must contain artifact_ref.")
-
-        attempt_id = str(verification_result.get("attempt_id") or task_id or uuid4())
         subagent_id = str(verification_result.get("subagent_id") or "")
         parent_id = context.parent_id if context.parent_selected else None
         inspiration_ids = list(context.inspiration_ids)
@@ -169,53 +198,49 @@ class EvolutionController:
         entered_success_db = False
         success_record_id = None
 
-        if status == "success":
-            if fitness is None:
-                # Successful verification without top-level fitness is audited
-                # as an attempt, but it cannot become reusable search material.
-                entered_success_db = False
+        if status == "success" and fitness is not None:
+            success_record_id = task_id
+            if self.db.get(success_record_id) is not None:
+                entered_success_db = True
             else:
-                success_record_id = attempt_id
-                if self.db.get(success_record_id) is not None:
-                    entered_success_db = True
-                else:
-                    metrics = dict(verification_result.get("metrics") or {})
-                    profile = dict(verification_result.get("profile") or {})
-                    if not profile:
-                        profile = metrics
-                    record = SuccessRecord(
-                        id=success_record_id,
-                        run_id=self.run_id,
-                        fitness=fitness,
-                        parent_id=parent_id,
-                        generation=generation,
-                        artifact_ref=artifact_ref,
-                        sketch=str(
-                            verification_result.get("summary")
-                            or verification_result.get("feedback")
-                            or ""
-                        ),
-                        profile=profile,
-                        metrics=metrics,
-                        task_id=task_id,
-                        subagent_id=subagent_id,
-                        verification_result_ref=verification_result_ref,
-                        metadata={
-                            "inspiration_ids": inspiration_ids,
-                            "evaluator_version": verification_result.get("evaluator_version"),
-                            "log_ref": verification_result.get("log_ref"),
-                            "summary_ref": verification_result.get("summary_ref"),
-                            "report_ref": verification_result.get("report_ref"),
-                        },
-                    )
-                    entered_success_db = self.db.add(record)
+                metrics = dict(verification_result.get("metrics") or {})
+                profile = dict(verification_result.get("profile") or {})
+                if not profile:
+                    profile = metrics
+                record = SuccessRecord(
+                    id=success_record_id,
+                    run_id=self.run_id,
+                    fitness=fitness,
+                    parent_id=parent_id,
+                    generation=generation,
+                    artifact_ref=resolved_artifact_ref,
+                    sketch=str(
+                        verification_result.get("summary")
+                        or verification_result.get("feedback")
+                        or ""
+                    ),
+                    profile=profile,
+                    metrics=metrics,
+                    task_id=task_id,
+                    subagent_id=subagent_id,
+                    verification_result_ref=verification_result_ref,
+                    metadata={
+                        "attempt_id": resolved_attempt_id,
+                        "inspiration_ids": inspiration_ids,
+                        "evaluator_version": verification_result.get("evaluator_version"),
+                        "log_ref": verification_result.get("log_ref"),
+                        "summary_ref": verification_result.get("summary_ref"),
+                        "report_ref": verification_result.get("report_ref"),
+                    },
+                )
+                entered_success_db = self.db.add(record)
 
         attempt = AttemptRecord(
-            id=attempt_id,
+            id=resolved_attempt_id,
             run_id=self.run_id,
             task_id=task_id,
             subagent_id=subagent_id,
-            artifact_ref=artifact_ref,
+            artifact_ref=resolved_artifact_ref,
             parent_id=parent_id,
             inspiration_ids=inspiration_ids,
             generation=generation,
@@ -227,13 +252,33 @@ class EvolutionController:
         )
         self.attempt_log.append(attempt)
 
-        context.recorded = True
-        context.verification_result_ref = verification_result_ref
-        context.entered_success_db = entered_success_db
-        context.success_record_id = success_record_id if entered_success_db else None
-        self.task_contexts.put(context)
+        if status == "success" or _attempt_number(resolved_attempt_id) >= max_attempts:
+            context.recorded = True
+            context.verification_result_ref = verification_result_ref
+            context.entered_success_db = entered_success_db
+            context.success_record_id = success_record_id if entered_success_db else None
+            self.task_contexts.put(context)
 
-        return _record_response(context.entered_success_db, context.success_record_id)
+        self.db.load()
+        all_attempts = self.attempt_log.get_all()
+        note_requests = self.notes.build_note_requests(
+            attempt=attempt,
+            all_attempt_rows=all_attempts,
+            db=self.db,
+            max_attempts=max_attempts,
+        )
+        relative_delta = _relative_delta_to_parent(attempt.to_dict(), self.db)
+        return _record_response_from_attempt(
+            attempt.to_dict(),
+            note_requests=note_requests,
+            relative_delta_to_parent=relative_delta,
+        )
+
+    def commit_generated_note(
+        self, note_request_id: str, generated_note_json: Any
+    ) -> Dict[str, Any]:
+        """Commit one LLM-distilled run-local note."""
+        return self.notes.commit_generated_note(note_request_id, generated_note_json)
 
     def check_convergence(self) -> Dict[str, Any]:
         """Return only whether the host should stop submitting new tasks."""
@@ -358,13 +403,55 @@ def _extract_fitness(verification_result: Dict[str, Any]) -> Optional[float]:
         return None
 
 
-def _record_response(
-    entered_success_db: Optional[bool],
-    success_record_id: Optional[str],
+def _infer_attempt_id(verification_result_ref: str) -> Optional[str]:
+    """Infer attempt id from a verifier path like .../attempt_001/eval_result.json."""
+    try:
+        parent_name = Path(verification_result_ref).parent.name
+    except Exception:
+        return None
+    if parent_name.startswith("attempt_"):
+        return parent_name
+    return None
+
+
+def _attempt_number(attempt_id: str) -> int:
+    text = str(attempt_id)
+    if "_" in text:
+        text = text.rsplit("_", 1)[-1]
+    try:
+        return int(text)
+    except ValueError:
+        return 1
+
+
+def _relative_delta_to_parent(row: Dict[str, Any], db: SuccessDB) -> Optional[float]:
+    parent_id = row.get("parent_id")
+    parent = db.get(str(parent_id)) if parent_id else None
+    if parent is None:
+        return None
+    verification_result = dict(row.get("verification_result") or {})
+    fitness = _extract_fitness(verification_result)
+    if fitness is None:
+        return None
+    denom = max(abs(parent.fitness), 1e-6)
+    return (fitness - parent.fitness) / denom
+
+
+def _record_response_from_attempt(
+    row: Dict[str, Any],
+    *,
+    note_requests: List[Dict[str, Any]],
+    relative_delta_to_parent: Optional[float],
 ) -> Dict[str, Any]:
-    """Return the minimal public attempt-recording payload."""
-    entered = bool(entered_success_db)
+    """Return the public attempt-recording payload for Notes."""
+    entered = bool(row.get("entered_success_db"))
+    verification_result = dict(row.get("verification_result") or {})
     return {
+        "recorded": True,
+        "attempt_id": row.get("id"),
         "entered_success_db": entered,
-        "success_record_id": success_record_id if entered else None,
+        "success_record_id": row.get("success_record_id") if entered else None,
+        "fitness": _extract_fitness(verification_result),
+        "relative_delta_to_parent": relative_delta_to_parent,
+        "note_requests": note_requests,
     }

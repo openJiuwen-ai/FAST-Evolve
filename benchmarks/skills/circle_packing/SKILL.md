@@ -64,7 +64,8 @@ command above is the only execution command needed by task-executor.
 
 ## Task
 
-Focus on designing an explicit constructor that places each circle in a specific position, rather than an iterative search algorithm.
+Design a constructor that returns one concrete arrangement of 26 circles; bounded computation and scientific-computing libraries such as NumPy/SciPy are allowed when they help.
+Choose the geometric or optimization strategy based on the current evidence instead of following a fixed template, keep verification time bounded, and avoid degenerate all-zero-radius packings.
 
 ## Program Interface
 

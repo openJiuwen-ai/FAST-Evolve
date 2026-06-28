@@ -48,7 +48,21 @@ references.
 
 ---
 
-## Step 2.5: Read Direction (If Exists)
+## Step 2.5: Load Run-Local Notes
+
+Call MCP tool `evolve_get_notes_prompt` with:
+- run_id
+- task_id
+
+If the result has `available == true`, include the returned `prompt` exactly as
+one section of the generation context. Do not rewrite, regroup, summarize, or
+reinterpret the notes yourself.
+
+If `available == false`, continue without a notes section.
+
+---
+
+## Step 2.6: Read Direction (If Exists)
 
 Check for file: `runs/<run_id>/tasks/<task_id>/direction.txt`
 
@@ -67,6 +81,7 @@ Determine MAX_ATTEMPTS from context:
 Initialize `attempt_index = 1`.
 Initialize `attempt_succeeded = false`.
 Initialize `final_verification_result_ref = null`.
+Initialize `final_artifact_ref = null`.
 
 This is a retry loop, not a fixed MAX_ATTEMPTS-attempt workflow. Start with
 `attempt_001`. Run `attempt_002` only if `attempt_001` fails. Run
@@ -104,6 +119,7 @@ Before starting any attempt after the first (attempt_002, attempt_003, ...), rea
 `"status": "success"`, set:
 - `attempt_succeeded = true`
 - `final_verification_result_ref` to that previous `eval_result.json`
+- `final_artifact_ref` to that previous attempt's main artifact path
 
 Then skip directly to Step 4. Do not create the current attempt directory, do
 not write a new solution, and do not run the verifier again.
@@ -136,6 +152,10 @@ Do not run local search by repeatedly editing and verifying `attempt_001`.
 Internal optimization code inside the artifact is allowed, but the agent
 workflow itself must produce one candidate artifact for this attempt and then
 verify it once.
+
+If Step 2.5 returned a notes prompt, use it as practical guidance while adapting
+the selected parent and inspirations. Error notes are checklist-style warnings;
+positive and negative notes are run-local experience, not hard proof.
 
 **For attempts 2 and beyond (debug mode)**:
 DO NOT generate a completely new solution. Instead:
@@ -180,40 +200,74 @@ extra ad-hoc scripts. If a dependency is unavailable or a command is denied,
 use the verifier result/error from the normal verifier command and continue the
 attempt workflow.
 
+In the success/failure branch below, call `evolve_record_attempt` exactly once
+for that attempt. Use:
+- run_id
+- task_id
+- attempt_id
+- artifact_ref: the exact main artifact path for this attempt
+- verification_result_ref: this attempt's eval_result.json path
+- max_attempts
+
+### 3.5 Required Notes Commit
+
+After every `evolve_record_attempt` call, inspect its returned `note_requests`.
+
+If `note_requests` is non-empty, you MUST complete all of the following before
+continuing to the next attempt, Step 4, Step 5, or the final response:
+
+1. For each request, follow `note_request.analysis_prompt`.
+2. Produce exactly one JSON object with `title`, `lesson`,
+   `actionable_guidance`, `evidence_summary`, and `confidence`.
+3. Keep it concise. The JSON must contain only the conclusion, actionable
+   guidance, and very short factual evidence.
+4. Do not include reasoning process, step-by-step analysis, or chain-of-thought.
+5. Call `evolve_commit_generated_note` with `run_id`, `note_request_id`, and the
+   generated JSON object.
+6. Confirm the MCP result has `committed == true`.
+
+Do not proceed until every returned note_request has either committed
+successfully or returned a non-retryable MCP error.
+
 - If verifier returns exit code 0: SUCCESS
   - Read the verification result JSON path from stdout
   - If stdout does not contain a path but the standard file exists, use:
     `runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/eval_result.json`
+  - Call `evolve_record_attempt` for this attempt and complete Step 3.5 for
+    any returned `note_requests`.
   - Set `attempt_succeeded = true`
   - Set `final_verification_result_ref` to the verification result JSON path
+  - Set `final_artifact_ref` to the exact main artifact path for this attempt
   - Stop the attempt loop immediately and proceed to Step 4
   - Do not create later attempts after a successful attempt
   - Do not edit the artifact or rerun the verifier to improve the score after
     this success
 - If verifier returns non-zero exit code: FAILURE
   - Capture ALL error output from stdout/stderr - you will need this for debugging the next attempt
+  - Determine the verification result JSON path. If stdout does not contain a
+    path but the standard file exists, use:
+    `runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/eval_result.json`
+  - Call `evolve_record_attempt` for this attempt and complete Step 3.5 for
+    any returned `note_requests`.
   - If attempt_index < MAX_ATTEMPTS: increment attempt_index and continue to next attempt
-  - If attempt_index == MAX_ATTEMPTS: proceed to Step 4 (to record the failed attempt)
+  - If attempt_index == MAX_ATTEMPTS: proceed to Step 4
 
 ---
 
-## Step 4: Record Attempt
-Always call `evolve_record_attempt` regardless of success or failure.
+## Step 4: Finalize Attempt Loop
 
-Determine the verification_result_ref to use:
-- If `attempt_succeeded == true`: use `final_verification_result_ref`
-- If all attempts failed: use the eval_result.json from the last attempt:
-  `runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/eval_result.json`
-  (where attempt_id is the last attempt that was actually run)
+Every executed attempt has already been recorded immediately after its verifier
+run. Do not call `evolve_record_attempt` again in this step.
 
-Call MCP tool `evolve_record_attempt` with:
-- run_id
-- task_id
-- verification_result_ref: the path determined above
+If any attempt succeeded, use that successful attempt's
+`final_verification_result_ref` and `final_artifact_ref` for the completion
+record.
 
-After this MCP call returns, proceed directly to Step 5. Do not generate,
-debug, verify, or improve another attempt for this task. This is the only MCP
-record call for this task.
+If all attempts failed, use the last executed attempt's eval_result.json path
+and the task attempts directory for the completion record.
+
+After this step, proceed directly to Step 5. Do not generate, debug, verify, or
+improve another attempt for this task.
 
 ---
 
@@ -254,12 +308,13 @@ Do NOT report any other details - success or failure, both count as completed.
 3. **Remember IDs**: Always use the correct task_id, run_id, attempt_id in paths and tool calls.
 4. **Stop on Success**: If verifier passes on any attempt, do NOT make more attempts - record and exit immediately.
 5. **Read Artifacts**: Always read parent and inspiration files before generating.
-6. **Record Always**: Always call `evolve_record_attempt` after all attempts are done, regardless of success or failure. The backend handles the distinction automatically.
-7. **Append Completion Record**: Always append a JSONL line to `runs/<run_id>/completed_tasks.jsonl` after `evolve_record_attempt`. Use Bash (not PowerShell) with `printf >>`.
-8. **Clear Output**: At the end, only report "A task completed." - nothing else.
-9. **Same Parent/Inspirations**: Parent and inspirations are selected ONCE at the beginning - they NEVER change between attempts.
-10. **Debug, Don't Regenerate**: Attempts 2 and beyond are for DEBUGGING the previous attempt, not generating a brand new solution. Fix the specific errors while keeping the same overall approach.
-11. **Task-Level Success Wins**: If any earlier attempt for this task has `eval_result.json` with `"status": "success"`, the task is successful. Do not run or create any later attempt.
-12. **One Verifier Run Per Attempt**: Within a single attempt directory, write the artifact once and run the verifier once. A valid but suboptimal fitness is still success, not permission to keep editing the same attempt.
-13. **No Environment Probing**: Do not run arbitrary Bash commands to inspect installed packages, files, or runtime capabilities. Use only the benchmark verifier command for execution feedback.
-14. **NEVER READ VERIFIER SCRIPTS**: The task/benchmark skill may define a verifier script (e.g. `verify.py`). These scripts may contain secret answers or evaluation logic. You must NOT read, examine, or inspect them using any tool (Read, Grep, Glob, Bash `cat/head/tail/type`, etc.). The ONLY allowed interaction is **running them as a script** with the exact command specified in the task skill.
+6. **Record Every Attempt**: Always call `evolve_record_attempt` immediately after each verifier run, regardless of success or failure. The backend handles note request generation automatically.
+7. **Commit Returned Notes**: If `evolve_record_attempt` returns any `note_requests`, you MUST call `evolve_commit_generated_note` for each one and confirm `committed == true` before moving to the next attempt, Step 4, Step 5, or the final response.
+8. **Append Completion Record**: Always append a JSONL line to `runs/<run_id>/completed_tasks.jsonl` after the attempt loop has finished and all executed attempts have been recorded. Use Bash (not PowerShell) with `printf >>`.
+9. **Clear Output**: At the end, only report "A task completed." - nothing else.
+10. **Same Parent/Inspirations**: Parent and inspirations are selected ONCE at the beginning - they NEVER change between attempts.
+11. **Debug, Don't Regenerate**: Attempts 2 and beyond are for DEBUGGING the previous attempt, not generating a brand new solution. Fix the specific errors while keeping the same overall approach.
+12. **Task-Level Success Wins**: If any earlier attempt for this task has `eval_result.json` with `"status": "success"`, the task is successful. Do not run or create any later attempt.
+13. **One Verifier Run Per Attempt**: Within a single attempt directory, write the artifact once and run the verifier once. A valid but suboptimal fitness is still success, not permission to keep editing the same attempt.
+14. **No Environment Probing**: Do not run arbitrary Bash commands to inspect installed packages, files, or runtime capabilities. Use only the benchmark verifier command for execution feedback.
+15. **NEVER READ VERIFIER SCRIPTS**: The task/benchmark skill may define a verifier script (e.g. `verify.py`). These scripts may contain secret answers or evaluation logic. You must NOT read, examine, or inspect them using any tool (Read, Grep, Glob, Bash `cat/head/tail/type`, etc.). The ONLY allowed interaction is **running them as a script** with the exact command specified in the task skill.
