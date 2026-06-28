@@ -23,7 +23,7 @@ from agent_evolve_mcp.models import (
     SearchState,
     SuccessRecord,
 )
-from agent_evolve_mcp.notes import NotesManager
+from agent_evolve_mcp.notes import NOTES_ENABLED_ENV, NotesManager, notes_enabled
 from agent_evolve_mcp.parent_selector import LineageAwareParentSelector
 from agent_evolve_mcp.state_store import RunStateStore, TaskContextStore
 from agent_evolve_mcp.success_db import AttemptLog, SuccessDB
@@ -131,6 +131,21 @@ class EvolutionController:
 
     def get_notes_prompt(self, task_id: str) -> Dict[str, Any]:
         """Return the run-local Notes prompt after parent/inspirations are fixed."""
+        if not notes_enabled():
+            return {
+                "available": False,
+                "prompt": "",
+                "selected_note_ids": [],
+                "counts": {
+                    "error": 0,
+                    "positive": 0,
+                    "negative": 0,
+                    "matched_pos_neg": 0,
+                    "random_fill": 0,
+                },
+                "disabled": True,
+                "reason": f"Run-local Notes disabled by {NOTES_ENABLED_ENV}.",
+            }
         self._load_state()
         context = self.task_contexts.get(task_id)
         if context is None or not context.parent_selected:
@@ -181,7 +196,11 @@ class EvolutionController:
                 raise ValueError(
                     "Attempt log already contains this task/attempt with a different verification_result_ref."
                 )
-            note_requests = self.notes.public_requests_for_attempt(task_id, resolved_attempt_id)
+            note_requests = (
+                self.notes.public_requests_for_attempt(task_id, resolved_attempt_id)
+                if notes_enabled()
+                else []
+            )
             return _record_response_from_attempt(
                 existing_attempt,
                 note_requests=note_requests,
@@ -260,13 +279,16 @@ class EvolutionController:
             self.task_contexts.put(context)
 
         self.db.load()
-        all_attempts = self.attempt_log.get_all()
-        note_requests = self.notes.build_note_requests(
-            attempt=attempt,
-            all_attempt_rows=all_attempts,
-            db=self.db,
-            max_attempts=max_attempts,
-        )
+        if notes_enabled():
+            all_attempts = self.attempt_log.get_all()
+            note_requests = self.notes.build_note_requests(
+                attempt=attempt,
+                all_attempt_rows=all_attempts,
+                db=self.db,
+                max_attempts=max_attempts,
+            )
+        else:
+            note_requests = []
         relative_delta = _relative_delta_to_parent(attempt.to_dict(), self.db)
         return _record_response_from_attempt(
             attempt.to_dict(),
@@ -278,6 +300,12 @@ class EvolutionController:
         self, note_request_id: str, generated_note_json: Any
     ) -> Dict[str, Any]:
         """Commit one LLM-distilled run-local note."""
+        if not notes_enabled():
+            return {
+                "committed": False,
+                "disabled": True,
+                "reason": f"Run-local Notes disabled by {NOTES_ENABLED_ENV}.",
+            }
         return self.notes.commit_generated_note(note_request_id, generated_note_json)
 
     def check_convergence(self) -> Dict[str, Any]:

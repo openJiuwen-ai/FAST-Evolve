@@ -50,6 +50,10 @@ references.
 
 ## Step 2.5: Load Run-Local Notes
 
+Run-local Notes are enabled by default. The run owner may disable them for the
+whole MCP process by setting environment variable
+`AGENT_EVOLVE_NOTES_ENABLED=0` before starting the run.
+
 Call MCP tool `evolve_get_notes_prompt` with:
 - run_id
 - task_id
@@ -58,7 +62,9 @@ If the result has `available == true`, include the returned `prompt` exactly as
 one section of the generation context. Do not rewrite, regroup, summarize, or
 reinterpret the notes yourself.
 
-If `available == false`, continue without a notes section.
+If `available == false`, continue without a notes section. If the response also
+has `disabled == true`, treat this as an intentional run configuration and do
+not try to generate or commit notes manually.
 
 ---
 
@@ -212,6 +218,8 @@ for that attempt. Use:
 ### 3.5 Required Notes Commit
 
 After every `evolve_record_attempt` call, inspect its returned `note_requests`.
+When run-local Notes are disabled, this list should be empty and no commit call
+is needed.
 
 If `note_requests` is non-empty, you MUST complete all of the following before
 continuing to the next attempt, Step 4, Step 5, or the final response:

@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
 import random
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
@@ -33,6 +34,16 @@ THRESHOLD_MIN = 0.02
 THRESHOLD_MAX = 0.10
 POS_NEG_TARGET = 5
 ERROR_PROMPT_LIMIT = 10
+NOTES_ENABLED_ENV = "AGENT_EVOLVE_NOTES_ENABLED"
+FALSE_ENV_VALUES = {"0", "false", "off", "no", "disabled"}
+
+
+def notes_enabled() -> bool:
+    """Return whether run-local Notes are enabled for this MCP process."""
+    value = os.environ.get(NOTES_ENABLED_ENV)
+    if value is None:
+        return True
+    return value.strip().lower() not in FALSE_ENV_VALUES
 
 
 class NotesManager:
