@@ -37,7 +37,8 @@ command above is the only execution command needed by task-executor.
 
 ## Task
 
-Focus on designing an explicit constructor rather than an iterative search algorithm.
+Bounded computation and scientific-computing libraries such as NumPy/SciPy are allowed when they help.
+Choose the geometric or optimization strategy based on the current evidence instead of following a fixed template.
 
 ## Program Interface
 

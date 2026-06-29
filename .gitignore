@@ -234,3 +234,5 @@ runs/
 uv.lock
 
 .vscode/
+
+azy_demo/

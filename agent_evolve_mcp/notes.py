@@ -28,10 +28,18 @@ from agent_evolve_mcp.success_db import SuccessDB
 
 SCHEMA_VERSION = "notes_run_local"
 NOTE_TYPES = {"error", "negative", "positive"}
-DEFAULT_THRESHOLD = 0.05
-ADAPTIVE_MIN_PAIRS = 12
-THRESHOLD_MIN = 0.02
-THRESHOLD_MAX = 0.10
+WARMUP_TASKS = 10
+NOTES_ACTIVE_START_ROUND = 11
+NOTES_ACTIVE_END_ROUND = 50
+DELTA_QUANTILE_START = 0.80
+DELTA_QUANTILE_END = 0.60
+DELTA_THRESHOLD_MIN = 0.02
+DELTA_THRESHOLD_MAX = 0.05
+POSITIVE_BEST_RATIO_START = 0.80
+POSITIVE_BEST_RATIO_END = 1.00
+POSITIVE_DUPLICATE_FITNESS_TOL = 1e-6
+DEFAULT_DELTA_THRESHOLD = 0.05
+FITNESS_EPS = 1e-12
 POS_NEG_TARGET = 5
 ERROR_PROMPT_LIMIT = 10
 NOTES_ENABLED_ENV = "AGENT_EVOLVE_NOTES_ENABLED"
@@ -123,6 +131,24 @@ class NotesManager:
         task_attempts = sorted(task_attempts, key=lambda row: str(row.get("id") or ""))
         status = _attempt_status(attempt.to_dict())
         attempt_number = _attempt_number(attempt.id)
+        current_round = _task_number(attempt.task_id)
+        completed_task_count = _completed_task_count_before(
+            all_attempt_rows, current_task_id=attempt.task_id
+        )
+
+        if current_round <= WARMUP_TASKS:
+            self._append_event(
+                "note_request_skipped",
+                {
+                    "reason": "warmup",
+                    "task_id": attempt.task_id,
+                    "attempt_id": attempt.id,
+                    "task_round": current_round,
+                    "completed_task_count_before": completed_task_count,
+                    "warmup_tasks": WARMUP_TASKS,
+                },
+            )
+            return []
 
         if status == "success" and attempt_number > 1:
             failed_before = [
@@ -149,24 +175,71 @@ class NotesManager:
             child_fitness = _extract_attempt_fitness(attempt.to_dict())
             if parent is not None and child_fitness is not None:
                 relative_delta = _relative_delta(child_fitness, parent.fitness)
-                threshold = self._material_threshold(
-                    all_attempt_rows=all_attempt_rows,
-                    db=db,
+                previous_best = _best_fitness_excluding_attempt(
+                    all_attempt_rows,
+                    exclude_task_id=attempt.task_id,
                     exclude_attempt_id=attempt.id,
                 )
-                if relative_delta >= threshold:
-                    request = self._make_request(
-                        note_type="positive",
-                        trigger_kind="material_improvement",
-                        attempt=attempt,
-                        db=db,
-                        failed_attempt_rows=[],
-                        relative_delta=relative_delta,
-                        threshold=threshold,
-                    )
-                    if request["note_request_id"] not in existing_ids:
-                        requests.append(request)
-                elif relative_delta <= -threshold:
+                positive_history, negative_history = _material_delta_histories(
+                    all_attempt_rows=all_attempt_rows,
+                    db=db,
+                    exclude_task_id=attempt.task_id,
+                    exclude_attempt_id=attempt.id,
+                )
+                delta_quantile = _delta_quantile(current_round)
+                positive_threshold = _material_delta_threshold(
+                    positive_history,
+                    q=delta_quantile,
+                )
+                negative_threshold = _material_delta_threshold(
+                    negative_history,
+                    q=delta_quantile,
+                )
+                positive_gate = _positive_gate(
+                    child_fitness=child_fitness,
+                    previous_best=previous_best,
+                    current_round=current_round,
+                    parent_delta_threshold=positive_threshold,
+                )
+                duplicate_positive_plateau = (
+                    positive_gate.get("eligible")
+                    and self._positive_evidence_exists_near(child_fitness)
+                )
+                if (
+                    positive_gate["eligible"]
+                    and relative_delta >= positive_threshold
+                ):
+                    if duplicate_positive_plateau:
+                        self._append_event(
+                            "note_request_skipped",
+                            {
+                                "reason": "duplicate_positive_plateau",
+                                "task_id": attempt.task_id,
+                                "attempt_id": attempt.id,
+                                "child_fitness": child_fitness,
+                                "previous_best_fitness": previous_best,
+                            },
+                        )
+                    else:
+                        request = self._make_request(
+                            note_type="positive",
+                            trigger_kind=str(positive_gate["trigger_kind"]),
+                            attempt=attempt,
+                            db=db,
+                            failed_attempt_rows=[],
+                            relative_delta=relative_delta,
+                            threshold=positive_gate["parent_delta_threshold"],
+                            trigger_extra={
+                                "previous_best_fitness": previous_best,
+                                "positive_gate": positive_gate,
+                                "positive_rule_round": current_round,
+                                "delta_quantile": delta_quantile,
+                                "duplicate_positive_plateau": False,
+                            },
+                        )
+                        if request["note_request_id"] not in existing_ids:
+                            requests.append(request)
+                elif relative_delta <= -negative_threshold:
                     request = self._make_request(
                         note_type="negative",
                         trigger_kind="material_regression",
@@ -174,7 +247,7 @@ class NotesManager:
                         db=db,
                         failed_attempt_rows=[],
                         relative_delta=relative_delta,
-                        threshold=threshold,
+                        threshold=negative_threshold,
                     )
                     if request["note_request_id"] not in existing_ids:
                         requests.append(request)
@@ -293,6 +366,26 @@ class NotesManager:
             requests.append(_public_request(row))
         return requests
 
+    def _positive_evidence_exists_near(self, fitness: float) -> bool:
+        """Return whether a positive note/request already covers this fitness band."""
+        collection = self._load_collection()
+        for note in collection.get("notes") or []:
+            if note.get("note_type") != "positive":
+                continue
+            trigger = dict(note.get("trigger") or {})
+            child_fitness = _coerce_float(trigger.get("child_fitness"))
+            if child_fitness is not None and _fitness_near(child_fitness, fitness):
+                return True
+
+        for request in read_jsonl(self.requests_file):
+            if request.get("note_type") != "positive":
+                continue
+            trigger = dict(request.get("trigger") or {})
+            child_fitness = _coerce_float(trigger.get("child_fitness"))
+            if child_fitness is not None and _fitness_near(child_fitness, fitness):
+                return True
+        return False
+
     def _make_request(
         self,
         *,
@@ -303,6 +396,7 @@ class NotesManager:
         failed_attempt_rows: Sequence[Dict[str, Any]],
         relative_delta: Optional[float],
         threshold: Optional[float],
+        trigger_extra: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         parent = db.get(attempt.parent_id)
         inspirations = [record for record in (db.get(i) for i in attempt.inspiration_ids) if record]
@@ -316,6 +410,8 @@ class NotesManager:
             "child_fitness": _extract_attempt_fitness(attempt.to_dict()),
             "parent_fitness": parent.fitness if parent else None,
         }
+        if trigger_extra:
+            trigger.update(trigger_extra)
         source = {
             "run_id": self.run_id,
             "task_id": attempt.task_id,
@@ -370,29 +466,6 @@ class NotesManager:
         }
         return request
 
-    def _material_threshold(
-        self,
-        *,
-        all_attempt_rows: Sequence[Dict[str, Any]],
-        db: SuccessDB,
-        exclude_attempt_id: Optional[str],
-    ) -> float:
-        values: List[float] = []
-        for row in all_attempt_rows:
-            if exclude_attempt_id and str(row.get("id")) == exclude_attempt_id:
-                continue
-            if _attempt_status(row) != "success":
-                continue
-            parent_id = row.get("parent_id")
-            parent = db.get(str(parent_id)) if parent_id else None
-            fitness = _extract_attempt_fitness(row)
-            if parent is None or fitness is None:
-                continue
-            values.append(abs(_relative_delta(fitness, parent.fitness)))
-        if len(values) < ADAPTIVE_MIN_PAIRS:
-            return DEFAULT_THRESHOLD
-        return max(THRESHOLD_MIN, min(_quantile(values, 0.8), THRESHOLD_MAX))
-
     def _get_request(self, note_request_id: str) -> Optional[Dict[str, Any]]:
         match = None
         for row in read_jsonl(self.requests_file):
@@ -409,8 +482,15 @@ class NotesManager:
                 "created_at": utc_now_iso(),
                 "updated_at": utc_now_iso(),
                 "config": {
-                    "material_delta_threshold_default": DEFAULT_THRESHOLD,
-                    "adaptive_threshold_enabled": True,
+                    "warmup_tasks": WARMUP_TASKS,
+                    "notes_active_start_round": NOTES_ACTIVE_START_ROUND,
+                    "notes_active_end_round": NOTES_ACTIVE_END_ROUND,
+                    "delta_quantile_start": DELTA_QUANTILE_START,
+                    "delta_quantile_end": DELTA_QUANTILE_END,
+                    "delta_threshold_min": DELTA_THRESHOLD_MIN,
+                    "delta_threshold_max": DELTA_THRESHOLD_MAX,
+                    "positive_best_ratio_start": POSITIVE_BEST_RATIO_START,
+                    "positive_best_ratio_end": POSITIVE_BEST_RATIO_END,
                     "max_error_notes": ERROR_PROMPT_LIMIT,
                     "max_positive_negative_random_fill": POS_NEG_TARGET,
                 },
@@ -484,6 +564,9 @@ def _render_notes_prompt(notes: Sequence[Dict[str, Any]]) -> str:
         "The following notes are distilled from earlier attempts in this same run.",
         "Use them as practical guidance, not as hard proof. Prefer the selected parent",
         "and inspirations, but take these notes into account when adapting them.",
+        "Treat positive notes as conditional hints, not proof that the same",
+        "strategy should be repeated. Prefer a genuinely new variant when prior",
+        "notes already describe the same fitness plateau.",
         "Treat negative notes as conditional risk warnings about the recorded",
         "implementation and parameter choices, not as global bans on a whole",
         "strategy family. A strategy may still be useful with different parameters,",
@@ -544,8 +627,10 @@ def _analysis_prompt(
         "Do not include your reasoning process, step-by-step analysis, or chain-of-thought in the note.",
         "The final note should contain only the distilled conclusion, actionable guidance, and a very short evidence summary.",
         "Do not decide whether the note is needed; MCP has already decided that.",
+        "Treat this as one empirical case, not proof that a strategy family is generally good or bad.",
         "Keep attribution scoped to what this single comparison can support.",
         "If several changes happened together, do not claim one mechanism is the sole cause unless the evidence clearly isolates it.",
+        "When parameters, seeds, acceptance checks, fallback choices, or integration points matter, name those conditions explicitly.",
         "Do not turn one attempt into a universal rule about a whole strategy family.",
         "Return exactly one JSON object that matches the schema.",
         "",
@@ -576,7 +661,8 @@ def _analysis_prompt(
                 "4. Write a concise note that future tasks can use.",
                 '5. Be careful with causality: use "likely" when the evidence is suggestive rather than definitive.',
                 "6. If the improvement may depend on specific parameters, seeds, fallback logic, or acceptance checks, state that condition instead of praising the broad method unconditionally.",
-                "7. The returned JSON must not include the comparison process; keep only the conclusion.",
+                "7. Do not write that a broad method is proven superior unless the evidence isolates it from parameters and implementation details.",
+                "8. The returned JSON must not include the comparison process; keep only the conclusion.",
                 "",
                 _schema_text(),
             ]
@@ -600,7 +686,8 @@ def _analysis_prompt(
                 "6. Do not write that a method or strategy should never be used just because this attempt failed.",
                 "7. If a method might still work with different parameters, a safer acceptance check, a fallback to the parent result, or a different integration point, say that the risk is limited to the observed implementation.",
                 "8. Prefer wording like \"avoid this unguarded variant\", \"use only if it improves validation\", or \"keep the parent candidate as fallback\" over blanket bans.",
-                "9. The returned JSON must not include the diagnostic process; keep only the conclusion.",
+                "9. If the child changed both the strategy and its parameters, attribute risk to the observed configuration rather than condemning the whole strategy.",
+                "10. The returned JSON must not include the diagnostic process; keep only the conclusion.",
                 "",
                 _schema_text(),
             ]
@@ -723,6 +810,10 @@ def _attempt_status(row: Dict[str, Any]) -> str:
 def _extract_attempt_fitness(row: Dict[str, Any]) -> Optional[float]:
     verification = dict(row.get("verification_result") or {})
     value = verification.get("fitness")
+    return _coerce_float(value)
+
+
+def _coerce_float(value: Any) -> Optional[float]:
     if value is None:
         return None
     try:
@@ -731,8 +822,171 @@ def _extract_attempt_fitness(row: Dict[str, Any]) -> Optional[float]:
         return None
 
 
+def _completed_task_count_before(
+    all_attempt_rows: Sequence[Dict[str, Any]],
+    current_task_id: Optional[str] = None,
+) -> int:
+    task_ids = {
+        str(row.get("task_id"))
+        for row in all_attempt_rows
+        if row.get("task_id") and str(row.get("task_id")) != str(current_task_id)
+    }
+    return len(task_ids)
+
+
+def _best_fitness_excluding_attempt(
+    all_attempt_rows: Sequence[Dict[str, Any]],
+    *,
+    exclude_task_id: Optional[str],
+    exclude_attempt_id: Optional[str],
+) -> Optional[float]:
+    values: List[float] = []
+    for row in all_attempt_rows:
+        if _same_attempt(
+            row,
+            task_id=exclude_task_id,
+            attempt_id=exclude_attempt_id,
+        ):
+            continue
+        if _attempt_status(row) != "success":
+            continue
+        fitness = _extract_attempt_fitness(row)
+        if fitness is not None:
+            values.append(fitness)
+    return max(values) if values else None
+
+
+def _same_attempt(
+    row: Dict[str, Any],
+    *,
+    task_id: Optional[str],
+    attempt_id: Optional[str],
+) -> bool:
+    if not task_id or not attempt_id:
+        return False
+    return str(row.get("task_id")) == str(task_id) and str(row.get("id")) == str(attempt_id)
+
+
+def _positive_gate(
+    *,
+    child_fitness: float,
+    previous_best: Optional[float],
+    current_round: int,
+    parent_delta_threshold: float,
+) -> Dict[str, Any]:
+    best_ratio_threshold = _positive_best_ratio_threshold(current_round)
+    if previous_best is None:
+        return {
+            "eligible": True,
+            "phase": "active",
+            "trigger_kind": "material_improvement_new_best",
+            "reason": "no_previous_best",
+            "parent_delta_threshold": parent_delta_threshold,
+            "best_ratio_threshold": best_ratio_threshold,
+        }
+    if child_fitness > previous_best + FITNESS_EPS:
+        return {
+            "eligible": True,
+            "phase": "active",
+            "trigger_kind": "material_improvement_new_best",
+            "reason": "new_global_best",
+            "parent_delta_threshold": parent_delta_threshold,
+            "best_ratio_threshold": best_ratio_threshold,
+        }
+    required_fitness = previous_best * best_ratio_threshold
+    eligible = child_fitness + FITNESS_EPS >= required_fitness
+    return {
+        "eligible": eligible,
+        "phase": "active",
+        "trigger_kind": "near_best_material_improvement",
+        "reason": "near_previous_best" if eligible else "below_best_ratio_threshold",
+        "parent_delta_threshold": parent_delta_threshold,
+        "best_ratio_threshold": best_ratio_threshold,
+        "required_fitness": required_fitness,
+    }
+
+
+def _positive_best_ratio_threshold(current_round: int) -> float:
+    t = _linear_progress(
+        current_round,
+        start=NOTES_ACTIVE_START_ROUND,
+        end=NOTES_ACTIVE_END_ROUND,
+    )
+    return _lerp(POSITIVE_BEST_RATIO_START, POSITIVE_BEST_RATIO_END, t)
+
+
+def _delta_quantile(current_round: int) -> float:
+    t = _linear_progress(
+        current_round,
+        start=NOTES_ACTIVE_START_ROUND,
+        end=NOTES_ACTIVE_END_ROUND,
+    )
+    return _lerp(DELTA_QUANTILE_START, DELTA_QUANTILE_END, t)
+
+
+def _material_delta_threshold(values: Sequence[float], *, q: float) -> float:
+    raw = _quantile(values, q) if values else DEFAULT_DELTA_THRESHOLD
+    return max(DELTA_THRESHOLD_MIN, min(raw, DELTA_THRESHOLD_MAX))
+
+
+def _material_delta_histories(
+    *,
+    all_attempt_rows: Sequence[Dict[str, Any]],
+    db: SuccessDB,
+    exclude_task_id: Optional[str],
+    exclude_attempt_id: Optional[str],
+) -> tuple[List[float], List[float]]:
+    positive: List[float] = []
+    negative: List[float] = []
+    for row in all_attempt_rows:
+        if _same_attempt(
+            row,
+            task_id=exclude_task_id,
+            attempt_id=exclude_attempt_id,
+        ):
+            continue
+        if _attempt_status(row) != "success":
+            continue
+        parent_id = row.get("parent_id")
+        parent = db.get(str(parent_id)) if parent_id else None
+        fitness = _extract_attempt_fitness(row)
+        if parent is None or fitness is None:
+            continue
+        delta = _relative_delta(fitness, parent.fitness)
+        if delta > 0:
+            positive.append(delta)
+        elif delta < 0:
+            negative.append(abs(delta))
+    return positive, negative
+
+
+def _linear_progress(value: int, *, start: int, end: int) -> float:
+    if end <= start:
+        return 1.0
+    return max(0.0, min((value - start) / (end - start), 1.0))
+
+
+def _lerp(start: float, end: float, t: float) -> float:
+    return start + (end - start) * t
+
+
+def _fitness_near(a: float, b: float) -> bool:
+    scale = max(abs(a), abs(b), 1.0)
+    return abs(a - b) <= scale * POSITIVE_DUPLICATE_FITNESS_TOL
+
+
 def _attempt_number(attempt_id: str) -> int:
     text = str(attempt_id)
+    if "_" in text:
+        text = text.rsplit("_", 1)[-1]
+    try:
+        return int(text)
+    except ValueError:
+        return 1
+
+
+def _task_number(task_id: str) -> int:
+    text = str(task_id)
     if "_" in text:
         text = text.rsplit("_", 1)[-1]
     try:
@@ -748,7 +1002,7 @@ def _relative_delta(child_fitness: float, parent_fitness: float) -> float:
 
 def _quantile(values: Sequence[float], q: float) -> float:
     if not values:
-        return DEFAULT_THRESHOLD
+        return DEFAULT_DELTA_THRESHOLD
     ordered = sorted(values)
     pos = (len(ordered) - 1) * q
     lo = math.floor(pos)
