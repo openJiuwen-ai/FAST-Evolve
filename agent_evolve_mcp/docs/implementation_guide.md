@@ -1,8 +1,10 @@
 # Agent Evolve MCP 实现讲解
 
+> 版本提示：这是一份较早的实现讲解，仍保留不少历史流程细节。当前开发请以仓库根目录 `agent_evolve_mcp/README.md` 和本目录 `minimal_context_interface.md` 为准；尤其是 meta-evolve 之后，`evolve_check_convergence` 的主语义已经从单一 `should_stop` 改为 `action`。
+
 > 本文解释当前 `agent_evolve_mcp` 目录下这版 Evolution Controller MCP 的代码结构、运行流程、配置方式和接入边界。它面向后续要实现 `agent_evolve_plugin` 主循环、或要把 MCP 接到 Claude Code / Codex / opencode 等第三方 agent 的同事。
 
-> 设计更新说明：本文已按“最小上下文 MCP IO”原则更新，并且 `agent_evolve_mcp` 当前实现已同步到这版接口。精简版接口契约见：[minimal_context_interface.md](minimal_context_interface.md)。
+> 设计更新说明：精简版接口契约见：[minimal_context_interface.md](minimal_context_interface.md)。
 
 ---
 
@@ -15,7 +17,7 @@
 1. **选择 parent**：从 SuccessDB 中选择一个历史成功记录，作为下一次生成的父代。
 2. **选择 inspirations**：围绕 parent 选择若干参考记录，给 generator subagent 作为灵感。
 3. **记录 attempt**：subagent 把最终 `verification_result_ref` 交给 MCP；成功记录进入 SuccessDB，失败记录只进入 attempt log。
-4. **检查收敛**：根据本地 attempt log、SuccessDB、fitness 停滞、多样性等信号判断是否停止；对外只返回 `should_stop`。
+4. **检查收敛和 meta-evolve 触发**：根据本地 attempt log、SuccessDB、fitness 停滞、多样性等信号返回下一步 `action`；plateau 不提前停止，必要时请求 meta-guidance。
 
 它明确不负责：
 

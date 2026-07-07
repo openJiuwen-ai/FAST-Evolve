@@ -5,7 +5,7 @@ description: Triggered when the user asks to evolve, optimize, search, or iterat
 
 # Self-Evolution Master Skill
 
-You are now running the **self-evolution master skill**, the orchestrator. Your responsibilities are: initialize a run, maintain the task queue, detect convergence, stop replenishment, wait for already launched tasks to finish, and call Evolution Controller MCP to generate a deterministic run summary report.
+You are now running the **self-evolution master skill**, the orchestrator. Your responsibilities are: initialize a run, maintain the task queue, react to MCP convergence/meta-evolve actions, stop replenishment only on hard budget/external stops, wait for already launched tasks to finish, and call Evolution Controller MCP to generate a deterministic run summary report.
 
 ## Orchestrator Boundary Constraint
 
@@ -51,9 +51,9 @@ These templates are **exclusive** — they define the exact and complete content
 
 | Component | Responsibility |
 |---|---|
-| This skill (orchestrator) | Initialize run, maintain task queue, convergence detection, finalization |
+| This skill (orchestrator) | Initialize run, maintain task queue, handle MCP `action`, generate requested meta-guidance JSON, finalization |
 | task-executor agent | Execute the full lifecycle of individual tasks |
-| Evolution Controller MCP | Parent/inspiration selection, attempt recording, convergence detection, run summary generation |
+| Evolution Controller MCP | Parent/inspiration selection, attempt recording, convergence/meta-guidance state, run summary generation |
 
 ---
 
@@ -64,7 +64,7 @@ These templates are **exclusive** — they define the exact and complete content
 2. Determine `max_total_tasks` from the user's request:
    - If the user specified an iteration count (e.g., "200 iterations", "200 tasks", "max 200", "run 200 rounds"), extract that number.
    - If the user did not specify, default to 50.
-   - Call `evolve_configure_run(run_id, max_total_tasks=<value>)` BEFORE any other `evolve_*` call for this run.
+   - Call `evolve_configure_run(run_id, max_total_tasks=<value>, task_description=<original user input>)` BEFORE any other `evolve_*` call for this run.
 3. Create the run workspace directory and persistent state files. **All `runs/` paths are relative to the project root (cwd), not to the skill's base directory.** Use Bash to execute:
 
    ```bash
@@ -140,12 +140,17 @@ WHILE running_tasks is not empty:
      - Update the Progress Update table with this info (see Progress Update Table section below)
   5. Remove these completed task_ids from running_tasks and update scheduler_state.json
 
-  // Convergence check & replenishment
+  // Convergence/meta-evolve check & replenishment
   FOR each newly completed task:
-    should_stop = evolve_check_convergence(run_id).should_stop
-    IF should_stop:
+    convergence = evolve_check_convergence(run_id)
+    IF convergence.action == "budget_exhausted":
       stop_requested = true
       BREAK (stop convergence-check loop)
+    IF convergence.action == "request_meta_guidance":
+      request = evolve_get_meta_guidance_request(run_id, request_id=convergence.request_id)
+      Generate concise structured guidance JSON from request only.
+      Call evolve_commit_meta_guidance(run_id, request.request_id, guidance_json)
+      Continue scheduling; do not stop.
 
   IF stop_requested:
     // Stop launching new tasks, continue waiting for remaining running tasks' notifications
@@ -190,14 +195,39 @@ During the run, maintain a concise terminal `Progress Update` whenever a task co
 
 ### Critical Constraints
 
-1. Once `should_stop == true`, stop launching new tasks.
+1. Once `action == "budget_exhausted"`, stop launching new tasks.
 2. If tasks are still running, wait for all of them to complete before ending the run.
 3. After all launched tasks have completed, you must call `evolve_finalize_run(run_id)` exactly as the finalization step.
 4. `evolve_finalize_run` returns report refs. Do not paste the full report into the conversation context.
-5. Do not let a freed slot sit idle while `stop_requested == false`: for every single completed task, immediately launch exactly one replacement task after the convergence check.
-6. Success and failure both count as task completion. A failed task still frees its slot and should be replaced unless `should_stop == true`.
+5. Do not let a freed slot sit idle while `action != "budget_exhausted"`: for every single completed task, immediately launch exactly one replacement task after the convergence check.
+6. Success and failure both count as task completion. A failed task still frees its slot and should be replaced unless `action == "budget_exhausted"`.
 7. scheduler_state.json is written only by the orchestrator. Every modification must be immediately persisted to disk via Write.
 8. Every dispatch to task-executor MUST include `max_attempts`. Initial-fill tasks: `max_attempts = 10`. Replenishment tasks: `max_attempts = 3`. Never omit this parameter.
+9. Plateau, WATCHING, `request_meta_guidance`, and failed meta-guidance generation are NOT stop signals.
+
+### Meta-Guidance Generation
+
+When MCP returns `action == "request_meta_guidance"`, generate exactly one JSON object in this shape and submit it with `evolve_commit_meta_guidance`:
+
+```json
+{
+  "guidance": [
+    {
+      "idea": "Short tactic title",
+      "description": "What to try and why",
+      "target_metric": "fitness",
+      "novelty_claim": "Why this differs from current lineages",
+      "implementation_plan": ["Concrete step 1", "Concrete step 2"],
+      "cautions": ["Risk or constraint"],
+      "approach_type": "algorithm family or technique",
+      "avoid_repeating": ["Failed or overused route"],
+      "max_uses": 2
+    }
+  ]
+}
+```
+
+Use only the MCP request payload and the original task description already in context. Do not read verifier/evaluator source. Do not add prose outside the JSON object. Generate 1 to 3 guidance items. Keep each item concrete enough for task-executor to implement.
 
 ---
 

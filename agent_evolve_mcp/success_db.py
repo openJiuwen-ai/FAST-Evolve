@@ -89,6 +89,15 @@ class SuccessDB:
             return None
         return max(self._records.values(), key=lambda record: record.fitness)
 
+    def get_canonical_best_record(self) -> Optional[SuccessRecord]:
+        """Return a deterministic best record for use as an anchor parent."""
+        if not self._records:
+            return None
+        return min(
+            self._records.values(),
+            key=lambda record: (-record.fitness, record.created_at, record.id),
+        )
+
     def infer_next_generation(self, parent_id: Optional[str]) -> int:
         """Infer a child generation from its parent when the caller omitted it."""
         parent = self.get(parent_id)

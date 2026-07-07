@@ -23,6 +23,7 @@ from agent_evolve_mcp.models import (
     SearchState,
     SuccessRecord,
 )
+from agent_evolve_mcp.meta_guidance import MetaGuidanceManager
 from agent_evolve_mcp.notes import NOTES_ENABLED_ENV, NotesManager, notes_enabled
 from agent_evolve_mcp.parent_selector import LineageAwareParentSelector
 from agent_evolve_mcp.state_store import RunStateStore, TaskContextStore
@@ -48,6 +49,7 @@ class EvolutionController:
         self.db = SuccessDB(run_id)
         self.attempt_log = AttemptLog(run_id)
         self.notes = NotesManager(run_id)
+        self.meta_guidance = MetaGuidanceManager(run_id, self.config.meta_evolve)
         self.task_contexts = TaskContextStore(run_id)
         self.run_state_store = RunStateStore(run_id)
         self.lineage_tree = LineageTree()
@@ -64,6 +66,13 @@ class EvolutionController:
             self.config.convergence,
         )
 
+    def configure_run(self, task_description: str = "") -> None:
+        """Persist optional run metadata supplied during initial configuration."""
+        run_state = self.run_state_store.load()
+        if task_description and not run_state.task_description:
+            run_state.task_description = task_description
+            self.run_state_store.save(run_state)
+
     def select_parent(self, task_id: str) -> Dict[str, Any]:
         """Return the minimal parent ref for one generator task.
 
@@ -75,16 +84,28 @@ class EvolutionController:
         if context is not None and context.parent_selected:
             return self._parent_ref(context.parent_id)
 
-        parent = self.parent_selector.select(
-            self.db,
-            self._progress(),
-            signal=self.convergence_detector.get_strategy_signal(),
-        )
-
         context = self.task_contexts.ensure(task_id)
+        guidance = self.meta_guidance.assign_for_task(task_id)
+        if guidance is not None:
+            parent = self.db.get(str(guidance.get("anchor_parent_id")))
+            if parent is not None:
+                context.meta_guidance_id = str(guidance.get("guidance_id"))
+                context.anchor_parent_id = str(guidance.get("anchor_parent_id"))
+            else:
+                guidance = None
+
+        if guidance is None:
+            parent = self.parent_selector.select(
+                self.db,
+                self._progress(),
+                signal=self.convergence_detector.get_strategy_signal(),
+            )
+
         context.parent_id = parent.id if parent is not None else None
         context.parent_selected = True
         self.task_contexts.put(context)
+        if guidance is not None and context.parent_id:
+            self.db.increment_selection(context.parent_id)
         return self._parent_ref(context.parent_id)
 
     def select_inspirations(self, task_id: str) -> Dict[str, Any]:
@@ -214,6 +235,7 @@ class EvolutionController:
 
         status = str(verification_result.get("status", "")).lower()
         fitness = _extract_fitness(verification_result)
+        best_before = _best_fitness(self.db)
         entered_success_db = False
         success_record_id = None
 
@@ -264,6 +286,8 @@ class EvolutionController:
             inspiration_ids=inspiration_ids,
             generation=generation,
             verification_result=verification_result,
+            meta_guidance_id=context.meta_guidance_id,
+            anchor_parent_id=context.anchor_parent_id,
             verification_result_ref=verification_result_ref,
             sketch=str(verification_result.get("summary") or ""),
             entered_success_db=entered_success_db,
@@ -279,6 +303,18 @@ class EvolutionController:
             self.task_contexts.put(context)
 
         self.db.load()
+        best_after = _best_fitness(self.db)
+        final_task_attempt = status == "success" or _attempt_number(resolved_attempt_id) >= max_attempts
+        if final_task_attempt:
+            self.meta_guidance.record_attempt_outcome(
+                task_id=task_id,
+                attempt_id=resolved_attempt_id,
+                entered_success_db=entered_success_db,
+                success_record_id=success_record_id if entered_success_db else None,
+                fitness=fitness,
+                best_fitness_before=best_before,
+                best_fitness_after=best_after,
+            )
         if notes_enabled():
             all_attempts = self.attempt_log.get_all()
             note_requests = self.notes.build_note_requests(
@@ -309,7 +345,7 @@ class EvolutionController:
         return self.notes.commit_generated_note(note_request_id, generated_note_json)
 
     def check_convergence(self) -> Dict[str, Any]:
-        """Return only whether the host should stop submitting new tasks."""
+        """Return the next scheduler action from convergence/meta-evolve state."""
         self._load_state()
         run_state = self.run_state_store.load()
         total_submitted = max(self.task_contexts.count(), self.attempt_log.count())
@@ -323,17 +359,76 @@ class EvolutionController:
             elapsed_seconds=elapsed_seconds,
         )
 
+        diagnostics = self.convergence_detector.get_diagnostics()
+        action = "continue"
+        request_id = None
+
+        if should_stop:
+            action = "budget_exhausted"
+        elif self.convergence_detector.state == SearchState.WATCHING:
+            current_best = diagnostics.get("current_best_fitness")
+            self.meta_guidance.note_watching(
+                task_count=total_submitted,
+                current_best_fitness=current_best,
+            )
+            if self.meta_guidance.should_request_guidance(
+                task_count=total_submitted,
+                current_best_fitness=current_best,
+            ):
+                request = self.meta_guidance.ensure_pending_request(
+                    db=self.db,
+                    task_description=run_state.task_description,
+                    diagnostics=diagnostics,
+                    lineages=self._lineage_summaries(),
+                    task_count=total_submitted,
+                )
+                if request is not None:
+                    action = "request_meta_guidance"
+                    request_id = request.get("request_id")
+        else:
+            self.meta_guidance.reset_watching()
+
+        meta_stats = self.meta_guidance.stats()
+        diagnostics["meta_guidance"] = meta_stats
         self.run_state_store.save(
             RunState(
                 run_id=self.run_id,
                 started_at=run_state.started_at,
+                task_description=run_state.task_description,
                 search_state=self.convergence_detector.state.value,
                 stop_reason=reason,
-                diagnostics=self.convergence_detector.get_diagnostics(),
+                diagnostics=diagnostics,
                 last_checked_attempt_count=total_submitted,
             )
         )
-        return {"should_stop": should_stop}
+        response: Dict[str, Any] = {
+            "action": action,
+            "should_stop": action == "budget_exhausted",
+            "search_state": self.convergence_detector.state.value,
+            "plateau": self.convergence_detector.state == SearchState.WATCHING,
+            "stop_reason": reason,
+            "meta_guidance": meta_stats,
+            "diagnostics": diagnostics,
+        }
+        if request_id:
+            response["request_id"] = request_id
+        return response
+
+    def get_meta_guidance_request(self, request_id: str = "") -> Dict[str, Any]:
+        """Return a pending meta-guidance request."""
+        return self.meta_guidance.get_request(request_id or None)
+
+    def commit_meta_guidance(self, request_id: str, guidance_json: Any) -> Dict[str, Any]:
+        """Validate and activate host-generated meta-guidance."""
+        return self.meta_guidance.commit_guidance(request_id, guidance_json)
+
+    def get_meta_guidance_prompt(self, task_id: str) -> Dict[str, Any]:
+        """Return the meta-guidance prompt assigned during parent selection."""
+        self._load_state()
+        context = self.task_contexts.get(task_id)
+        if context is None or not context.parent_selected:
+            raise ValueError("Call evolve_select_parent before evolve_get_meta_guidance_prompt.")
+        return self.meta_guidance.prompt_for_task(task_id)
 
     def finalize_run(self, stop_reason: Optional[str] = None) -> Dict[str, Any]:
         """Write deterministic run summary artifacts and return compact refs.
@@ -348,6 +443,7 @@ class EvolutionController:
         finalized_state = RunState(
             run_id=self.run_id,
             started_at=run_state.started_at,
+            task_description=run_state.task_description,
             search_state=SearchState.STOPPED.value,
             stop_reason=final_reason,
             diagnostics=run_state.diagnostics,
@@ -407,6 +503,23 @@ class EvolutionController:
             )
         return {"inspirations": inspirations}
 
+    def _lineage_summaries(self) -> List[Dict[str, Any]]:
+        """Return compact lineage summaries for meta-guidance requests."""
+        summaries: List[Dict[str, Any]] = []
+        for root_id, stats in sorted(self.lineage_tree.get_all_lineage_stats().items()):
+            summaries.append(
+                {
+                    "root_id": root_id,
+                    "size": stats.size,
+                    "best_fitness": stats.best_fitness,
+                    "best_record_id": stats.best_record_id,
+                    "max_depth": stats.max_depth,
+                    "share": stats.share,
+                    "recent_improvement": stats.recent_improvement,
+                }
+            )
+        return summaries
+
 
 def _load_verification_result(verification_result_ref: str) -> Dict[str, Any]:
     """Load verifier JSON from an absolute path or cwd-relative reference."""
@@ -429,6 +542,11 @@ def _extract_fitness(verification_result: Dict[str, Any]) -> Optional[float]:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _best_fitness(db: SuccessDB) -> Optional[float]:
+    best = db.get_canonical_best_record()
+    return best.fitness if best else None
 
 
 def _infer_attempt_id(verification_result_ref: str) -> Optional[str]:

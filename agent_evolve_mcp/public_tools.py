@@ -36,6 +36,7 @@ def _controller(run_id: str) -> EvolutionController:
 def evolve_configure_run(
     run_id: str,
     max_total_tasks: int = 50,
+    task_description: str = "",
 ) -> Dict[str, Any]:
     """Configure evolution run parameters before starting tasks.
 
@@ -44,17 +45,21 @@ def evolve_configure_run(
     is locked after the first call).
     """
     if run_id in _controllers:
+        config = _controllers[run_id].config
         return {
             "configured": False,
             "reason": "Controller already exists for this run_id; configuration locked.",
-            "max_total_tasks": _controllers[run_id].config.convergence.max_total_tasks,
+            "max_total_tasks": config.convergence.max_total_tasks,
+            "meta_evolve": _meta_evolve_config_ref(config),
         }
     config = load_evolution_controller_config(max_total_tasks=max_total_tasks)
     controller = EvolutionController(run_id, config=config)
+    controller.configure_run(task_description=task_description)
     _controllers[run_id] = controller
     return {
         "configured": True,
         "max_total_tasks": config.convergence.max_total_tasks,
+        "meta_evolve": _meta_evolve_config_ref(config),
     }
 
 
@@ -122,8 +127,36 @@ def evolve_commit_generated_note(
 
 
 @mcp.tool(run_in_thread=False)
+def evolve_get_meta_guidance_request(
+    run_id: str,
+    request_id: str = "",
+) -> Dict[str, Any]:
+    """Return a pending meta-guidance request for the host agent."""
+    return _controller(run_id).get_meta_guidance_request(request_id=request_id)
+
+
+@mcp.tool(run_in_thread=False)
+def evolve_commit_meta_guidance(
+    run_id: str,
+    request_id: str,
+    guidance_json: Any,
+) -> Dict[str, Any]:
+    """Validate and activate structured meta-guidance."""
+    return _controller(run_id).commit_meta_guidance(
+        request_id=request_id,
+        guidance_json=guidance_json,
+    )
+
+
+@mcp.tool(run_in_thread=False)
+def evolve_get_meta_guidance_prompt(run_id: str, task_id: str) -> Dict[str, Any]:
+    """Return a ready-to-inject meta-guidance prompt section for a task."""
+    return _controller(run_id).get_meta_guidance_prompt(task_id=task_id)
+
+
+@mcp.tool(run_in_thread=False)
 def evolve_check_convergence(run_id: str) -> Dict[str, Any]:
-    """Return only whether the host should stop submitting new tasks."""
+    """Return the next scheduler action from convergence/meta-evolve state."""
     return _controller(run_id).check_convergence()
 
 
@@ -136,3 +169,13 @@ def evolve_finalize_run(run_id: str, stop_reason: str = "") -> Dict[str, Any]:
     uses the reason already stored in run state.
     """
     return _controller(run_id).finalize_run(stop_reason=stop_reason or None)
+
+
+def _meta_evolve_config_ref(config: Any) -> Dict[str, Any]:
+    return {
+        "enabled": config.meta_evolve.enabled,
+        "watch_tasks_before_guidance": config.meta_evolve.watch_tasks_before_guidance,
+        "guidance_num_to_generate": config.meta_evolve.guidance_num_to_generate,
+        "guidance_max_uses": config.meta_evolve.guidance_max_uses,
+        "max_tried_guidance": config.meta_evolve.max_tried_guidance,
+    }

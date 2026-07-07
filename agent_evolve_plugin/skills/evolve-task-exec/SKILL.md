@@ -68,7 +68,28 @@ not try to generate or commit notes manually.
 
 ---
 
-## Step 2.6: Read Direction (If Exists)
+## Step 2.6: Load Meta-Guidance
+
+Call MCP tool `evolve_get_meta_guidance_prompt` with:
+- run_id
+- task_id
+
+If the result has `available == true`, include the returned `prompt` exactly as
+one required strategy section of the generation context. Do not rewrite,
+regroup, summarize, or reinterpret it yourself.
+
+Meta-guidance has higher strategy priority than parent/inspiration blending,
+but it never overrides verifier correctness or the benchmark output contract.
+The selected parent is the anchor parent for this guidance; use it as baseline,
+implementation reference, or fallback. You may depart substantially from the
+parent when the guidance requires it. Do not force a superficial combination
+with inspirations if they conflict with the guidance.
+
+If `available == false`, continue without a meta-guidance section.
+
+---
+
+## Step 2.7: Read Direction (If Exists)
 
 Check for file: `runs/<run_id>/tasks/<task_id>/direction.txt`
 
@@ -151,6 +172,7 @@ Based on:
 - Parent (if exists) - PRIMARY REFERENCE, build upon it
 - Inspirations (if any) - SECONDARY REFERENCE, borrow ideas from them
 - Task description
+- Meta-guidance (if provided) - REQUIRED STRATEGY, anchored on the selected parent
 - Direction hint (if exists) - Consider this exploration direction
 
 Generate a complete solution to the task. Use available skills as needed to complete the work.
@@ -162,6 +184,11 @@ verify it once.
 If Step 2.5 returned a notes prompt, use it as practical guidance while adapting
 the selected parent and inspirations. Error notes are checklist-style warnings;
 positive and negative notes are run-local experience, not hard proof.
+
+If Step 2.6 returned a meta-guidance prompt, apply it as the required strategy
+for this task. The guidance may require a substantially different approach from
+the parent. In that case, keep the parent as the baseline/reference/fallback
+rather than forcing an incoherent hybrid with the parent or inspirations.
 
 **For attempts 2 and beyond (debug mode)**:
 DO NOT generate a completely new solution. Instead:

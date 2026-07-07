@@ -7,8 +7,8 @@ S1: best-fitness improvement over a rolling window.
 S2: diversity trend over the same window.
 S3: current lineage diversity as an activity proxy.
 
-The MVP does not implement heartbeat.  WATCHING simply means selectors receive
-a strategy signal that increases exploration.
+WATCHING means selectors receive a strategy signal that increases exploration.
+Plateau is not a stop signal; it is handled by the meta-evolve controller.
 """
 
 from __future__ import annotations
@@ -124,14 +124,6 @@ class MultiDimensionalConvergenceDetector:
             and plateau_count >= self.patience
             and activity >= self.activity_threshold
         ):
-            self._state = SearchState.STOPPED
-            self._stop_reason = "converged"
-            diagnostics["state"] = self._state.value
-            diagnostics["stop_reason"] = self._stop_reason
-            self._diagnostics = diagnostics
-            return True, self._stop_reason
-
-        if plateau:
             self._state = SearchState.WATCHING
         else:
             self._state = SearchState.EXPLORING
