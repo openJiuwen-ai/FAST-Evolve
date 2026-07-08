@@ -85,7 +85,15 @@ class EvolutionController:
             return self._parent_ref(context.parent_id)
 
         context = self.task_contexts.ensure(task_id)
-        guidance = self.meta_guidance.assign_for_task(task_id)
+        current_best = self.db.get_canonical_best_record()
+        guidance = (
+            self.meta_guidance.assign_for_task(
+                task_id,
+                anchor_parent_id=current_best.id,
+            )
+            if current_best is not None
+            else None
+        )
         if guidance is not None:
             parent = self.db.get(str(guidance.get("anchor_parent_id")))
             if parent is not None:

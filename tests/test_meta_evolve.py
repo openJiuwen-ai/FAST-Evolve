@@ -12,13 +12,20 @@ from agent_evolve_mcp.models import (
 )
 
 
-def _controller(tmp_path, monkeypatch, *, max_total_tasks=100, watch_tasks=0):
+def _controller(
+    tmp_path,
+    monkeypatch,
+    *,
+    max_total_tasks=100,
+    watch_tasks=0,
+    perf_improvement_threshold=0.1,
+):
     monkeypatch.setenv("AGENT_EVOLVE_CONTROLLER_DIR", str(tmp_path / "controller"))
     config = EvolutionControllerConfig(
         convergence=ConvergenceConfig(
             enabled=True,
             convergence_window=1,
-            perf_improvement_threshold=0.1,
+            perf_improvement_threshold=perf_improvement_threshold,
             activity_threshold=0.0,
             patience=1,
             max_total_tasks=max_total_tasks,
@@ -60,6 +67,16 @@ def test_plateau_requests_guidance_without_stop(tmp_path, monkeypatch):
     assert result["should_stop"] is False
     assert result["search_state"] == "watching"
     assert result["request_id"].startswith("mgr_")
+
+
+def test_equal_best_counts_as_plateau_at_zero_threshold(tmp_path, monkeypatch):
+    controller = _controller(tmp_path, monkeypatch, perf_improvement_threshold=0.0)
+    _add_successes(controller, fitness=1.0)
+
+    result = controller.check_convergence()
+
+    assert result["action"] == "request_meta_guidance"
+    assert result["search_state"] == "watching"
 
 
 def test_hard_budget_still_stops(tmp_path, monkeypatch):
@@ -177,6 +194,51 @@ def test_same_task_does_not_double_consume_guidance(tmp_path, monkeypatch):
 
     assert first == second
     assert active["uses"] == 1
+
+
+def test_active_guidance_uses_latest_best_parent(tmp_path, monkeypatch):
+    controller = _controller(tmp_path, monkeypatch)
+    _add_successes(controller, fitness=1.0)
+    convergence = controller.check_convergence()
+    request = controller.get_meta_guidance_request(convergence["request_id"])
+    controller.commit_meta_guidance(
+        request["request_id"],
+        {
+            "guidance": [
+                {
+                    "idea": "Try a representation switch",
+                    "description": "Apply the same high-level idea to the current best.",
+                    "novelty_claim": "Recent attempts have not changed representation.",
+                    "implementation_plan": ["Switch representation", "Preserve output contract"],
+                    "approach_type": "representation",
+                    "max_uses": 2,
+                }
+            ]
+        },
+    )
+
+    first_parent = controller.select_parent("task_151")
+    controller.db.add(
+        SuccessRecord(
+            id="success_new_best",
+            run_id=controller.run_id,
+            fitness=2.0,
+            artifact_ref="new_best.py",
+            created_at="2026-01-01T00:01:00+00:00",
+        )
+    )
+    controller._load_state()
+    second_parent = controller.select_parent("task_152")
+    controller.meta_guidance.load()
+    assignments = controller.meta_guidance.state["task_assignments"]
+    active = controller.meta_guidance.state["active_guidance"][0]
+
+    assert first_parent["parent_id"] == "success_0000"
+    assert second_parent["parent_id"] == "success_new_best"
+    assert assignments["task_151"]["anchor_parent_id"] == "success_0000"
+    assert assignments["task_152"]["anchor_parent_id"] == "success_new_best"
+    assert active["creation_anchor_parent_id"] == "success_0000"
+    assert active["uses"] == 2
 
 
 def test_no_new_request_while_assigned_guidance_is_unresolved(tmp_path, monkeypatch):

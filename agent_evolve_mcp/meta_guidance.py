@@ -177,6 +177,7 @@ class MetaGuidanceManager:
                 "guidance_id": self._next_id("mg", start_index + offset),
                 "request_id": request_id,
                 "anchor_parent_id": anchor_id,
+                "creation_anchor_parent_id": anchor_id,
                 "max_uses": max_uses,
                 "uses": 0,
                 "status": "active",
@@ -199,38 +200,49 @@ class MetaGuidanceManager:
             "anchor_parent_id": anchor_id,
         }
 
-    def assign_for_task(self, task_id: str) -> Optional[Dict[str, Any]]:
+    def assign_for_task(
+        self,
+        task_id: str,
+        anchor_parent_id: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
         """Assign one active guidance item to a task, consuming one use."""
         self.load()
         assignments = self.state.setdefault("task_assignments", {})
         existing_id = (assignments.get(task_id) or {}).get("guidance_id")
         if existing_id:
-            return self._active_by_id(existing_id) or self._tried_by_id(existing_id)
+            guidance = self._active_by_id(existing_id) or self._tried_by_id(existing_id)
+            if guidance is None:
+                return None
+            return self._with_assignment_anchor(guidance, assignments.get(task_id) or {})
 
         active = self.state.get("active_guidance") or []
         for guidance in active:
             if int(guidance.get("uses", 0)) >= int(guidance.get("max_uses", 1)):
                 continue
+            actual_anchor_id = str(anchor_parent_id or guidance["anchor_parent_id"])
             guidance["uses"] = int(guidance.get("uses", 0)) + 1
             assignment = {
                 "task_id": task_id,
                 "guidance_id": guidance["guidance_id"],
-                "anchor_parent_id": guidance["anchor_parent_id"],
+                "anchor_parent_id": actual_anchor_id,
+                "creation_anchor_parent_id": guidance.get(
+                    "creation_anchor_parent_id",
+                    guidance["anchor_parent_id"],
+                ),
                 "status": "assigned",
                 "assigned_at": utc_now_iso(),
             }
             assignments[task_id] = assignment
             self.save()
             append_jsonl(self.uses_file, assignment)
-            return dict(guidance)
+            return self._with_assignment_anchor(guidance, assignment)
         return None
 
     def prompt_for_task(self, task_id: str) -> Dict[str, Any]:
         """Return a ready-to-inject prompt for a task's assigned guidance."""
         self.load()
-        guidance_id = ((self.state.get("task_assignments") or {}).get(task_id) or {}).get(
-            "guidance_id"
-        )
+        assignment = (self.state.get("task_assignments") or {}).get(task_id) or {}
+        guidance_id = assignment.get("guidance_id")
         if not guidance_id:
             return {"available": False, "reason": "no_active_guidance"}
         guidance = self._active_by_id(guidance_id) or self._tried_by_id(guidance_id)
@@ -239,7 +251,11 @@ class MetaGuidanceManager:
         return {
             "available": True,
             "guidance_id": guidance["guidance_id"],
-            "anchor_parent_id": guidance["anchor_parent_id"],
+            "anchor_parent_id": assignment.get("anchor_parent_id") or guidance["anchor_parent_id"],
+            "creation_anchor_parent_id": guidance.get(
+                "creation_anchor_parent_id",
+                guidance["anchor_parent_id"],
+            ),
             "prompt": _render_guidance_prompt(guidance),
         }
 
@@ -349,6 +365,20 @@ class MetaGuidanceManager:
             for item in self.state.get("active_guidance") or []
             if int(item.get("uses", 0)) < int(item.get("max_uses", 1))
         ]
+
+    @staticmethod
+    def _with_assignment_anchor(
+        guidance: Dict[str, Any],
+        assignment: Dict[str, Any],
+    ) -> Dict[str, Any]:
+        result = dict(guidance)
+        result["creation_anchor_parent_id"] = guidance.get(
+            "creation_anchor_parent_id",
+            guidance.get("anchor_parent_id"),
+        )
+        if assignment.get("anchor_parent_id"):
+            result["anchor_parent_id"] = assignment["anchor_parent_id"]
+        return result
 
     def _failed_guidance(self) -> List[Dict[str, Any]]:
         return [

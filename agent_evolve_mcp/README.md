@@ -56,7 +56,7 @@ This switch does not disable hard budgets. `max_total_tasks` and
 `{"action": "budget_exhausted", "should_stop": true}`.
 
 By default, the best-fitness improvement threshold is `0.0`: any positive
-running-best improvement is progress, and equal running-best fitness is not
+running-best improvement is progress, and equal running-best fitness is
 counted as an S1 plateau. For noisy verifier domains such as operator profiling,
 set a relative fuzzy boundary before starting the MCP process:
 
@@ -69,13 +69,18 @@ Meta-evolve defaults:
 ```yaml
 meta_evolve:
   enabled: true
-  watch_tasks_before_guidance: 8
+  watch_tasks_before_guidance: 3
   guidance_num_to_generate: 3
   guidance_max_uses: 2
   max_tried_guidance: 10
 ```
 
 `AGENT_EVOLVE_META_EVOLVE_ENABLED=0` disables meta-guidance request creation.
+
+Active meta-guidance is generated from the canonical best at request time, but
+each task binds it to the latest canonical best when `evolve_select_parent` is
+called. This mirrors AdaEvolve-style paradigm use: the idea persists, while the
+parent baseline follows new bests.
 
 The MCP owns `success_db.json`, `attempts.jsonl`, `task_contexts.json`, `run_state.json`, `notes.json`, and the `meta_guidance/` state files. Artifact files, verifier logs, and run workspaces are owned by the caller/plugin and are referenced by path-like refs.
 

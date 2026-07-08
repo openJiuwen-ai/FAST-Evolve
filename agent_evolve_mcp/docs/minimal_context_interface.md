@@ -34,7 +34,7 @@ evolve_configure_run(run_id: str, max_total_tasks: int = 50, task_description: s
   "max_total_tasks": 50,
   "meta_evolve": {
     "enabled": true,
-    "watch_tasks_before_guidance": 8,
+    "watch_tasks_before_guidance": 3,
     "guidance_num_to_generate": 3,
     "guidance_max_uses": 2,
     "max_tried_guidance": 10
@@ -64,7 +64,7 @@ evolve_select_parent(run_id: str, task_id: str)
 
 - 第一次调用时 MCP 选择并缓存 parent。
 - 重复调用同一个 `task_id` 时直接返回缓存结果，不重复采样。
-- 如果存在 active meta-guidance，MCP 会优先绑定该 guidance 的 anchor parent；否则走普通 parent selector。
+- 如果存在 active meta-guidance，MCP 会优先把该 guidance 绑定到本次调用时的 canonical best；否则走普通 parent selector。
 - SuccessDB 为空时返回 `parent_id: null`。
 
 ### `evolve_select_inspirations`
@@ -204,7 +204,7 @@ evolve_get_meta_guidance_request(run_id: str, request_id: str = "")
 返回 pending request，供主 agent 生成结构化 guidance。请求中包含：
 
 - 原始 `task_description`
-- canonical best 作为 anchor parent
+- canonical best 作为生成 guidance 的创建时 anchor parent
 - plateau/progress diagnostics
 - lineage summaries
 - failed guidance 摘要
@@ -238,7 +238,7 @@ evolve_commit_meta_guidance(run_id: str, request_id: str, guidance_json: Any)
 }
 ```
 
-MCP 校验并激活 guidance；后续 `evolve_select_parent` 会把 active guidance 分配给 task，并消耗 use count。
+MCP 校验并激活 guidance；后续 `evolve_select_parent` 会把 active guidance 分配给 task，绑定当时最新的 canonical best，并消耗 use count。
 
 ### `evolve_finalize_run`
 
@@ -283,13 +283,13 @@ meta_guidance/meta_guidance_uses.jsonl
 
 ## 4. Anchor Parent 选择规则
 
-Meta-guidance 激活时，anchor parent 固定为当前 canonical best：
+Meta-guidance 激活时，会记录创建时的 canonical best；每次分配给 task 时，则重新绑定当时最新的 canonical best：
 
 1. fitness 最高；
 2. fitness 相同则 `created_at` 最早；
 3. 仍相同则 `record_id` 字典序最小。
 
-这样能处理 current best 有多个实现的情况，避免每次调用在多个并列 best 之间漂移。
+这样既能处理 current best 有多个实现的情况，避免在多个并列 best 之间漂移，也能在某条 guidance 产生 new best 后，让同一批剩余 guidance 继续基于最新 best 执行。
 
 ## 5. Prompt 组装边界
 
