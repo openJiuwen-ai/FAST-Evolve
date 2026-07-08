@@ -535,7 +535,7 @@ convergence:
   perf_improvement_threshold: 0.0
   diversity_change_threshold: 0.05
   activity_threshold: 0.9
-  patience: 6
+  patience: 4
   max_time_seconds: 1800
 ```
 
@@ -985,7 +985,7 @@ improvement = (new_best - old_best) / abs(old_best)
 如果：
 
 ```text
-improvement < perf_improvement_threshold
+improvement <= perf_improvement_threshold
 ```
 
 则认为 plateau。
@@ -996,7 +996,7 @@ improvement < perf_improvement_threshold
 perf_improvement_threshold = 0.0
 ```
 
-即默认不启用模糊边界：任意正的 best fitness 改善都算进展，等值 running best 不累计 S1 plateau。对算子性能这类 verifier 有波动的任务，可以显式设置为 `0.01`，表示窗口内小于 1% 改善算停滞。
+即默认不启用模糊边界：任意正的 best fitness 改善都算进展，等值 running best 会累计 S1 plateau。对算子性能这类 verifier 有波动的任务，可以显式设置为 `0.01`，表示窗口内小于等于 1% 改善算停滞。
 
 #### S2：多样性趋势
 
@@ -1763,7 +1763,7 @@ convergence:
   perf_improvement_threshold: 0.0
   diversity_change_threshold: 0.05
   activity_threshold: 0.9
-  patience: 6
+  patience: 4
   max_time_seconds: 1800
 ```
 
@@ -1946,7 +1946,7 @@ Boltzmann 采样后期温度。
 0.0
 ```
 
-默认不启用模糊边界：任意正的 best fitness 改善都算进展，等值 running best 不累计 S1 plateau。对算子性能这类 verifier 有波动的任务，可以显式设置为 `0.01`，表示窗口内小于 1% 改善算停滞。
+默认不启用模糊边界：任意正的 best fitness 改善都算进展，等值 running best 会累计 S1 plateau。对算子性能这类 verifier 有波动的任务，可以显式设置为 `0.01`，表示窗口内小于等于 1% 改善算停滞。
 
 #### `diversity_change_threshold`
 

@@ -167,7 +167,7 @@ class MultiDimensionalConvergenceDetector:
             old_best = best_history[-(window + 1)]
             new_best = best_history[-1]
             improvement = (new_best - old_best) / max(abs(old_best), 1e-9)
-            s1_plateau = improvement < self.perf_threshold
+            s1_plateau = improvement <= self.perf_threshold
 
         diversity_change = None
         s2_trend = "stable"
@@ -237,7 +237,7 @@ class MultiDimensionalConvergenceDetector:
             old_best = best_history[index - window]
             new_best = best_history[index]
             improvement = (new_best - old_best) / max(abs(old_best), 1e-9)
-            if improvement < self.perf_threshold:
+            if improvement <= self.perf_threshold:
                 count += 1
             else:
                 break

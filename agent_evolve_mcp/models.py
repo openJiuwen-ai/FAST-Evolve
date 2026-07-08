@@ -84,7 +84,7 @@ class ConvergenceConfig:
     perf_improvement_threshold: float = 0.0
     diversity_change_threshold: float = 0.05
     activity_threshold: float = 0.9
-    patience: int = 6
+    patience: int = 4
     max_total_tasks: int = 100
     max_time_seconds: Optional[float] = None
 
@@ -94,7 +94,7 @@ class MetaEvolveConfig:
     """Configuration for lightweight meta-guidance control."""
 
     enabled: bool = True
-    watch_tasks_before_guidance: int = 8
+    watch_tasks_before_guidance: int = 3
     guidance_num_to_generate: int = 3
     guidance_max_uses: int = 2
     max_tried_guidance: int = 10
