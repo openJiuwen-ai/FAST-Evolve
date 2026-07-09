@@ -41,9 +41,11 @@ AGENT_EVOLVE_CONTROLLER_DIR
 ```
 
 Convergence checking is enabled by default. Plateau no longer causes early
-stop. It first puts the run in `WATCHING`, which increases exploration pressure
-inside parent/inspiration selectors; if WATCHING continues without improvement,
-MCP returns `action="request_meta_guidance"`.
+stop. With the default `watch_tasks_before_guidance: 0`, WATCHING immediately
+returns `action="request_meta_guidance"` so the main agent can generate
+meta-guidance. If `watch_tasks_before_guidance` is set above `0`, MCP waits
+that many tasks before the request and keeps the WATCHING exploration boost
+active during the waiting window.
 
 To disable convergence plateau detection, restart the MCP process with:
 
@@ -69,13 +71,16 @@ Meta-evolve defaults:
 ```yaml
 meta_evolve:
   enabled: true
-  watch_tasks_before_guidance: 3
+  watch_tasks_before_guidance: 0
   guidance_num_to_generate: 3
   guidance_max_uses: 2
   max_tried_guidance: 10
 ```
 
 `AGENT_EVOLVE_META_EVOLVE_ENABLED=0` disables meta-guidance request creation.
+`watch_tasks_before_guidance: 0` skips the first-layer parameter adjustment for
+the current run. Set it above `0` to re-enable the WATCHING-stage selector boost
+before meta-guidance is requested.
 
 Active meta-guidance is generated from the canonical best at request time, but
 each task binds it to the latest canonical best when `evolve_select_parent` is

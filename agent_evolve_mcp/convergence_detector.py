@@ -7,8 +7,8 @@ S1: best-fitness improvement over a rolling window.
 S2: diversity trend over the same window.
 S3: current lineage diversity as an activity proxy.
 
-WATCHING means selectors receive a strategy signal that increases exploration.
-Plateau is not a stop signal; it is handled by the meta-evolve controller.
+Plateau is not a stop signal. WATCHING can provide a temporary selector
+exploration boost while the controller waits before requesting meta-guidance.
 """
 
 from __future__ import annotations

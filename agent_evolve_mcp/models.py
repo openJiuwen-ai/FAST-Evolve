@@ -33,9 +33,9 @@ class StrategySignal:
     """Temporary strategy adjustment emitted by the convergence detector.
 
     The detector does not directly modify parent or inspiration selections.
-    Instead, selectors read this signal and bias their existing heuristics.  In
-    WATCHING state, for example, the signal increases temperature and migration
-    so the next selections explore more broadly.
+    Instead, selectors read this signal and can bias their existing heuristics.
+    The controller may suppress a WATCHING boost when meta-guidance is
+    configured to trigger immediately.
     """
 
     tau_multiplier: float = 1.0
@@ -94,7 +94,7 @@ class MetaEvolveConfig:
     """Configuration for lightweight meta-guidance control."""
 
     enabled: bool = True
-    watch_tasks_before_guidance: int = 3
+    watch_tasks_before_guidance: int = 0
     guidance_num_to_generate: int = 3
     guidance_max_uses: int = 2
     max_tried_guidance: int = 10

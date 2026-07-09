@@ -19,6 +19,7 @@ def _controller(
     max_total_tasks=100,
     watch_tasks=0,
     perf_improvement_threshold=0.1,
+    patience=1,
 ):
     monkeypatch.setenv("AGENT_EVOLVE_CONTROLLER_DIR", str(tmp_path / "controller"))
     config = EvolutionControllerConfig(
@@ -27,7 +28,7 @@ def _controller(
             convergence_window=1,
             perf_improvement_threshold=perf_improvement_threshold,
             activity_threshold=0.0,
-            patience=1,
+            patience=patience,
             max_total_tasks=max_total_tasks,
         ),
         meta_evolve=MetaEvolveConfig(
@@ -77,6 +78,56 @@ def test_equal_best_counts_as_plateau_at_zero_threshold(tmp_path, monkeypatch):
 
     assert result["action"] == "request_meta_guidance"
     assert result["search_state"] == "watching"
+
+
+def test_zero_watch_delay_suppresses_first_layer_parameter_adjustment(tmp_path, monkeypatch):
+    controller = _controller(tmp_path, monkeypatch, perf_improvement_threshold=0.0)
+    _add_successes(controller, fitness=1.0)
+
+    controller.check_convergence()
+    signal = controller._selection_strategy_signal()
+
+    assert signal.reason == "watching_request_meta_guidance"
+    assert signal.tau_multiplier == 1.0
+    assert signal.p_migrate_multiplier == 1.0
+    assert signal.T_insp_multiplier == 1.0
+    assert signal.p_exploit_override is None
+
+
+def test_positive_watch_delay_keeps_first_layer_parameter_adjustment(tmp_path, monkeypatch):
+    controller = _controller(
+        tmp_path,
+        monkeypatch,
+        watch_tasks=3,
+        perf_improvement_threshold=0.0,
+        patience=4,
+    )
+    _add_successes(controller, fitness=1.0)
+
+    result = controller.check_convergence()
+    signal = controller._selection_strategy_signal()
+
+    assert result["action"] == "continue"
+    assert signal.reason == "watching_boost_exploration"
+    assert signal.tau_multiplier == 1.5
+    assert signal.p_migrate_multiplier == 2.0
+    assert signal.T_insp_multiplier == 1.3
+
+
+def test_late_watching_observation_uses_plateau_count_for_guidance_delay(tmp_path, monkeypatch):
+    controller = _controller(
+        tmp_path,
+        monkeypatch,
+        watch_tasks=3,
+        perf_improvement_threshold=0.0,
+        patience=1,
+    )
+    _add_successes(controller, fitness=1.0, count=5)
+
+    result = controller.check_convergence()
+
+    assert result["action"] == "request_meta_guidance"
+    assert result["diagnostics"]["plateau_count"] == 4
 
 
 def test_hard_budget_still_stops(tmp_path, monkeypatch):

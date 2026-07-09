@@ -63,6 +63,8 @@ class MetaGuidanceManager:
         *,
         task_count: int,
         current_best_fitness: Optional[float],
+        plateau_count: Optional[int] = None,
+        patience: Optional[int] = None,
     ) -> bool:
         """Return whether WATCHING has lasted long enough to request guidance."""
         self.load()
@@ -76,7 +78,11 @@ class MetaGuidanceManager:
         started = watching.get("started_task_count")
         if started is None or current_best_fitness is None:
             return False
-        if task_count - int(started) < self.config.watch_tasks_before_guidance:
+        observed_elapsed = task_count - int(started)
+        inferred_elapsed = 0
+        if plateau_count is not None and patience is not None:
+            inferred_elapsed = max(int(plateau_count) - int(patience), 0)
+        if max(observed_elapsed, inferred_elapsed) < self.config.watch_tasks_before_guidance:
             return False
         start_best = watching.get("best_fitness")
         if start_best is not None and current_best_fitness > float(start_best):
@@ -490,7 +496,7 @@ def _render_guidance_prompt(guidance: Dict[str, Any]) -> str:
     avoid = "\n".join(f"- {item}" for item in guidance.get("avoid_repeating") or [])
     return (
         "## META-GUIDANCE - APPLY THIS\n\n"
-        "The search has stagnated after parameter-level exploration was increased. "
+        "The search has stagnated and meta-guidance was requested. "
         "You MUST make a purposeful attempt to apply this guidance.\n\n"
         f"**IDEA:** {guidance.get('idea')}\n\n"
         f"**WHY THIS IS NEW:** {guidance.get('novelty_claim')}\n\n"

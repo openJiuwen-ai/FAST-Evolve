@@ -22,6 +22,7 @@ from agent_evolve_mcp.models import (
     RunState,
     SearchState,
     SuccessRecord,
+    StrategySignal,
 )
 from agent_evolve_mcp.meta_guidance import MetaGuidanceManager
 from agent_evolve_mcp.notes import NOTES_ENABLED_ENV, NotesManager, notes_enabled
@@ -106,7 +107,7 @@ class EvolutionController:
             parent = self.parent_selector.select(
                 self.db,
                 self._progress(),
-                signal=self.convergence_detector.get_strategy_signal(),
+                signal=self._selection_strategy_signal(),
             )
 
         context.parent_id = parent.id if parent is not None else None
@@ -147,7 +148,7 @@ class EvolutionController:
             parent,
             self.db,
             self._progress(),
-            signal=self.convergence_detector.get_strategy_signal(),
+            signal=self._selection_strategy_signal(),
         )
         context.inspiration_ids = [
             str(item["id"])
@@ -382,6 +383,8 @@ class EvolutionController:
             if self.meta_guidance.should_request_guidance(
                 task_count=total_submitted,
                 current_best_fitness=current_best,
+                plateau_count=diagnostics.get("plateau_count"),
+                patience=diagnostics.get("patience"),
             ):
                 request = self.meta_guidance.ensure_pending_request(
                     db=self.db,
@@ -425,6 +428,16 @@ class EvolutionController:
     def get_meta_guidance_request(self, request_id: str = "") -> Dict[str, Any]:
         """Return a pending meta-guidance request."""
         return self.meta_guidance.get_request(request_id or None)
+
+    def _selection_strategy_signal(self) -> StrategySignal:
+        """Return selector signal after applying meta-evolve timing policy."""
+        signal = self.convergence_detector.get_strategy_signal()
+        if (
+            self.convergence_detector.state == SearchState.WATCHING
+            and self.config.meta_evolve.watch_tasks_before_guidance <= 0
+        ):
+            return StrategySignal(reason="watching_request_meta_guidance")
+        return signal
 
     def commit_meta_guidance(self, request_id: str, guidance_json: Any) -> Dict[str, Any]:
         """Validate and activate host-generated meta-guidance."""

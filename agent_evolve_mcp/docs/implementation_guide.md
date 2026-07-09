@@ -353,7 +353,7 @@ EXPLORING / WATCHING / STOPPED
 
 收敛检测器给选择器的策略信号。
 
-例如进入 `WATCHING` 后：
+`WATCHING` 默认仍可通过它调整选择器参数：
 
 ```python
 tau_multiplier = 1.5
@@ -361,7 +361,7 @@ p_migrate_multiplier = 2.0
 T_insp_multiplier = 1.3
 ```
 
-这不会触发 heartbeat，只会让后续 parent / inspiration 选择更偏探索。
+但如果 `watch_tasks_before_guidance = 0`，controller 会跳过第一层参数调节，直接请求 meta-guidance。
 
 #### `ParentSelectionConfig`
 
@@ -1062,14 +1062,25 @@ activity_threshold = 0.8
 默认：
 
 ```text
-patience = 3
+patience = 4
 ```
 
 #### WATCHING 的作用
 
-当前 MVP 不做 heartbeat。
+当前默认 `watch_tasks_before_guidance = 0`，因此 WATCHING 不做第一层参数调节。
 
-`WATCHING` 只会让选择器收到：
+本次配置下进入 `WATCHING` 后，MCP 会直接请求 meta-guidance。选择器收到的信号保持中性：
+
+```python
+StrategySignal(
+  tau_multiplier=1.0,
+  p_migrate_multiplier=1.0,
+  T_insp_multiplier=1.0,
+  reason="watching_request_meta_guidance"
+)
+```
+
+如果后续把 `watch_tasks_before_guidance` 改成大于 0，则等待 meta-guidance 的这段 WATCHING 期间会恢复第一层参数调节：
 
 ```python
 StrategySignal(
@@ -1079,12 +1090,6 @@ StrategySignal(
   reason="watching_boost_exploration"
 )
 ```
-
-也就是：
-
-- parent selection 更探索；
-- inspiration migration 更频繁；
-- Boltzmann sampling 更随机。
 
 ### 4.12 `controller.py`
 
@@ -1360,7 +1365,7 @@ WATCHING 示例：
 }
 ```
 
-`WATCHING` 不返回给主 agent。MCP 会把内部状态写入 run state，后续 `evolve_select_parent` / `evolve_select_inspirations` 会自动读取该状态并增强探索。
+`WATCHING` 不返回给主 agent。MCP 会把内部状态写入 run state，并在 convergence check 中请求 meta-guidance。若 `watch_tasks_before_guidance > 0`，等待期间的 `evolve_select_parent` / `evolve_select_inspirations` 会应用 WATCHING 探索增强。
 
 STOPPED 示例：
 
@@ -1545,7 +1550,7 @@ evolve_check_convergence(
 should_stop = false
 ```
 
-主 agent 继续补位。MCP 内部可能已经进入 WATCHING，但不会把该状态返回给主 agent；它只影响后续 selection 参数。
+主 agent 继续补位。MCP 内部可能已经进入 WATCHING，但不会把该状态返回给主 agent；convergence check 会在需要时返回 `request_meta_guidance`。
 
 如果：
 
@@ -1615,7 +1620,7 @@ run_id = run_001
 
 记录 MCP 内部运行状态，例如 convergence detector 当前处于 `EXPLORING`、`WATCHING` 还是 `STOPPED`，以及最近一次收敛检测需要的统计信息。
 
-这个文件不会直接暴露给 agent。`WATCHING` 只会影响后续 selection 参数；agent 只看到 `should_stop`。
+这个文件不会直接暴露给 agent。`WATCHING` 会驱动 meta-guidance request；agent 只需要处理公开 tool 返回的 `action`。
 
 ### 7.3 `success_db.json`
 
@@ -2122,7 +2127,7 @@ evolve_get_diagnostics
 
 ### 11.4 没有 heartbeat
 
-当前 WATCHING 只影响选择参数。
+当前默认 WATCHING 直接请求 meta-guidance；如果 `watch_tasks_before_guidance > 0`，等待期间仍会影响选择参数。
 
 heartbeat / reflect / consolidate / pivot 应该由主循环或 skill 实现。
 
