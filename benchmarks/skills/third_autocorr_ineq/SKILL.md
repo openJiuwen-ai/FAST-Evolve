@@ -78,7 +78,7 @@ Goal: Beat the AlphaEvolve upper bound of 1.4556427953745406.
 
 ## Task
 
-Numpy and scipy are always available.
+Bounded computation and scientific-computing libraries such as NumPy/SciPy/jax/optax are allowed when they help.
 
 ## Program Interface
 

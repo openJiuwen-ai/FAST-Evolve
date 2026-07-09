@@ -31,6 +31,20 @@ If parent exists, read the artifact file at `artifact_ref` to understand the par
 
 ---
 
+## Step 1.5: Load Initial Reference Program (Root Tasks Only)
+
+If `parent_id` is null, this is a root exploration task. Locate the problem
+SKILL.md for this task. If `initial_program.py` exists in the same benchmark
+directory as that SKILL.md, read it as `initial_program_reference`.
+
+Use this reference only for root tasks with no parent. For non-root tasks,
+parent and inspiration artifacts are the evolutionary context, so do not load
+or prioritize `initial_program.py`.
+
+Do not read verifier scripts while locating the reference program.
+
+---
+
 ## Step 2: Select Inspirations
 Call MCP tool `evolve_select_inspirations` with:
 - run_id
@@ -161,7 +175,16 @@ Use the exact path with correct run_id, task_id, attempt_id.
 ### 3.2 Generate or Debug Solution
 
 **Evolution Strategy**:
-The parent solution is the foundation of this evolution - use it as the primary reference for improvement and optimization; inspirations can be used as supplementary references for crossover, mutation, and borrowing optimization ideas.
+If a parent exists, the parent solution is the foundation of this evolution -
+use it as the primary reference for improvement and optimization; inspirations
+can be used as supplementary references for crossover, mutation, and borrowing
+optimization ideas.
+If no parent exists and `initial_program_reference` is available, use the
+initial reference program as the baseline implementation to understand the
+intended interface, scoring objective, and starting search route, then apply the
+task's direction hint to produce a distinct root solution. The direction may
+call for either a close improvement to the reference or a substantially
+different approach that preserves the benchmark contract.
 Fitness is the task-generic quality score and higher is always better. Use the
 parent as the primary reference, and use inspiration fitness to rank secondary
 references. Borrow more from higher-fitness inspirations; treat lower-fitness
@@ -170,6 +193,7 @@ inspirations as optional contrastive examples rather than templates to copy.
 **For attempt 1**:
 Based on:
 - Parent (if exists) - PRIMARY REFERENCE, build upon it
+- Initial reference program (if no parent exists and available) - ROOT BASELINE, use or depart from it according to the direction
 - Inspirations (if any) - SECONDARY REFERENCE, borrow ideas from them
 - Task description
 - Meta-guidance (if provided) - REQUIRED STRATEGY, anchored on the selected parent
@@ -189,6 +213,12 @@ If Step 2.6 returned a meta-guidance prompt, apply it as the required strategy
 for this task. The guidance may require a substantially different approach from
 the parent. In that case, keep the parent as the baseline/reference/fallback
 rather than forcing an incoherent hybrid with the parent or inspirations.
+
+If this is a root task and both `initial_program_reference` and `direction_hint`
+exist, the generated solution must visibly reflect both: preserve the benchmark
+interface from the reference, reuse useful baseline structure when helpful, and
+make the direction-specific algorithmic choice real in the code rather than
+merely mentioning it in comments.
 
 **For attempts 2 and beyond (debug mode)**:
 DO NOT generate a completely new solution. Instead:
@@ -353,3 +383,4 @@ Do NOT report any other details - success or failure, both count as completed.
 13. **One Verifier Run Per Attempt**: Within a single attempt directory, write the artifact once and run the verifier once. A valid but suboptimal fitness is still success, not permission to keep editing the same attempt.
 14. **No Environment Probing**: Do not run arbitrary Bash commands to inspect installed packages, files, or runtime capabilities. Use only the benchmark verifier command for execution feedback.
 15. **NEVER READ VERIFIER SCRIPTS**: The task/benchmark skill may define a verifier script (e.g. `verify.py`). These scripts may contain secret answers or evaluation logic. You must NOT read, examine, or inspect them using any tool (Read, Grep, Glob, Bash `cat/head/tail/type`, etc.). The ONLY allowed interaction is **running them as a script** with the exact command specified in the task skill.
+16. **Use Initial Reference Only For Roots**: `initial_program.py` is a root-task baseline when no parent exists. Once parent selection returns a parent, evolve from the selected parent/inspirations instead.
