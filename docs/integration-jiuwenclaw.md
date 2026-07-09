@@ -85,8 +85,8 @@ for skill in circle_packing circle_packing_rect erdos_min_overlap \
   first_autocorr_ineq heilbronn_convex_13 heilbronn_convex_14 \
   heilbronn_triangle hexagon_packing_11 hexagon_packing_12 \
   kernelbench_layernorm matmul minimizing_max_min_dist_2 \
-  minimizing_max_min_dist_3 second_autocorr_ineq signal_processing \
-  sums_diffs_finite_sets uncertainty_ineq; do
+  minimizing_max_min_dist_3 second_autocorr_ineq third_autocorr_ineq \
+  signal_processing sums_diffs_finite_sets uncertainty_ineq; do
   cp -r "evolve_agent/benchmarks/skills/$skill" "$SKILLS_DIR/$skill"
 done
 ```
@@ -137,6 +137,7 @@ for name in mcp._tool_manager._tools:
 | `minimizing_max_min_dist_3` | 最小化最大最小距离 (3D) |
 | `first_autocorr_ineq` | 第一自相关不等式 |
 | `second_autocorr_ineq` | 第二自相关不等式 |
+| `third_autocorr_ineq` | 第三自相关不等式 |
 | `signal_processing` | 信号处理优化 |
 | `sums_diffs_finite_sets` | 有限集合的和与差 |
 | `uncertainty_ineq` | 不确定性不等式 |
