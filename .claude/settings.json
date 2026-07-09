@@ -10,11 +10,16 @@
       "Bash(touch *)",
       "Bash(printf *)",
       "Bash(date *)",
+      "Bash(cd * && uv run python benchmarks/skills/*/scripts/evaluator.py *)",
+      "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_configure_run",
       "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_select_parent",
       "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_select_inspirations",
       "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_get_notes_prompt",
+      "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_get_meta_guidance_prompt",
       "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_record_attempt",
       "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_commit_generated_note",
+      "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_get_meta_guidance_request",
+      "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_commit_meta_guidance",
       "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_check_convergence",
       "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_finalize_run"
     ]
