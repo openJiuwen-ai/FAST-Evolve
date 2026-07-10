@@ -14,7 +14,6 @@ import re
 from pathlib import Path
 from typing import Any, Dict, List
 
-
 DEFAULT_CONTROLLER_DIR = ".agent_evolve/controller"
 ROOT_ENV_VAR = "AGENT_EVOLVE_CONTROLLER_DIR"
 
@@ -51,6 +50,21 @@ def task_contexts_path(run_id: str) -> Path:
 def run_state_path(run_id: str) -> Path:
     """Return the JSON file that stores internal controller runtime state."""
     return run_dir(run_id) / "run_state.json"
+
+
+def notes_path(run_id: str) -> Path:
+    """Return the run-local Notes JSON file."""
+    return run_dir(run_id) / "notes.json"
+
+
+def note_requests_path(run_id: str) -> Path:
+    """Return the append-only run-local note request log."""
+    return run_dir(run_id) / "note_requests.jsonl"
+
+
+def notes_events_path(run_id: str) -> Path:
+    """Return the append-only run-local notes event log."""
+    return run_dir(run_id) / "notes_events.jsonl"
 
 
 def ensure_run_dir(run_id: str) -> Path:

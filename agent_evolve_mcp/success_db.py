@@ -115,6 +115,10 @@ class AttemptLog:
         with self.path.open("r", encoding="utf-8") as handle:
             return sum(1 for line in handle if line.strip())
 
+    def get_all(self) -> List[dict]:
+        """Return all attempt rows in append order."""
+        return read_jsonl(self.path)
+
     def find_by_task_id(self, task_id: str) -> Optional[dict]:
         """Return the most recent attempt row for a task id, if present."""
         match = None
@@ -122,3 +126,10 @@ class AttemptLog:
             if row.get("task_id") == task_id:
                 match = row
         return match
+
+    def find_by_task_attempt(self, task_id: str, attempt_id: str) -> Optional[dict]:
+        """Return one attempt row by task id and attempt id."""
+        for row in read_jsonl(self.path):
+            if row.get("task_id") == task_id and row.get("id") == attempt_id:
+                return row
+        return None

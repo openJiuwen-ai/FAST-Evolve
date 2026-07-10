@@ -68,7 +68,8 @@ Your program must implement a `circle_packing21()` function that returns:
 
 ## Task
 
-Focus on designing an explicit constructor that places each circle in a specific position, rather than an iterative search algorithm.
+Bounded computation and scientific-computing libraries such as NumPy/SciPy are allowed when they help.
+Choose the geometric or optimization strategy based on the current evidence instead of following a fixed template.
 
 ## Constraints
 

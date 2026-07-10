@@ -15,7 +15,6 @@ from agent_evolve_mcp.config import load_evolution_controller_config
 from agent_evolve_mcp.controller import EvolutionController
 from agent_evolve_mcp.mcp_server import mcp
 
-
 _controllers: Dict[str, EvolutionController] = {}
 
 
@@ -84,16 +83,41 @@ def evolve_record_attempt(
     run_id: str,
     task_id: str,
     verification_result_ref: str,
+    attempt_id: str = "",
+    artifact_ref: str = "",
+    max_attempts: int = 3,
 ) -> Dict[str, Any]:
-    """Record a completed task from a verifier-result file reference.
+    """Record one completed attempt from a verifier-result file reference.
 
     The controller reads the JSON result, restores parent/inspiration ids from
-    task context, records the attempt, and adds successful attempts with
-    top-level numeric fitness to SuccessDB.
+    task context, records the attempt, adds successful attempts with top-level
+    numeric fitness to SuccessDB, and returns any Notes requests.
     """
     return _controller(run_id).record_attempt(
         task_id=task_id,
         verification_result_ref=verification_result_ref,
+        attempt_id=attempt_id or None,
+        artifact_ref=artifact_ref or None,
+        max_attempts=max_attempts,
+    )
+
+
+@mcp.tool(run_in_thread=False)
+def evolve_get_notes_prompt(run_id: str, task_id: str) -> Dict[str, Any]:
+    """Return run-local Notes as a ready-to-inject prompt section."""
+    return _controller(run_id).get_notes_prompt(task_id=task_id)
+
+
+@mcp.tool(run_in_thread=False)
+def evolve_commit_generated_note(
+    run_id: str,
+    note_request_id: str,
+    generated_note_json: Any,
+) -> Dict[str, Any]:
+    """Validate and commit one LLM-generated run-local note."""
+    return _controller(run_id).commit_generated_note(
+        note_request_id=note_request_id,
+        generated_note_json=generated_note_json,
     )
 
 
