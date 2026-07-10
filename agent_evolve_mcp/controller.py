@@ -391,6 +391,18 @@ class EvolutionController:
                     task_description=run_state.task_description,
                     diagnostics=diagnostics,
                     lineages=self._lineage_summaries(),
+                    notes_summary=(
+                        self.notes.summarize_for_meta_guidance()
+                        if notes_enabled()
+                        else {
+                            "enabled": False,
+                            "reason": f"Run-local Notes disabled by {NOTES_ENABLED_ENV}.",
+                            "positive": [],
+                            "negative": [],
+                            "error": [],
+                            "errors": [],
+                        }
+                    ),
                     task_count=total_submitted,
                 )
                 if request is not None:

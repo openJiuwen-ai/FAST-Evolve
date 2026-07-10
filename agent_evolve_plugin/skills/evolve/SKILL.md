@@ -9,7 +9,7 @@ You are now running the **self-evolution master skill**, the orchestrator. Your 
 
 ## Orchestrator Boundary Constraint
 
-The orchestrator only handles queue scheduling and MCP calls. It must not read project files, invoke other skills, or get involved in task content. All domain logic is executed by subagent agents in their own isolated context — they are self-contained and know how to find and read all necessary context themselves.
+The orchestrator only handles queue scheduling and MCP calls. It must not read project files, invoke other skills, or get involved in task content, except for the explicit meta-guidance generation step below. During meta-guidance generation only, the orchestrator may read the current-best candidate code and verifier/evaluator source to understand scoring logic, then must return to scheduling. All normal task domain logic is executed by subagent agents in their own isolated context — they are self-contained and know how to find and read all necessary context themselves.
 
 ### Dispatch Template Constraint (ALL subagent dispatches)
 
@@ -193,6 +193,11 @@ While parsing, skip unparseable lines.
 
 During the run, maintain a concise terminal `Progress Update` whenever a task completes, a replacement task is launched, or the workflow is waiting for remaining running tasks. Use a Unicode box-drawing table and keep status emoji. The table must include exactly these semantic columns: `Task`, `Status`, `Fitness`, and `Artifact`; do not use a `Note` column. **All values for completed tasks are extracted from completed_tasks.jsonl during the event loop. Running tasks show `—` for Fitness and Artifact.** Status mapping: `success` → `✅ Completed`, `failure` → `⚠️ Failed`, running task → `🔄 Running`. **Display fidelity rules: fitness values must be shown exactly as they appear in completed_tasks.jsonl — never round, truncate, or reformat them; artifact_ref paths must be shown in full — never abbreviate, shorten, or truncate them.** After the table, print one short line with the current best fitness and number of running tasks.
 
+Fitness is always maximized. `Best fitness` MUST be the largest successful
+numeric fitness from `completed_tasks.jsonl`, or
+`convergence.diagnostics.current_best_fitness` when available. Do not infer the
+direction from raw benchmark metrics such as loss, c3, runtime, or distance.
+
 ### Critical Constraints
 
 1. Once `action == "budget_exhausted"`, stop launching new tasks.
@@ -217,6 +222,8 @@ When MCP returns `action == "request_meta_guidance"`, generate exactly one JSON 
       "description": "What to try and why",
       "target_metric": "fitness",
       "novelty_claim": "Why this differs from current lineages",
+      "current_best_assessment": "What works in current_best, what may be trapping the search, and whether this guidance refines, departs from, or replaces that route",
+      "relationship_to_current_best": "refine|depart|replace",
       "implementation_plan": ["Concrete step 1", "Concrete step 2"],
       "cautions": ["Risk or constraint"],
       "approach_type": "algorithm family or technique",
@@ -227,7 +234,27 @@ When MCP returns `action == "request_meta_guidance"`, generate exactly one JSON 
 }
 ```
 
-Use only the MCP request payload and the original task description already in context. Do not read verifier/evaluator source. Do not add prose outside the JSON object. Generate 1 to 3 guidance items. Keep each item concrete enough for task-executor to implement.
+Use the MCP request payload, the original task description already in context,
+and the current-best candidate implementation referenced by
+`request.current_best.artifact_ref` or embedded in
+`request.current_best.artifact_excerpt`. This candidate code is allowed context.
+You may also read verifier/evaluator source during this meta-guidance
+generation step, aligned with AdaEvolve's paradigm-generation setup. Use it only
+to understand scoring logic, constraints, and failure modes. Do not modify
+verifier/evaluator source, bypass the evaluator, or hard-code evaluator-specific
+shortcuts into the guidance.
+
+Before writing the JSON, follow `request.generation_instructions` if present.
+In particular, critically assess the current best instead of assuming it is the
+right route. It may be a local optimum or wrong search family. Use
+`notes_summary` and `guidance_history` to avoid repeating strategies whose prior
+outcomes showed no improvement.
+
+Generate 1 to 3 guidance items. If generating multiple items, every
+`approach_type` MUST be different; duplicate approach types will be rejected by
+MCP. Prefer 3 distinct strategy families when the plateau evidence supports
+multiple plausible escapes. Do not add prose outside the JSON object. Keep each
+item concrete enough for task-executor to implement.
 
 ---
 

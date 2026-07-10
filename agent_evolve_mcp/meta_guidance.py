@@ -8,6 +8,7 @@ returned by the controller.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from agent_evolve_mcp.models import MetaEvolveConfig, SuccessRecord, utc_now_iso
@@ -96,6 +97,7 @@ class MetaGuidanceManager:
         task_description: str,
         diagnostics: Dict[str, Any],
         lineages: List[Dict[str, Any]],
+        notes_summary: Optional[Dict[str, Any]] = None,
         task_count: int,
     ) -> Optional[Dict[str, Any]]:
         """Create or return the current pending request."""
@@ -114,7 +116,7 @@ class MetaGuidanceManager:
             "created_at": utc_now_iso(),
             "created_at_task_count": int(task_count),
             "task_description": task_description,
-            "current_best": _record_ref(anchor),
+            "current_best": _record_ref(anchor, include_artifact_excerpt=True),
             "progress": {
                 "best_fitness_history": [],
                 "completed_since_watching": self._completed_since_watching(task_count),
@@ -123,12 +125,17 @@ class MetaGuidanceManager:
                 "diagnostics": dict(diagnostics or {}),
             },
             "lineages": lineages,
-            "notes_summary": {"positive": [], "negative": [], "errors": []},
+            "notes_summary": notes_summary
+            or {"enabled": False, "positive": [], "negative": [], "error": [], "errors": []},
+            "guidance_history": self._guidance_history(),
             "failed_guidance": self._failed_guidance(),
+            "generation_instructions": _generation_instructions(),
             "constraints": [
-                "Do not read verifier/evaluator source.",
+                "You may read verifier/evaluator source during meta-guidance generation to understand scoring logic.",
                 "Do not bypass the evaluator.",
                 "Keep the benchmark output contract.",
+                "Do not modify verifier/evaluator source or use it to hard-code evaluator-specific shortcuts.",
+                "You may inspect current_best.artifact_ref or the provided artifact_excerpt; this is candidate code.",
             ],
         }
         self.state["pending_request"] = request
@@ -168,11 +175,16 @@ class MetaGuidanceManager:
 
         active = list(self.state.get("active_guidance") or [])
         created: List[Dict[str, Any]] = []
+        seen_approach_types = set()
         start_index = self._guidance_count() + 1
         for offset, item in enumerate(raw_guidance):
             validated = _validate_guidance_item(item)
             if isinstance(validated, str):
                 return {"committed": False, "reason": validated}
+            approach_key = str(validated.get("approach_type") or "").strip().lower()
+            if approach_key in seen_approach_types:
+                return {"committed": False, "reason": "duplicate_approach_type"}
+            seen_approach_types.add(approach_key)
             try:
                 max_uses = int(validated.get("max_uses") or self.config.guidance_max_uses)
             except (TypeError, ValueError):
@@ -192,6 +204,7 @@ class MetaGuidanceManager:
                 "best_fitness_at_creation": (pending.get("current_best") or {}).get("fitness"),
                 "has_success": False,
                 "created_new_best": False,
+                "outcomes": [],
             }
             active.append(guidance)
             created.append(guidance)
@@ -294,6 +307,32 @@ class MetaGuidanceManager:
             guidance["has_success"] = True
         if created_new_best:
             guidance["created_new_best"] = True
+        creation_best = _coerce_float(guidance.get("best_fitness_at_creation"))
+        absolute_improvement = (
+            fitness - creation_best
+            if fitness is not None and creation_best is not None
+            else None
+        )
+        relative_improvement = (
+            absolute_improvement / max(abs(creation_best), 1e-9)
+            if absolute_improvement is not None and creation_best is not None
+            else None
+        )
+        outcome = {
+            "task_id": task_id,
+            "attempt_id": attempt_id,
+            "entered_success_db": entered_success_db,
+            "success_record_id": success_record_id,
+            "fitness": fitness,
+            "best_fitness_before": best_fitness_before,
+            "best_fitness_after": best_fitness_after,
+            "created_new_best": created_new_best,
+            "absolute_improvement_vs_creation": absolute_improvement,
+            "relative_improvement_vs_creation": relative_improvement,
+        }
+        outcomes = list(guidance.get("outcomes") or [])
+        outcomes.append(outcome)
+        guidance["outcomes"] = outcomes
 
         assignment.update(
             {
@@ -305,6 +344,8 @@ class MetaGuidanceManager:
                 "best_fitness_before": best_fitness_before,
                 "best_fitness_after": best_fitness_after,
                 "created_new_best": created_new_best,
+                "absolute_improvement_vs_creation": absolute_improvement,
+                "relative_improvement_vs_creation": relative_improvement,
                 "recorded_at": utc_now_iso(),
             }
         )
@@ -345,7 +386,12 @@ class MetaGuidanceManager:
             outcome = "useful_success"
         else:
             outcome = "failed"
-        archived = {**guidance, "status": "exhausted", "outcome": outcome}
+        archived = {
+            **guidance,
+            "status": "exhausted",
+            "outcome": outcome,
+            "outcome_summary": _guidance_outcome_summary(guidance),
+        }
         self.state["active_guidance"] = [
             item for item in active if item.get("guidance_id") != guidance_id
         ]
@@ -394,9 +440,29 @@ class MetaGuidanceManager:
                 "approach_type": item.get("approach_type"),
                 "uses": item.get("uses"),
                 "outcome": item.get("outcome"),
+                "outcome_summary": item.get("outcome_summary")
+                or _guidance_outcome_summary(item),
             }
             for item in self.state.get("tried_guidance") or []
             if item.get("outcome") == "failed"
+        ]
+
+    def _guidance_history(self) -> List[Dict[str, Any]]:
+        """Return bounded prior guidance with deterministic outcome summaries."""
+        return [
+            {
+                "guidance_id": item.get("guidance_id"),
+                "idea": item.get("idea"),
+                "approach_type": item.get("approach_type"),
+                "relationship_to_current_best": item.get("relationship_to_current_best"),
+                "uses": item.get("uses"),
+                "max_uses": item.get("max_uses"),
+                "outcome": item.get("outcome"),
+                "best_fitness_at_creation": item.get("best_fitness_at_creation"),
+                "outcome_summary": item.get("outcome_summary")
+                or _guidance_outcome_summary(item),
+            }
+            for item in self.state.get("tried_guidance") or []
         ]
 
     def _completed_since_watching(self, task_count: int) -> int:
@@ -437,8 +503,8 @@ class MetaGuidanceManager:
         }
 
 
-def _record_ref(record: SuccessRecord) -> Dict[str, Any]:
-    return {
+def _record_ref(record: SuccessRecord, *, include_artifact_excerpt: bool = False) -> Dict[str, Any]:
+    ref = {
         "record_id": record.id,
         "fitness": record.fitness,
         "artifact_ref": record.artifact_ref,
@@ -447,6 +513,11 @@ def _record_ref(record: SuccessRecord) -> Dict[str, Any]:
         "profile": dict(record.profile or {}),
         "created_at": record.created_at,
     }
+    if include_artifact_excerpt:
+        excerpt, truncated = _read_artifact_excerpt(record.artifact_ref)
+        ref["artifact_excerpt"] = excerpt
+        ref["artifact_excerpt_truncated"] = truncated
+    return ref
 
 
 def _extract_guidance_list(guidance_json: Any) -> List[Dict[str, Any]]:
@@ -482,6 +553,10 @@ def _validate_guidance_item(item: Dict[str, Any]) -> Dict[str, Any] | str:
         "description": str(item["description"]),
         "target_metric": str(item.get("target_metric") or "fitness"),
         "novelty_claim": str(item["novelty_claim"]),
+        "current_best_assessment": str(item.get("current_best_assessment") or ""),
+        "relationship_to_current_best": str(
+            item.get("relationship_to_current_best") or "critically_adapt"
+        ),
         "implementation_plan": [str(value) for value in item.get("implementation_plan") or []],
         "cautions": [str(value) for value in item.get("cautions") or []],
         "approach_type": str(item["approach_type"]),
@@ -500,6 +575,9 @@ def _render_guidance_prompt(guidance: Dict[str, Any]) -> str:
         "You MUST make a purposeful attempt to apply this guidance.\n\n"
         f"**IDEA:** {guidance.get('idea')}\n\n"
         f"**WHY THIS IS NEW:** {guidance.get('novelty_claim')}\n\n"
+        f"**CURRENT BEST ASSESSMENT:** "
+        f"{guidance.get('current_best_assessment') or 'Use the current best critically; do not assume its strategy is optimal.'}\n\n"
+        f"**RELATIONSHIP TO CURRENT BEST:** {guidance.get('relationship_to_current_best')}\n\n"
         f"**HOW TO IMPLEMENT:**\n{guidance.get('description')}\n\n"
         f"**IMPLEMENTATION PLAN:**\n{plan or '- Apply the idea directly.'}\n\n"
         f"**TARGET METRIC:** {guidance.get('target_metric', 'fitness')}\n\n"
@@ -508,7 +586,68 @@ def _render_guidance_prompt(guidance: Dict[str, Any]) -> str:
         f"**AVOID REPEATING:**\n{avoid or '- No specific failed route listed.'}\n\n"
         "**ANCHOR RULES:**\n"
         "This guidance is anchored on the selected parent.\n"
-        "Use the selected parent as the baseline, implementation reference, or fallback.\n"
-        "You may depart substantially from the parent when required by this guidance.\n"
+        "Use the selected parent as an interface reference and fallback, not as proof that its strategy is correct.\n"
+        "If the guidance says to depart from or replace the current approach, implement the new strategy directly.\n"
         "Do not force a superficial combination with inspirations if they conflict with the guidance.\n"
     )
+
+
+def _read_artifact_excerpt(artifact_ref: str, max_chars: int = 16000) -> tuple[str, bool]:
+    if not artifact_ref:
+        return "", False
+    try:
+        path = Path(artifact_ref).expanduser()
+        if not path.is_absolute():
+            path = Path.cwd() / path
+        if not path.is_file():
+            return "", False
+        text = path.read_text(encoding="utf-8", errors="replace")
+        if len(text) <= max_chars:
+            return text, False
+        return text[:max_chars], True
+    except OSError:
+        return "", False
+
+
+def _guidance_outcome_summary(guidance: Dict[str, Any]) -> Dict[str, Any]:
+    outcomes = [dict(item) for item in guidance.get("outcomes") or []]
+    fitness_values = [
+        value
+        for value in (_coerce_float(item.get("fitness")) for item in outcomes)
+        if value is not None
+    ]
+    improvements = [
+        value
+        for value in (
+            _coerce_float(item.get("absolute_improvement_vs_creation"))
+            for item in outcomes
+        )
+        if value is not None
+    ]
+    return {
+        "total_uses": len(outcomes) or int(guidance.get("uses", 0) or 0),
+        "success_uses": sum(1 for item in outcomes if item.get("entered_success_db")),
+        "new_best_uses": sum(1 for item in outcomes if item.get("created_new_best")),
+        "best_fitness": max(fitness_values) if fitness_values else None,
+        "best_absolute_improvement_vs_creation": max(improvements) if improvements else None,
+    }
+
+
+def _coerce_float(value: Any) -> Optional[float]:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _generation_instructions() -> List[str]:
+    return [
+        "Inspect current_best.artifact_excerpt when present; if it is empty, use current_best.artifact_ref as the candidate implementation path.",
+        "You may inspect verifier/evaluator source during meta-guidance generation, matching AdaEvolve's paradigm-generation setup. Use it only to understand scoring logic, constraints, and failure modes.",
+        "Analyze the current best critically: identify what works, what likely traps the search, and whether the next guidance should refine, depart from, or replace that route.",
+        "Use notes_summary and guidance_history as evidence. Do not repeat guidance whose prior outcome_summary shows no improvement unless the failure condition is materially changed.",
+        "Generate distinct guidance items with different approach_type values. Avoid minor parameter variants of the same algorithm family.",
+        "Prefer concrete, implementable strategies. Each item should say how it relates to the current best and why it can escape or improve the observed plateau.",
+    ]
