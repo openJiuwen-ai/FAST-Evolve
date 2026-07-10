@@ -68,7 +68,6 @@ The math benchmarks require the `math` extra. The `dev` extra provides pytest.
 
 ```powershell
 uv sync --extra math --extra dev
-.\.venv\Scripts\Activate.ps1
 uv run python benchmarks/install.py --all
 ```
 
@@ -87,7 +86,7 @@ claude --plugin-dir agent_evolve_plugin --plugin-dir benchmarks
 Then submit a task such as:
 
 ```text
-/agent_evolve_plugin:evolve run the third_autocorr_ineq benchmark end to end for 50 tasks.
+/agent_evolve_plugin:evolve run the circle_packing benchmark end to end.
 ```
 
 The orchestrator creates a run ID such as `run_20260710143000`, configures the
