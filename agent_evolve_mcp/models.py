@@ -33,9 +33,9 @@ class StrategySignal:
     """Temporary strategy adjustment emitted by the convergence detector.
 
     The detector does not directly modify parent or inspiration selections.
-    Instead, selectors read this signal and bias their existing heuristics.  In
-    WATCHING state, for example, the signal increases temperature and migration
-    so the next selections explore more broadly.
+    Instead, selectors read this signal and can bias their existing heuristics.
+    The controller may suppress a WATCHING boost when meta-guidance is
+    configured to trigger immediately.
     """
 
     tau_multiplier: float = 1.0
@@ -84,9 +84,20 @@ class ConvergenceConfig:
     perf_improvement_threshold: float = 0.0
     diversity_change_threshold: float = 0.05
     activity_threshold: float = 0.9
-    patience: int = 6
+    patience: int = 4
     max_total_tasks: int = 100
     max_time_seconds: Optional[float] = None
+
+
+@dataclass
+class MetaEvolveConfig:
+    """Configuration for lightweight meta-guidance control."""
+
+    enabled: bool = True
+    watch_tasks_before_guidance: int = 0
+    guidance_num_to_generate: int = 3
+    guidance_max_uses: int = 2
+    max_tried_guidance: int = 10
 
 
 @dataclass
@@ -96,6 +107,7 @@ class EvolutionControllerConfig:
     parent_selection: ParentSelectionConfig = field(default_factory=ParentSelectionConfig)
     inspiration: InspirationSelectionConfig = field(default_factory=InspirationSelectionConfig)
     convergence: ConvergenceConfig = field(default_factory=ConvergenceConfig)
+    meta_evolve: MetaEvolveConfig = field(default_factory=MetaEvolveConfig)
 
 
 @dataclass
@@ -212,6 +224,8 @@ class AttemptRecord:
     inspiration_ids: List[str]
     generation: Optional[int]
     verification_result: Dict[str, Any]
+    meta_guidance_id: Optional[str] = None
+    anchor_parent_id: Optional[str] = None
     verification_result_ref: Optional[str] = None
     sketch: Optional[str] = None
     entered_success_db: bool = False
@@ -235,6 +249,8 @@ class TaskContext:
     task_id: str
     parent_id: Optional[str] = None
     inspiration_ids: List[str] = field(default_factory=list)
+    meta_guidance_id: Optional[str] = None
+    anchor_parent_id: Optional[str] = None
     parent_selected: bool = False
     inspirations_selected: bool = False
     missing_parent_context: bool = False
@@ -260,6 +276,8 @@ class TaskContext:
             task_id=str(data["task_id"]),
             parent_id=data.get("parent_id"),
             inspiration_ids=list(data.get("inspiration_ids") or []),
+            meta_guidance_id=data.get("meta_guidance_id"),
+            anchor_parent_id=data.get("anchor_parent_id"),
             parent_selected=bool(data.get("parent_selected", False)),
             inspirations_selected=bool(data.get("inspirations_selected", False)),
             missing_parent_context=bool(data.get("missing_parent_context", False)),
@@ -278,6 +296,7 @@ class RunState:
 
     run_id: str
     started_at: str = field(default_factory=utc_now_iso)
+    task_description: str = ""
     search_state: str = SearchState.EXPLORING.value
     stop_reason: str = ""
     diagnostics: Dict[str, Any] = field(default_factory=dict)
@@ -298,6 +317,7 @@ class RunState:
         return cls(
             run_id=str(data.get("run_id") or run_id),
             started_at=str(data.get("started_at") or utc_now_iso()),
+            task_description=str(data.get("task_description") or ""),
             search_state=str(data.get("search_state") or SearchState.EXPLORING.value),
             stop_reason=str(data.get("stop_reason") or ""),
             diagnostics=dict(data.get("diagnostics") or {}),

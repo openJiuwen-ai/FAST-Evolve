@@ -19,8 +19,9 @@ Then execute the following steps in EXACT ORDER:
 ## Step 1: Understand Task
 
 1. Locate and read the problem SKILL.md if it exists. The problem SKILL.md is typically found in the project root or in a benchmark directory.
-2. Understand the verification method and what constitutes a successful solution.
-3. Do not read verifier scripts (verify.py or similar) - only read the problem description SKILL.md.
+2. If the problem SKILL.md is in a benchmark directory and `initial_program.py` exists in the same directory, read `initial_program.py` as the initial reference program.
+3. Understand the verification method, what constitutes a successful solution, and the reference program's main algorithmic approach if one exists.
+4. Do not read verifier scripts (verify.py or similar) - only read the problem description SKILL.md and the sibling `initial_program.py` reference when it exists.
 
 ---
 
@@ -50,6 +51,12 @@ Generate exactly `num_directions` different directions. Each direction must be:
 - Clearly distinct from the other directions
 - Actionable, focusing on a specific approach
 - Feasible and meaningful for the given task
+
+If an `initial_program.py` reference exists, use it as important context for
+the task interface, baseline algorithm, and known feasible starting route.
+Directions may improve, specialize, simplify, or deliberately depart from that
+reference. Keep the set diverse; do not generate four directions that merely
+restate the initial program's current approach.
 
 Directions MUST be diverse enough so that following them produces significantly different solutions. Use the problem analysis from Step 2 to identify **problem-specific** axes of divergence — the decision points unique to this particular problem — rather than applying generic coding-style axes.
 
@@ -120,3 +127,4 @@ runs/<run_id>/tasks/task_004/direction.txt: Mathematical formula-based direct ca
 4. **No Verifier Reading**: Do NOT read verifier scripts.
 5. **Problem-First Diversity**: Derive diversity axes from the problem's structure, not from generic coding style categories.
 6. **Pairwise Distinct**: Every direction must produce a fundamentally different solution; overlap in core strategy is unacceptable.
+7. **Reference-Aware Roots**: When `initial_program.py` exists, directions should be informed by it but may include both close improvements and substantially different alternatives.

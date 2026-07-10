@@ -14,6 +14,7 @@ from agent_evolve_mcp.models import (
     ConvergenceConfig,
     EvolutionControllerConfig,
     InspirationSelectionConfig,
+    MetaEvolveConfig,
     ParentSelectionConfig,
 )
 
@@ -30,9 +31,11 @@ def load_evolution_controller_config(
     ps = data.get("parent_selection", {})
     insp = data.get("inspiration", {})
     conv = data.get("convergence", {})
+    meta = data.get("meta_evolve", {})
     parent_defaults = ParentSelectionConfig()
     inspiration_defaults = InspirationSelectionConfig()
     convergence_defaults = ConvergenceConfig(max_total_tasks=max_total_tasks)
+    meta_defaults = MetaEvolveConfig()
 
     return EvolutionControllerConfig(
         parent_selection=ParentSelectionConfig(
@@ -84,6 +87,23 @@ def load_evolution_controller_config(
             patience=int(conv.get("patience", convergence_defaults.patience)),
             max_total_tasks=max_total_tasks,
             max_time_seconds=conv.get("max_time_seconds", convergence_defaults.max_time_seconds),
+        ),
+        meta_evolve=MetaEvolveConfig(
+            enabled=_bool_from_env_or_config(
+                "AGENT_EVOLVE_META_EVOLVE_ENABLED",
+                meta.get("enabled", meta_defaults.enabled),
+            ),
+            watch_tasks_before_guidance=int(
+                meta.get(
+                    "watch_tasks_before_guidance",
+                    meta_defaults.watch_tasks_before_guidance,
+                )
+            ),
+            guidance_num_to_generate=int(
+                meta.get("guidance_num_to_generate", meta_defaults.guidance_num_to_generate)
+            ),
+            guidance_max_uses=int(meta.get("guidance_max_uses", meta_defaults.guidance_max_uses)),
+            max_tried_guidance=int(meta.get("max_tried_guidance", meta_defaults.max_tried_guidance)),
         ),
     )
 

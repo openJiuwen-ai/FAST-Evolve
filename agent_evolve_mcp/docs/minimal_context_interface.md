@@ -1,15 +1,46 @@
 # Evolution Controller MCP 最小上下文接口设计
 
-本文是新版 `agent_evolve_mcp` 的目标接口契约。核心目标是减少 agent 上下文占用，并避免让大模型记忆和转述容易出错的 id。
+本文描述 `agent_evolve_mcp` 当前的公开接口边界。核心目标仍然是减少 agent 上下文占用：能由 MCP 从本地状态恢复的信息，不让主 agent 或 task-executor 反复转述。
 
 ## 1. 第一性原则
 
 1. 非必要、非关键的信息不进入 MCP 输入输出。
 2. 长字段用 ref 指代，不传原文。
-3. 能由 MCP 从本地状态、SuccessDB、attempt log、verifier result file 检索到的信息，不要求 agent 传入。
-4. WATCHING、strategy signal、diagnostics 属于 MCP 内部控制逻辑，不暴露给主 agent 做精细控制。
+3. Parent、inspirations、attempt、notes、meta-guidance 的状态都由 MCP 本地持久化。
+4. 主 agent 只处理调度和少量 LLM 生成任务；能交给 MCP 决定的状态流转都交给 MCP。
+5. Plateau 不会触发提前停止。`should_stop` 只作为兼容字段保留，只有硬预算或外部停止才为 `true`。
 
 ## 2. 公开 Tools
+
+### `evolve_configure_run`
+
+输入：
+
+```python
+evolve_configure_run(run_id: str, max_total_tasks: int = 50, task_description: str = "")
+```
+
+说明：
+
+- 必须在同一 run 的其他 `evolve_*` tool 之前调用。
+- `task_description` 保存原始用户任务描述，供后续 meta-guidance request 使用。
+- 同一 `run_id` 重复配置会被忽略，并返回已锁定的配置。
+
+返回中包含当前 meta-evolve 默认配置：
+
+```json
+{
+  "configured": true,
+  "max_total_tasks": 50,
+  "meta_evolve": {
+    "enabled": true,
+    "watch_tasks_before_guidance": 0,
+    "guidance_num_to_generate": 3,
+    "guidance_max_uses": 2,
+    "max_tried_guidance": 10
+  }
+}
+```
 
 ### `evolve_select_parent`
 
@@ -29,24 +60,12 @@ evolve_select_parent(run_id: str, task_id: str)
 }
 ```
 
-SuccessDB 为空时：
+语义：
 
-```json
-{
-  "parent_id": null,
-  "artifact_ref": null,
-  "fitness": null
-}
-```
-
-副作用：
-
-```text
-MCP 写入 task_contexts.json:
-(run_id, task_id) -> parent_id
-```
-
-`progress` 由 MCP 内部根据已注册 task 数、attempt 数和 budget 计算，不再由 agent 传入。
+- 第一次调用时 MCP 选择并缓存 parent。
+- 重复调用同一个 `task_id` 时直接返回缓存结果，不重复采样。
+- 如果存在 active meta-guidance，MCP 会优先把该 guidance 绑定到本次调用时的 canonical best；否则走普通 parent selector。
+- SuccessDB 为空时返回 `parent_id: null`。
 
 ### `evolve_select_inspirations`
 
@@ -70,13 +89,41 @@ evolve_select_inspirations(run_id: str, task_id: str)
 }
 ```
 
-注意：
+语义：
 
+- 必须先调用 `evolve_select_parent`。
 - 返回值不重复包含 parent。
-- 返回 `fitness`，因为它是短且关键的质量信号，越高越好。
-- 不返回 metrics、profile、sketch、generation。
-- MCP 从 `task_contexts.json` 找回本 task 的 parent。
-- 选中的 inspiration ids 会写回 `task_contexts.json`。
+- 只返回 `id/ref/fitness`，不返回 artifact 内容、metrics、profile、sketch。
+- 选中的 inspiration ids 写入 `task_contexts.json`，同一 task 重试时保持不变。
+
+### `evolve_get_notes_prompt`
+
+输入：
+
+```python
+evolve_get_notes_prompt(run_id: str, task_id: str)
+```
+
+语义：
+
+- 必须在 parent 和 inspirations 都固定之后调用。
+- MCP 返回一个 ready-to-inject prompt section。
+- 关闭 Notes 时返回 `available: false` 和关闭原因。
+
+### `evolve_get_meta_guidance_prompt`
+
+输入：
+
+```python
+evolve_get_meta_guidance_prompt(run_id: str, task_id: str)
+```
+
+语义：
+
+- 必须在 `evolve_select_parent` 之后调用。
+- 如果该 task 被分配了 active guidance，MCP 返回 ready-to-inject meta-guidance prompt。
+- 如果没有 active guidance，返回 `available: false`。
+- task-executor 应把该 prompt 作为 required strategy 使用；如果它和 parent/inspiration 的常规方向冲突，以 meta-guidance 为更高优先级，但不能违反任务和 verifier 输出契约。
 
 ### `evolve_record_attempt`
 
@@ -87,35 +134,20 @@ evolve_record_attempt(
     run_id: str,
     task_id: str,
     verification_result_ref: str,
+    attempt_id: str = "",
+    artifact_ref: str = "",
+    max_attempts: int = 3,
 )
-```
-
-输出：
-
-```json
-{
-  "entered_success_db": true,
-  "success_record_id": "task_007"
-}
-```
-
-失败或未入 SuccessDB：
-
-```json
-{
-  "entered_success_db": false,
-  "success_record_id": null
-}
 ```
 
 MCP 内部步骤：
 
-1. 用 `(run_id, task_id)` 从 `task_contexts.json` 读取 `parent_id` 和 `inspiration_ids`。
+1. 从 `task_contexts.json` 恢复 parent、inspirations、meta-guidance assignment。
 2. 读取 `verification_result_ref` 指向的 JSON result。
-3. 从 result 中读取 `status`、`artifact_ref`、`fitness`、`metrics`、`profile`、`log_ref` 等字段。
-4. 追加写 `attempts.jsonl`。
-5. 如果 `status == "success"` 且 `fitness` 合法，则写入 `success_db.json`。
-6. 将 task context 标记为 recorded。
+3. 追加写 `attempts.jsonl`。
+4. 成功且有合法 fitness 时写入 `success_db.json`。
+5. 末次 attempt 时记录 meta-guidance outcome，支持后续归因。
+6. 返回 Notes request，供 task-executor 生成局部经验。
 
 `verification_result_ref` 指向的 JSON 至少需要：
 
@@ -127,20 +159,6 @@ MCP 内部步骤：
 }
 ```
 
-可选字段：
-
-```text
-metrics
-profile
-log_ref
-evaluator_version
-subagent_id
-summary_ref
-report_ref
-```
-
-完整日志、长反馈、代码内容不进入 MCP 调用参数。
-
 ### `evolve_check_convergence`
 
 输入：
@@ -149,54 +167,79 @@ report_ref
 evolve_check_convergence(run_id: str)
 ```
 
-输出：
+输出示例：
 
 ```json
 {
-  "should_stop": false
+  "action": "continue",
+  "should_stop": false,
+  "search_state": "exploring",
+  "plateau": false
 }
 ```
 
-MCP 内部从本地文件计算：
+`action` 是主语义：
 
 ```text
-total_submitted = max(task_contexts 中已注册 task 数, attempts.jsonl 行数)
-total_success = success_db.json records 数量
-progress = min(total_submitted / max_total_tasks, 1.0)
-elapsed_seconds = now - run_state.started_at
+continue              # 继续调度 task
+request_meta_guidance # plateau 持续足够久，需要主 agent 生成 meta-guidance
+budget_exhausted      # 达到硬预算，停止提交新 task
 ```
 
-内部状态：
+约束：
 
-```text
-EXPLORING
-WATCHING
-STOPPED
+- Plateau / WATCHING 不会停止任务。
+- 收敛检测进入 WATCHING 后，MCP 直接返回 `request_meta_guidance`。
+- 默认 `watch_tasks_before_guidance = 0`，因此本次配置会跳过第一层参数调节。
+- 如果后续把 `watch_tasks_before_guidance` 改成大于 0，WATCHING 等待期间仍会增强 parent / inspiration 选择参数。
+- `should_stop` 只为兼容旧调用方保留，等价于 `action == "budget_exhausted"`。
+
+### `evolve_get_meta_guidance_request`
+
+输入：
+
+```python
+evolve_get_meta_guidance_request(run_id: str, request_id: str = "")
 ```
 
-对外映射：
+返回 pending request，供主 agent 生成结构化 guidance。请求中包含：
 
-```text
-EXPLORING -> should_stop=false
-WATCHING  -> should_stop=false
-STOPPED   -> should_stop=true
+- 原始 `task_description`
+- canonical best 作为生成 guidance 的创建时 anchor parent
+- plateau/progress diagnostics
+- lineage summaries
+- failed guidance 摘要
+- safety constraints
+
+### `evolve_commit_meta_guidance`
+
+输入：
+
+```python
+evolve_commit_meta_guidance(run_id: str, request_id: str, guidance_json: Any)
 ```
 
-如果配置或环境变量关闭收敛检测：
+`guidance_json` 格式：
 
-```text
-AGENT_EVOLVE_CONVERGENCE_ENABLED=false
+```json
+{
+  "guidance": [
+    {
+      "idea": "One concise idea",
+      "description": "How this changes the search direction",
+      "target_metric": "fitness",
+      "novelty_claim": "Why this is different from recent attempts",
+      "implementation_plan": ["Step 1", "Step 2"],
+      "cautions": ["Keep output contract unchanged"],
+      "approach_type": "representation",
+      "avoid_repeating": ["Known failed route"],
+      "max_uses": 2
+    }
+  ]
+}
 ```
 
-则 `evolve_check_convergence` 会跳过 plateau 软收敛早停。这个开关不会覆盖硬预算：达到最大 task 数或时间上限时，仍然返回 `should_stop=true`。
-
-WATCHING 的策略信号不返回给 agent。MCP 将 WATCHING 写入 `run_state.json`，后续 `evolve_select_parent` 和 `evolve_select_inspirations` 读取该状态并内部应用：
-
-```text
-tau_multiplier
-p_migrate_multiplier
-T_insp_multiplier
-```
+MCP 校验并激活 guidance；后续 `evolve_select_parent` 会把 active guidance 分配给 task，绑定当时最新的 canonical best，并消耗 use count。
 
 ### `evolve_finalize_run`
 
@@ -206,7 +249,7 @@ T_insp_multiplier
 evolve_finalize_run(run_id: str, stop_reason: str = "")
 ```
 
-输出：
+返回：
 
 ```json
 {
@@ -214,15 +257,6 @@ evolve_finalize_run(run_id: str, stop_reason: str = "")
   "summary_ref": "runs/run_20260509_001/run_summary.json"
 }
 ```
-
-说明：
-
-- `evolve_check_convergence` 仍然只负责判断收敛和预算停止，只返回 `should_stop`。
-- `evolve_finalize_run` 负责确定性写入 run 总结文档，不返回完整报告内容。
-- 正常收敛、达到最大 task 数、达到时间上限时，`stop_reason` 留空，MCP 使用 `run_state.json` 中已有的停止原因。
-- 用户中断或主 agent 外部错误停止时，可以传入 `user_interrupted`、`mcp_error` 等短字符串。
-- 报告固定写入 `runs/<run_id>/run_summary.md` 和 `runs/<run_id>/run_summary.json`。
-- 该接口幂等，重复调用会根据当前本地状态重新生成报告，不修改 SuccessDB 或 attempt log。
 
 ## 3. 本地状态文件
 
@@ -235,75 +269,47 @@ evolve_finalize_run(run_id: str, stop_reason: str = "")
 关键文件：
 
 ```text
-success_db.json       # 成功记录，供 parent/inspiration selection 使用
-attempts.jsonl        # 所有最终 attempt，成功/失败都记录
-task_contexts.json    # task -> parent/inspirations 临时映射
-run_state.json        # convergence state、started_at、内部策略状态
+success_db.json
+attempts.jsonl
+task_contexts.json
+run_state.json
+notes.json
+meta_guidance/meta_guidance_state.json
+meta_guidance/meta_guidance_uses.jsonl
 ```
 
-`task_contexts.json` 示例：
+`meta_guidance_state.json` 保存 pending/active/tried guidance、watching marker 和 task assignments。
 
-```json
-{
-  "task_007": {
-    "task_id": "task_007",
-    "parent_id": "task_003",
-    "inspiration_ids": ["task_002", "task_005"],
-    "created_at": "2026-05-07T10:00:00Z",
-    "updated_at": "2026-05-07T10:01:00Z",
-    "recorded": false
-  }
-}
-```
+`meta_guidance_uses.jsonl` 记录 guidance 分配和结果，用于归因与报告。
 
-## 4. 幂等与重试语义
+## 4. Anchor Parent 选择规则
 
-MCP tool 需要尽量按 `(run_id, task_id)` 幂等，避免 agent 或 MCP client 重试时污染控制器状态。
+Meta-guidance 激活时，会记录创建时的 canonical best；每次分配给 task 时，则重新绑定当时最新的 canonical best：
 
-### Parent Selection
+1. fitness 最高；
+2. fitness 相同则 `created_at` 最早；
+3. 仍相同则 `record_id` 字典序最小。
 
-如果 `task_contexts.json` 中已经存在该 `task_id` 的 `parent_id`，`evolve_select_parent` 应直接返回缓存的 parent ref，不重新采样，也不再次增加 `selection_count`。
-
-只有第一次为该 task 选择 parent 时，才执行 parent selector 并写入 cache。
-
-### Inspiration Selection
-
-如果该 `task_id` 已经有 `inspiration_ids`，`evolve_select_inspirations` 应直接返回这些 id 对应的 artifact refs，不重新采样。
-
-如果还没有 parent context，说明调用顺序不符合协议。MVP 可返回空 inspirations 并在本地 context 中标记 `missing_parent_context=true`，也可以直接抛出结构化错误。更保守的实现是抛错，提示调用方先执行 `evolve_select_parent`。
-
-### Attempt Recording
-
-如果同一个 `task_id` 已经 recorded，`evolve_record_attempt` 应返回已记录的 `entered_success_db` / `success_record_id`，不重复 append attempt，也不重复写 SuccessDB。
-
-如果同一个 `task_id` 已 recorded，但新的 `verification_result_ref` 不同，应记录本地 warning 或 error，避免一个 task 被两个最终结果覆盖。
-
-### Convergence Check
-
-`evolve_check_convergence` 可以被主 agent 多次调用。MCP 应根据 attempts 数量判断是否有新数据；没有新 attempt 时，不应让 plateau 计数重复增长。
+这样既能处理 current best 有多个实现的情况，避免在多个并列 best 之间漂移，也能在某条 guidance 产生 new best 后，让同一批剩余 guidance 继续基于最新 best 执行。
 
 ## 5. Prompt 组装边界
 
-MCP 只返回 `artifact_ref`，不返回 artifact 内容。
+MCP 只返回 refs 和 ready-to-inject prompt section，不读取或拼接 artifact 内容。
 
-下一步 prompt 组装由 skill / plugin / subagent 完成：
+task-executor 的顺序：
 
-1. 调 `evolve_select_parent` 得到 parent artifact ref。
-2. 调 `evolve_select_inspirations` 得到额外 inspiration artifact refs。
-3. subagent 或 prompt builder 读取这些本地文件。
-4. 根据任务类型做截断、摘要、diff 提取或结构化拼接。
-5. 把整理后的关键内容放进 generator prompt。
+1. 调 `evolve_select_parent`。
+2. 调 `evolve_select_inspirations`。
+3. 调 `evolve_get_notes_prompt`。
+4. 调 `evolve_get_meta_guidance_prompt`。
+5. 读取 refs 指向的本地 artifact。
+6. 生成候选并调用 verifier。
+7. 调 `evolve_record_attempt`。
 
-MVP 可以先在 self-evolution skill 中用自然语言规则要求 subagent 读取这些 refs。后续更稳的做法是在 `agent_evolve_plugin` 中实现确定性的 prompt builder。
+Meta-guidance 与 parent/inspirations 的关系：
 
-## 6. 代码实现清单
-
-1. `public_tools.py` 使用五个最小签名。
-2. `controller.py` 让 `select_parent/select_inspirations/check_convergence` 自己计算 progress。
-3. `state_store.py` 提供 task context 持久化层。
-4. `state_store.py` 提供 run state 持久化层，用于保存 WATCHING/STOPPED 等内部状态。
-5. `record_attempt` 从 `verification_result_ref` 读取 JSON，不再接收完整 `verification_result`。
-6. `select_inspirations` 公开返回时过滤 parent，只返回额外 inspirations 的 id/ref/fitness。
-7. `check_convergence` 公开返回只保留 `should_stop`。
-8. `finalize_run` 公开返回只保留 `report_ref` 和 `summary_ref`。
-9. 所有选择与入库接口按 `(run_id, task_id)` 做幂等处理，finalize 接口按 `run_id` 做幂等处理。
+- parent 是 anchor、baseline、实现参考或 fallback；
+- inspiration 是普通参考；
+- meta-guidance 可以要求走明显不同的新方向；
+- 不要求 task-executor 生硬融合冲突的 inspiration；
+- 任何 guidance 都不能覆盖任务要求和 verifier 输出契约。

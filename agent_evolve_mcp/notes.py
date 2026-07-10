@@ -110,6 +110,32 @@ class NotesManager:
             "counts": counts,
         }
 
+    def summarize_for_meta_guidance(self, *, limit_per_type: int = 5) -> Dict[str, Any]:
+        """Return compact run-local Notes context for meta-guidance generation."""
+        collection = self._load_collection()
+        notes = [
+            note
+            for note in collection.get("notes") or []
+            if note.get("note_type") in NOTE_TYPES
+        ]
+        groups = {
+            note_type: [
+                _note_summary(note)
+                for note in notes
+                if note.get("note_type") == note_type
+            ][-limit_per_type:]
+            for note_type in ("positive", "negative", "error")
+        }
+        return {
+            "enabled": True,
+            "counts": {
+                note_type: sum(1 for note in notes if note.get("note_type") == note_type)
+                for note_type in ("positive", "negative", "error")
+            },
+            **groups,
+            "errors": groups["error"],
+        }
+
     def build_note_requests(
         self,
         *,
@@ -595,6 +621,24 @@ def _render_notes_prompt(notes: Sequence[Dict[str, Any]]) -> str:
                 ]
             )
     return "\n".join(lines).strip()
+
+
+def _note_summary(note: Dict[str, Any]) -> Dict[str, Any]:
+    trigger = dict(note.get("trigger") or {})
+    return {
+        "note_id": str(note.get("note_id") or ""),
+        "note_type": str(note.get("note_type") or ""),
+        "title": _short(note.get("title"), 120),
+        "lesson": _short(note.get("lesson"), 240),
+        "actionable_guidance": _short(note.get("actionable_guidance"), 240),
+        "confidence": str(note.get("confidence") or "medium"),
+        "trigger": {
+            "kind": trigger.get("kind"),
+            "relative_delta": trigger.get("relative_delta"),
+            "child_fitness": trigger.get("child_fitness"),
+            "parent_fitness": trigger.get("parent_fitness"),
+        },
+    }
 
 
 def _source_label(source: Dict[str, Any], trigger: Dict[str, Any]) -> str:

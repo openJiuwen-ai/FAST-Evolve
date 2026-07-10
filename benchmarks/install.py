@@ -75,6 +75,9 @@ def install_benchmark(name: str, settings: dict) -> bool:
     entries = [
         f"Skill(benchmarks:{name})",
         f"Bash(uv run python benchmarks/skills/{name}/scripts/evaluator.py *)",
+        f"Bash(uv run python benchmarks/skills/{name}/scripts/evaluator.py:*)",
+        f"Bash(cd * && uv run python benchmarks/skills/{name}/scripts/evaluator.py *)",
+        f"Bash(cd * && uv run python benchmarks/skills/{name}/scripts/evaluator.py:*)",
     ]
 
     added = False

@@ -17,7 +17,14 @@ from typing import Any, Dict, List, Optional
 
 from agent_evolve_mcp.lineage_tree import LineageTree
 from agent_evolve_mcp.models import RunState, SuccessRecord
-from agent_evolve_mcp.storage import attempts_log_path, read_jsonl, write_json_atomic
+from agent_evolve_mcp.storage import (
+    attempts_log_path,
+    meta_guidance_state_path,
+    meta_guidance_uses_path,
+    read_json,
+    read_jsonl,
+    write_json_atomic,
+)
 from agent_evolve_mcp.success_db import SuccessDB
 
 
@@ -103,6 +110,7 @@ def _build_summary(
         "fitness_progression": _fitness_progression(records),
         "lineage_statistics": _lineage_statistics(lineage_tree),
         "lineage_mermaid": _lineage_mermaid(records, lineage_tree, best.id if best else None),
+        "meta_evolve": _meta_evolve_summary(run_id),
         "attempts": [_attempt_summary(attempt) for attempt in attempts],
         "deterministic_observations": _deterministic_observations(records, lineage_tree, best),
     }
@@ -136,6 +144,8 @@ def _attempt_summary(attempt: Dict[str, Any]) -> Dict[str, Any]:
         "entered_success_db": bool(attempt.get("entered_success_db")),
         "success_record_id": attempt.get("success_record_id"),
         "parent_id": attempt.get("parent_id"),
+        "meta_guidance_id": attempt.get("meta_guidance_id"),
+        "anchor_parent_id": attempt.get("anchor_parent_id"),
         "generation": attempt.get("generation"),
         "artifact_ref": attempt.get("artifact_ref"),
         "verification_result_ref": attempt.get("verification_result_ref"),
@@ -166,6 +176,46 @@ def _lineage_statistics(lineage_tree: LineageTree) -> List[Dict[str, Any]]:
     for root_id, lineage_stats in sorted(lineage_tree.get_all_lineage_stats().items()):
         stats.append(asdict(lineage_stats))
     return stats
+
+
+def _meta_evolve_summary(run_id: str) -> Dict[str, Any]:
+    state = read_json(
+        meta_guidance_state_path(run_id),
+        {
+            "watching": None,
+            "pending_request": None,
+            "active_guidance": [],
+            "tried_guidance": [],
+            "task_assignments": {},
+        },
+    )
+    uses = read_jsonl(meta_guidance_uses_path(run_id))
+    active = list(state.get("active_guidance") or [])
+    tried = list(state.get("tried_guidance") or [])
+    assignments = dict(state.get("task_assignments") or {})
+    return {
+        "watching": state.get("watching"),
+        "has_pending_request": state.get("pending_request") is not None,
+        "active_guidance_count": len(active),
+        "tried_guidance_count": len(tried),
+        "assigned_task_count": len(assignments),
+        "use_events": len(uses),
+        "new_best_from_guidance": sum(
+            1 for item in [*active, *tried] if item.get("created_new_best")
+        ),
+        "guidance": [
+            {
+                "guidance_id": item.get("guidance_id"),
+                "idea": item.get("idea"),
+                "uses": item.get("uses"),
+                "max_uses": item.get("max_uses"),
+                "status": item.get("status"),
+                "outcome": item.get("outcome"),
+                "anchor_parent_id": item.get("anchor_parent_id"),
+            }
+            for item in [*active, *tried]
+        ],
+    }
 
 
 def _deterministic_observations(
@@ -318,6 +368,8 @@ def _render_markdown(summary: Dict[str, Any]) -> str:
     lines.extend(_fitness_progression_table(summary["fitness_progression"]))
     lines.extend(["", "## Lineage Statistics", ""])
     lines.extend(_lineage_stats_table(summary["lineage_statistics"]))
+    lines.extend(["", "## Meta-Evolve", ""])
+    lines.extend(_meta_evolve_table(summary["meta_evolve"]))
     lines.extend(["", "## Attempts", ""])
     lines.extend(_attempts_table(summary["attempts"]))
     lines.extend(["", "## Deterministic Observations", ""])
@@ -432,6 +484,32 @@ def _lineage_stats_table(rows: List[Dict[str, Any]]) -> List[str]:
         lines.append(
             f"| {row['root_id']} | {row['size']} | {_format_float(row['best_fitness'])} | "
             f"{row['best_record_id']} | {row['max_depth']} | {_format_percent(row['share'])} |"
+        )
+    return lines
+
+
+def _meta_evolve_table(meta: Dict[str, Any]) -> List[str]:
+    lines = [
+        "| Field | Value |",
+        "|---|---|",
+        f"| has_pending_request | {meta.get('has_pending_request')} |",
+        f"| active_guidance_count | {meta.get('active_guidance_count')} |",
+        f"| tried_guidance_count | {meta.get('tried_guidance_count')} |",
+        f"| assigned_task_count | {meta.get('assigned_task_count')} |",
+        f"| use_events | {meta.get('use_events')} |",
+        f"| new_best_from_guidance | {meta.get('new_best_from_guidance')} |",
+    ]
+    guidance = list(meta.get("guidance") or [])
+    lines.extend(["", "| Guidance | Uses | Status | Outcome | Anchor Parent |", "|---|---:|---|---|---|"])
+    if not guidance:
+        lines.append("| - | - | - | - | - |")
+        return lines
+    for item in guidance:
+        uses = f"{item.get('uses')}/{item.get('max_uses')}"
+        lines.append(
+            f"| {item.get('guidance_id') or ''}: {item.get('idea') or ''} | {uses} | "
+            f"{item.get('status') or ''} | {item.get('outcome') or ''} | "
+            f"{item.get('anchor_parent_id') or ''} |"
         )
     return lines
 

@@ -67,6 +67,21 @@ def notes_events_path(run_id: str) -> Path:
     return run_dir(run_id) / "notes_events.jsonl"
 
 
+def meta_guidance_dir(run_id: str) -> Path:
+    """Return the directory for meta-guidance state."""
+    return run_dir(run_id) / "meta_guidance"
+
+
+def meta_guidance_state_path(run_id: str) -> Path:
+    """Return the JSON file for meta-guidance lifecycle state."""
+    return meta_guidance_dir(run_id) / "meta_guidance_state.json"
+
+
+def meta_guidance_uses_path(run_id: str) -> Path:
+    """Return the JSONL file for meta-guidance assignment/outcome events."""
+    return meta_guidance_dir(run_id) / "meta_guidance_uses.jsonl"
+
+
 def ensure_run_dir(run_id: str) -> Path:
     """Create and return the directory for one run."""
     path = run_dir(run_id)

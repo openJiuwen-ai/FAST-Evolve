@@ -31,6 +31,20 @@ If parent exists, read the artifact file at `artifact_ref` to understand the par
 
 ---
 
+## Step 1.5: Load Initial Reference Program (Root Tasks Only)
+
+If `parent_id` is null, this is a root exploration task. Locate the problem
+SKILL.md for this task. If `initial_program.py` exists in the same benchmark
+directory as that SKILL.md, read it as `initial_program_reference`.
+
+Use this reference only for root tasks with no parent. For non-root tasks,
+parent and inspiration artifacts are the evolutionary context, so do not load
+or prioritize `initial_program.py`.
+
+Do not read verifier scripts while locating the reference program.
+
+---
+
 ## Step 2: Select Inspirations
 Call MCP tool `evolve_select_inspirations` with:
 - run_id
@@ -68,7 +82,30 @@ not try to generate or commit notes manually.
 
 ---
 
-## Step 2.6: Read Direction (If Exists)
+## Step 2.6: Load Meta-Guidance
+
+Call MCP tool `evolve_get_meta_guidance_prompt` with:
+- run_id
+- task_id
+
+If the result has `available == true`, include the returned `prompt` exactly as
+one required strategy section of the generation context. Do not rewrite,
+regroup, summarize, or reinterpret it yourself.
+
+Meta-guidance has higher strategy priority than parent/inspiration blending,
+but it never overrides verifier correctness or the benchmark output contract.
+The selected parent is the anchor parent for this guidance. Use it to preserve
+the interface, understand the current search state, and keep a fallback when
+useful. Do not assume the parent strategy is correct. If the guidance says to
+depart from or replace the current approach, implement the new strategy
+directly instead of forcing a superficial hybrid with the parent or
+inspirations.
+
+If `available == false`, continue without a meta-guidance section.
+
+---
+
+## Step 2.7: Read Direction (If Exists)
 
 Check for file: `runs/<run_id>/tasks/<task_id>/direction.txt`
 
@@ -140,7 +177,19 @@ Use the exact path with correct run_id, task_id, attempt_id.
 ### 3.2 Generate or Debug Solution
 
 **Evolution Strategy**:
-The parent solution is the foundation of this evolution - use it as the primary reference for improvement and optimization; inspirations can be used as supplementary references for crossover, mutation, and borrowing optimization ideas.
+If a parent exists and no meta-guidance is active, the parent solution is the
+foundation of this evolution - use it as the primary reference for improvement
+and optimization; inspirations can be used as supplementary references for
+crossover, mutation, and borrowing optimization ideas. If meta-guidance is
+active, the guidance is the required strategy. Use the parent critically as an
+interface/current-state reference; build on it only when the guidance calls for
+refinement.
+If no parent exists and `initial_program_reference` is available, use the
+initial reference program as the baseline implementation to understand the
+intended interface, scoring objective, and starting search route, then apply the
+task's direction hint to produce a distinct root solution. The direction may
+call for either a close improvement to the reference or a substantially
+different approach that preserves the benchmark contract.
 Fitness is the task-generic quality score and higher is always better. Use the
 parent as the primary reference, and use inspiration fitness to rank secondary
 references. Borrow more from higher-fitness inspirations; treat lower-fitness
@@ -148,9 +197,11 @@ inspirations as optional contrastive examples rather than templates to copy.
 
 **For attempt 1**:
 Based on:
-- Parent (if exists) - PRIMARY REFERENCE, build upon it
+- Parent (if exists) - CURRENT-STATE REFERENCE; build upon it unless active meta-guidance says to depart or replace
+- Initial reference program (if no parent exists and available) - ROOT BASELINE, use or depart from it according to the direction
 - Inspirations (if any) - SECONDARY REFERENCE, borrow ideas from them
 - Task description
+- Meta-guidance (if provided) - REQUIRED STRATEGY, anchored on the selected parent
 - Direction hint (if exists) - Consider this exploration direction
 
 Generate a complete solution to the task. Use available skills as needed to complete the work.
@@ -162,6 +213,18 @@ verify it once.
 If Step 2.5 returned a notes prompt, use it as practical guidance while adapting
 the selected parent and inspirations. Error notes are checklist-style warnings;
 positive and negative notes are run-local experience, not hard proof.
+
+If Step 2.6 returned a meta-guidance prompt, apply it as the required strategy
+for this task. The guidance may require a substantially different approach from
+the parent. In that case, use the parent as an interface reference and fallback,
+not as an implementation template, and do not force an incoherent hybrid with
+the parent or inspirations.
+
+If this is a root task and both `initial_program_reference` and `direction_hint`
+exist, the generated solution must visibly reflect both: preserve the benchmark
+interface from the reference, reuse useful baseline structure when helpful, and
+make the direction-specific algorithmic choice real in the code rather than
+merely mentioning it in comments.
 
 **For attempts 2 and beyond (debug mode)**:
 DO NOT generate a completely new solution. Instead:
@@ -202,9 +265,10 @@ fitness reaches a target or feels improvable. Exit code 0 or result JSON
 
 The verifier command is the only Bash command you should run for an attempt.
 Do not run exploratory environment probes such as `python -c "import ..."` or
-extra ad-hoc scripts. If a dependency is unavailable or a command is denied,
-use the verifier result/error from the normal verifier command and continue the
-attempt workflow.
+extra ad-hoc scripts. Do not append shell trailers such as
+`; echo "EXIT_CODE=$?"`; the Bash tool already reports the command exit code.
+If a dependency is unavailable or a command is denied, use the verifier
+result/error from the normal verifier command and continue the attempt workflow.
 
 In the success/failure branch below, call `evolve_record_attempt` exactly once
 for that attempt. Use:
@@ -255,6 +319,14 @@ successfully or returned a non-retryable MCP error.
   - Determine the verification result JSON path. If stdout does not contain a
     path but the standard file exists, use:
     `runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/eval_result.json`
+  - If the verifier returned non-zero and the standard eval_result.json file
+    still does not exist, create that JSON file with the Write tool, not Bash.
+    The fallback JSON must contain only minimal failure data:
+    `status`, `artifact_ref`, `fitness`, and `error`. Set `status` to
+    `"failure"`, `artifact_ref` to this attempt's main artifact path, `fitness`
+    to `null`, and `error` to the captured verifier stdout/stderr summary.
+    Do not use `cat`, heredoc, `echo`, Python one-liners, or any Bash command
+    to synthesize this JSON file.
   - Call `evolve_record_attempt` for this attempt and complete Step 3.5 for
     any returned `note_requests`.
   - If attempt_index < MAX_ATTEMPTS: increment attempt_index and continue to next attempt
@@ -326,3 +398,6 @@ Do NOT report any other details - success or failure, both count as completed.
 13. **One Verifier Run Per Attempt**: Within a single attempt directory, write the artifact once and run the verifier once. A valid but suboptimal fitness is still success, not permission to keep editing the same attempt.
 14. **No Environment Probing**: Do not run arbitrary Bash commands to inspect installed packages, files, or runtime capabilities. Use only the benchmark verifier command for execution feedback.
 15. **NEVER READ VERIFIER SCRIPTS**: The task/benchmark skill may define a verifier script (e.g. `verify.py`). These scripts may contain secret answers or evaluation logic. You must NOT read, examine, or inspect them using any tool (Read, Grep, Glob, Bash `cat/head/tail/type`, etc.). The ONLY allowed interaction is **running them as a script** with the exact command specified in the task skill.
+16. **Use Initial Reference Only For Roots**: `initial_program.py` is a root-task baseline when no parent exists. Once parent selection returns a parent, evolve from the selected parent/inspirations instead.
+17. **Never Synthesize JSON With Bash**: If a missing `eval_result.json` must be created after verifier failure, use the Write tool only. Do not use Bash `cat`, heredoc, `echo`, `printf`, or Python one-liners to write JSON files.
+18. **Do Not Echo Exit Codes**: Run the verifier command exactly as specified by the benchmark skill. Do not append `; echo "EXIT_CODE=$?"` or any other shell trailer.
