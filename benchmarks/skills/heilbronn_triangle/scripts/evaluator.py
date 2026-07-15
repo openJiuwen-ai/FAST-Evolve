@@ -120,16 +120,19 @@ def get_error_message(r): return r.get("traceback") or r.get("error") or "Unknow
 
 
 def format_result(result: Dict[str, Any], artifact_ref: str) -> Dict[str, Any]:
+    metric_keys = ["validity", "eval_time", "min_area_normalized", "target_ratio"]
     metrics = {}
-    for key in ["validity", "eval_time"]:
+    for key in metric_keys:
         if key in result:
             metrics[key] = result[key]
-    exclude_keys = {"combined_score", "validity", "eval_time", "min_area_normalized", "target_ratio"}
+    profile = {key: result[key] for key in ["validity", "eval_time"] if key in result}
+    exclude_keys = {"combined_score", *metric_keys}
     return {
         "status": "success" if is_successful(result) else "failure",
         "artifact_ref": artifact_ref,
         "fitness": result.get("combined_score", 0.0),
         "metrics": metrics,
+        "profile": profile,
         "misc": {k: result[k] for k in result if k not in exclude_keys},
     }
 
