@@ -160,17 +160,20 @@ def is_successful(result: Dict[str, Any]) -> bool:
 
 def format_result(result: Dict[str, Any], artifact_ref: str) -> Dict[str, Any]:
     success = is_successful(result)
+    metric_keys = ["validity", "eval_time", "c4_bound", "target_ratio", "r_max"]
     metrics = {}
-    for key in ["validity", "eval_time"]:
+    for key in metric_keys:
         if key in result:
             metrics[key] = result[key]
-    exclude_keys = {"combined_score", "validity", "eval_time", "c4_bound", "coeffs", "error", "traceback", "target_ratio", "r_max"}
+    profile = {key: result[key] for key in ["validity", "eval_time"] if key in result}
+    exclude_keys = {"combined_score", *metric_keys, "coeffs", "error", "traceback"}
     misc = {k: v for k, v in result.items() if k not in exclude_keys}
     return {
         "status": "success" if success else "failure",
         "artifact_ref": artifact_ref,
         "fitness": result.get("combined_score", 0.0),
         "metrics": metrics,
+        "profile": profile,
         "misc": misc,
     }
 

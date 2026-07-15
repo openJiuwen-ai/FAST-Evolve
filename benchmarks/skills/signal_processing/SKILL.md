@@ -38,7 +38,7 @@ The algorithm must minimize noise while preserving signal dynamics with minimal 
 
 ## Task
 
-Focus on designing an explicit constructor rather than an iterative search algorithm.
+Bounded computation and scientific-computing libraries such as NumPy/SciPy/jax/optax are always available.
 
 ## Program Interface
 

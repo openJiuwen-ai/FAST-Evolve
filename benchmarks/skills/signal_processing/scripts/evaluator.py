@@ -253,17 +253,38 @@ def format_result(result: Dict[str, Any], artifact_ref: str) -> Dict[str, Any]:
     success = is_successful(result)
     status = "success" if success else "failure"
     fitness = result.get("combined_score", 0.0)
+    metric_keys = [
+        "validity",
+        "eval_time",
+        "target_ratio",
+        "composite_score",
+        "overall_score",
+        "slope_changes",
+        "lag_error",
+        "avg_error",
+        "false_reversals",
+        "correlation",
+        "noise_reduction",
+        "smoothness_score",
+        "accuracy_score",
+        "success_rate",
+    ]
     metrics = {}
-    for key in ["validity", "eval_time"]:
+    for key in metric_keys:
         if key in result:
             metrics[key] = result[key]
-    exclude_keys = {"combined_score", "validity", "eval_time", "target_ratio", "composite_score", "overall_score", "slope_changes", "lag_error", "avg_error", "false_reversals", "correlation", "noise_reduction", "smoothness_score", "accuracy_score", "success_rate"}
+
+    # Keep the historical lightweight diversity profile while exposing richer
+    # evaluator feedback to Notes and meta-guidance through metrics.
+    profile = {key: result[key] for key in ["validity", "eval_time"] if key in result}
+    exclude_keys = {"combined_score", *metric_keys}
     misc = {k: v for k, v in result.items() if k not in exclude_keys}
     return {
         "status": status,
         "artifact_ref": artifact_ref,
         "fitness": fitness,
         "metrics": metrics,
+        "profile": profile,
         "misc": misc,
     }
 

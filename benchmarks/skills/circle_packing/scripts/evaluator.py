@@ -346,13 +346,16 @@ def format_result(result: Dict[str, Any], artifact_ref: str) -> Dict[str, Any]:
     fitness = result.get("combined_score", 0.0)
 
     # Metrics
+    metric_keys = ["validity", "eval_time", "sum_radii", "target_ratio"]
     metrics = {}
-    for key in ["validity", "eval_time"]:
+    for key in metric_keys:
         if key in result:
             metrics[key] = result[key]
 
+    profile = {key: result[key] for key in ["validity", "eval_time"] if key in result}
+
     # Misc - everything else
-    exclude_keys = {"combined_score", "validity", "eval_time", "sum_radii", "target_ratio"}
+    exclude_keys = {"combined_score", *metric_keys}
     misc = {k: v for k, v in result.items() if k not in exclude_keys}
 
     return {
@@ -360,6 +363,7 @@ def format_result(result: Dict[str, Any], artifact_ref: str) -> Dict[str, Any]:
         "artifact_ref": artifact_ref,
         "fitness": fitness,
         "metrics": metrics,
+        "profile": profile,
         "misc": misc,
     }
 

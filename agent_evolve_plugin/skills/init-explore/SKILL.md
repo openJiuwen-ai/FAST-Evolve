@@ -65,7 +65,7 @@ Examples of problem-specific axes for different types of tasks:
 - **Pathfinding**: different strategies (BFS, DFS, Dijkstra, A*) — each explores the graph differently
 - **String matching**: different approaches (brute force, KMP, Rabin-Karp, Boyer-Moore) — each has distinct pattern
 
-Generic coding-style axes (architecture, dependencies, readability, etc.) are SECONDARY — use them only after exhausting problem-specific axes, and always in combination with a problem-specific angle.
+Implementation choices such as mathematical representation, core primitives or operators, and available scientific-computing libraries are legitimate secondary axes when they enable a genuinely different problem-solving route. Consider them explicitly instead of automatically inheriting the initial program's stack, but do not force a dependency change when the underlying algorithm would remain the same.
 
 EXAMPLES of good precise directions:
 - "Pure functional approach with no classes, just functions"
@@ -95,6 +95,7 @@ Specific red flags to catch:
 - Two directions that rely on the same mathematical insight (e.g., both use halving/midpoint logic)
 - Two directions that differ only in surface details but share the same core algorithm
 - Two directions that are both "generic good coding" without a specific strategy angle
+- All directions inherit the initial program's representation, primitives, or dependencies even though plausible alternatives would enable different algorithms
 
 This is a text-level comparison only — never execute or simulate tasks during this step.
 

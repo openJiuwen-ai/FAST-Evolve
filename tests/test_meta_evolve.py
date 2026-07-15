@@ -364,6 +364,8 @@ def test_active_guidance_uses_latest_best_parent(tmp_path, monkeypatch):
     assert second_parent["parent_id"] == "success_new_best"
     assert assignments["task_151"]["anchor_parent_id"] == "success_0000"
     assert assignments["task_152"]["anchor_parent_id"] == "success_new_best"
+    assert assignments["task_151"]["anchor_fitness"] == 1.0
+    assert assignments["task_152"]["anchor_fitness"] == 2.0
     assert active["creation_anchor_parent_id"] == "success_0000"
     assert active["uses"] == 2
 
@@ -486,7 +488,10 @@ def test_attempt_records_meta_guidance_and_report_summary(tmp_path, monkeypatch)
     assert record["entered_success_db"] is True
     assert attempts[-1]["meta_guidance_id"] == "mg_0001"
     assert attempts[-1]["anchor_parent_id"] == "success_0000"
-    assert controller.meta_guidance.state["tried_guidance"][0]["outcome"] == "new_best"
+    tried = controller.meta_guidance.state["tried_guidance"][0]
+    assert tried["outcome"] == "new_best"
+    assert tried["outcomes"][0]["anchor_fitness"] == 1.0
+    assert tried["outcomes"][0]["delta_vs_anchor"] == 1.0
 
     report = controller.finalize_run()
     summary_path = tmp_path / report["summary_ref"]
@@ -574,6 +579,114 @@ def test_next_meta_request_includes_guidance_outcomes_and_notes(tmp_path, monkey
     assert second["action"] == "request_meta_guidance"
     history = second_request["guidance_history"]
     assert history[0]["idea"] == "Try bounded structural variation"
-    assert history[0]["outcome"] == "useful_success"
-    assert history[0]["outcome_summary"]["best_absolute_improvement_vs_creation"] == 0.0
+    assert history[0]["outcome"] == "regression"
+    assert history[0]["outcome_summary"]["best_delta_vs_anchor"] == 0.0
+    assert second_request["failed_guidance"][0]["outcome"] == "regression"
     assert second_request["notes_summary"]["positive"][0]["note_id"] == "note_positive_1"
+
+
+def test_guidance_can_improve_its_anchor_without_creating_global_best(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    controller = _controller(tmp_path, monkeypatch)
+    _add_successes(controller, fitness=1.0)
+    convergence = controller.check_convergence()
+    request = controller.get_meta_guidance_request(convergence["request_id"])
+    controller.commit_meta_guidance(
+        request["request_id"],
+        {
+            "guidance": [
+                {
+                    "idea": "Try an alternate numerical representation",
+                    "description": "Change the representation while preserving the interface.",
+                    "novelty_claim": "Current attempts share one representation.",
+                    "implementation_plan": ["Change representation", "Preserve output contract"],
+                    "approach_type": "representation",
+                    "max_uses": 1,
+                }
+            ]
+        },
+    )
+    controller.select_parent("task_501")
+    controller.db.add(
+        SuccessRecord(
+            id="concurrent_best",
+            run_id=controller.run_id,
+            fitness=2.0,
+            artifact_ref="concurrent_best.py",
+            created_at="2026-01-01T00:01:00+00:00",
+        )
+    )
+    controller._load_state()
+
+    result_path = tmp_path / "improved_anchor.json"
+    result_path.write_text(
+        json.dumps(
+            {
+                "status": "success",
+                "artifact_ref": "runs/run_meta_test/tasks/task_501/final.py",
+                "fitness": 1.5,
+            }
+        ),
+        encoding="utf-8",
+    )
+    controller.record_attempt(
+        task_id="task_501",
+        verification_result_ref=str(result_path),
+        attempt_id="attempt_001",
+        max_attempts=1,
+    )
+    controller.meta_guidance.load()
+
+    tried = controller.meta_guidance.state["tried_guidance"][0]
+    assert tried["outcome"] == "improved_anchor"
+    assert tried["outcomes"][0]["anchor_fitness"] == 1.0
+    assert tried["outcomes"][0]["best_fitness_before"] == 2.0
+    assert tried["outcomes"][0]["delta_vs_anchor"] == 0.5
+    assert tried["outcomes"][0]["created_new_best"] is False
+
+
+def test_guidance_with_only_invalid_results_is_failed(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    controller = _controller(tmp_path, monkeypatch)
+    _add_successes(controller, fitness=1.0)
+    convergence = controller.check_convergence()
+    request = controller.get_meta_guidance_request(convergence["request_id"])
+    controller.commit_meta_guidance(
+        request["request_id"],
+        {
+            "guidance": [
+                {
+                    "idea": "Try a different solver family",
+                    "description": "Replace the current solver family.",
+                    "novelty_claim": "The current family has plateaued.",
+                    "implementation_plan": ["Replace solver", "Preserve output contract"],
+                    "approach_type": "solver_family",
+                    "max_uses": 1,
+                }
+            ]
+        },
+    )
+    controller.select_parent("task_601")
+    result_path = tmp_path / "invalid.json"
+    result_path.write_text(
+        json.dumps(
+            {
+                "status": "failure",
+                "artifact_ref": "runs/run_meta_test/tasks/task_601/final.py",
+                "misc": {"error": "invalid output"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    controller.record_attempt(
+        task_id="task_601",
+        verification_result_ref=str(result_path),
+        attempt_id="attempt_001",
+        max_attempts=1,
+    )
+    controller.meta_guidance.load()
+
+    tried = controller.meta_guidance.state["tried_guidance"][0]
+    assert tried["outcome"] == "failed"
+    assert tried["outcome_summary"]["valid_uses"] == 0
+    assert tried["outcome_summary"]["failed_uses"] == 1

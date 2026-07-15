@@ -91,6 +91,7 @@ class EvolutionController:
             self.meta_guidance.assign_for_task(
                 task_id,
                 anchor_parent_id=current_best.id,
+                anchor_fitness=current_best.fitness,
             )
             if current_best is not None
             else None
@@ -315,12 +316,15 @@ class EvolutionController:
         best_after = _best_fitness(self.db)
         final_task_attempt = status == "success" or _attempt_number(resolved_attempt_id) >= max_attempts
         if final_task_attempt:
+            anchor_record = self.db.get(context.anchor_parent_id) if context.anchor_parent_id else None
             self.meta_guidance.record_attempt_outcome(
                 task_id=task_id,
                 attempt_id=resolved_attempt_id,
+                valid_result=status == "success" and fitness is not None,
                 entered_success_db=entered_success_db,
                 success_record_id=success_record_id if entered_success_db else None,
                 fitness=fitness,
+                anchor_fitness=anchor_record.fitness if anchor_record is not None else None,
                 best_fitness_before=best_before,
                 best_fitness_after=best_after,
             )

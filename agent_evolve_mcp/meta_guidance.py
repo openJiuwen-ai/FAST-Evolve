@@ -202,7 +202,8 @@ class MetaGuidanceManager:
                 "created_at": utc_now_iso(),
                 "created_at_task_count": pending.get("created_at_task_count"),
                 "best_fitness_at_creation": (pending.get("current_best") or {}).get("fitness"),
-                "has_success": False,
+                "has_valid_result": False,
+                "improved_anchor": False,
                 "created_new_best": False,
                 "outcomes": [],
             }
@@ -223,6 +224,7 @@ class MetaGuidanceManager:
         self,
         task_id: str,
         anchor_parent_id: Optional[str] = None,
+        anchor_fitness: Optional[float] = None,
     ) -> Optional[Dict[str, Any]]:
         """Assign one active guidance item to a task, consuming one use."""
         self.load()
@@ -244,6 +246,7 @@ class MetaGuidanceManager:
                 "task_id": task_id,
                 "guidance_id": guidance["guidance_id"],
                 "anchor_parent_id": actual_anchor_id,
+                "anchor_fitness": _coerce_float(anchor_fitness),
                 "creation_anchor_parent_id": guidance.get(
                     "creation_anchor_parent_id",
                     guidance["anchor_parent_id"],
@@ -271,6 +274,7 @@ class MetaGuidanceManager:
             "available": True,
             "guidance_id": guidance["guidance_id"],
             "anchor_parent_id": assignment.get("anchor_parent_id") or guidance["anchor_parent_id"],
+            "anchor_fitness": assignment.get("anchor_fitness"),
             "creation_anchor_parent_id": guidance.get(
                 "creation_anchor_parent_id",
                 guidance["anchor_parent_id"],
@@ -283,9 +287,11 @@ class MetaGuidanceManager:
         *,
         task_id: str,
         attempt_id: str,
+        valid_result: bool,
         entered_success_db: bool,
         success_record_id: Optional[str],
         fitness: Optional[float],
+        anchor_fitness: Optional[float],
         best_fitness_before: Optional[float],
         best_fitness_after: Optional[float],
     ) -> None:
@@ -298,37 +304,48 @@ class MetaGuidanceManager:
         if guidance is None:
             return
 
+        valid_result = bool(valid_result and fitness is not None)
+        actual_anchor_fitness = _coerce_float(assignment.get("anchor_fitness"))
+        if actual_anchor_fitness is None:
+            actual_anchor_fitness = _coerce_float(anchor_fitness)
+        assignment["anchor_fitness"] = actual_anchor_fitness
+        delta_vs_anchor = (
+            fitness - actual_anchor_fitness
+            if valid_result and actual_anchor_fitness is not None
+            else None
+        )
+        relative_delta_vs_anchor = (
+            delta_vs_anchor / max(abs(actual_anchor_fitness), 1e-9)
+            if delta_vs_anchor is not None and actual_anchor_fitness is not None
+            else None
+        )
+        improved_anchor = bool(delta_vs_anchor is not None and delta_vs_anchor > 0)
         created_new_best = (
-            entered_success_db
+            valid_result
             and fitness is not None
             and (best_fitness_before is None or fitness > best_fitness_before)
         )
-        if entered_success_db:
-            guidance["has_success"] = True
+        if valid_result:
+            guidance["has_valid_result"] = True
+        if improved_anchor:
+            guidance["improved_anchor"] = True
         if created_new_best:
             guidance["created_new_best"] = True
-        creation_best = _coerce_float(guidance.get("best_fitness_at_creation"))
-        absolute_improvement = (
-            fitness - creation_best
-            if fitness is not None and creation_best is not None
-            else None
-        )
-        relative_improvement = (
-            absolute_improvement / max(abs(creation_best), 1e-9)
-            if absolute_improvement is not None and creation_best is not None
-            else None
-        )
         outcome = {
             "task_id": task_id,
             "attempt_id": attempt_id,
+            "valid_result": valid_result,
             "entered_success_db": entered_success_db,
             "success_record_id": success_record_id,
             "fitness": fitness,
+            "anchor_parent_id": assignment.get("anchor_parent_id"),
+            "anchor_fitness": actual_anchor_fitness,
+            "delta_vs_anchor": delta_vs_anchor,
+            "relative_delta_vs_anchor": relative_delta_vs_anchor,
+            "improved_anchor": improved_anchor,
             "best_fitness_before": best_fitness_before,
             "best_fitness_after": best_fitness_after,
             "created_new_best": created_new_best,
-            "absolute_improvement_vs_creation": absolute_improvement,
-            "relative_improvement_vs_creation": relative_improvement,
         }
         outcomes = list(guidance.get("outcomes") or [])
         outcomes.append(outcome)
@@ -338,14 +355,17 @@ class MetaGuidanceManager:
             {
                 "status": "recorded",
                 "attempt_id": attempt_id,
+                "valid_result": valid_result,
                 "entered_success_db": entered_success_db,
                 "success_record_id": success_record_id,
                 "fitness": fitness,
+                "anchor_fitness": actual_anchor_fitness,
+                "delta_vs_anchor": delta_vs_anchor,
+                "relative_delta_vs_anchor": relative_delta_vs_anchor,
+                "improved_anchor": improved_anchor,
                 "best_fitness_before": best_fitness_before,
                 "best_fitness_after": best_fitness_after,
                 "created_new_best": created_new_best,
-                "absolute_improvement_vs_creation": absolute_improvement,
-                "relative_improvement_vs_creation": relative_improvement,
                 "recorded_at": utc_now_iso(),
             }
         )
@@ -380,12 +400,7 @@ class MetaGuidanceManager:
         if any(item.get("status") == "assigned" for item in assigned):
             return
 
-        if guidance.get("created_new_best"):
-            outcome = "new_best"
-        elif guidance.get("has_success"):
-            outcome = "useful_success"
-        else:
-            outcome = "failed"
+        outcome = _classify_guidance_outcome(guidance)
         archived = {
             **guidance,
             "status": "exhausted",
@@ -430,6 +445,8 @@ class MetaGuidanceManager:
         )
         if assignment.get("anchor_parent_id"):
             result["anchor_parent_id"] = assignment["anchor_parent_id"]
+        if "anchor_fitness" in assignment:
+            result["anchor_fitness"] = assignment["anchor_fitness"]
         return result
 
     def _failed_guidance(self) -> List[Dict[str, Any]]:
@@ -444,7 +461,7 @@ class MetaGuidanceManager:
                 or _guidance_outcome_summary(item),
             }
             for item in self.state.get("tried_guidance") or []
-            if item.get("outcome") == "failed"
+            if item.get("outcome") in {"regression", "failed"}
         ]
 
     def _guidance_history(self) -> List[Dict[str, Any]]:
@@ -616,21 +633,46 @@ def _guidance_outcome_summary(guidance: Dict[str, Any]) -> Dict[str, Any]:
         for value in (_coerce_float(item.get("fitness")) for item in outcomes)
         if value is not None
     ]
-    improvements = [
+    anchor_deltas = [
         value
-        for value in (
-            _coerce_float(item.get("absolute_improvement_vs_creation"))
-            for item in outcomes
-        )
+        for value in (_coerce_float(item.get("delta_vs_anchor")) for item in outcomes)
         if value is not None
     ]
+    valid_uses = sum(1 for item in outcomes if _is_valid_guidance_outcome(item))
     return {
         "total_uses": len(outcomes) or int(guidance.get("uses", 0) or 0),
-        "success_uses": sum(1 for item in outcomes if item.get("entered_success_db")),
+        "valid_uses": valid_uses,
+        "failed_uses": len(outcomes) - valid_uses,
+        "improved_anchor_uses": sum(
+            1
+            for item in outcomes
+            if item.get("improved_anchor")
+            or (_coerce_float(item.get("delta_vs_anchor")) or 0.0) > 0
+        ),
         "new_best_uses": sum(1 for item in outcomes if item.get("created_new_best")),
         "best_fitness": max(fitness_values) if fitness_values else None,
-        "best_absolute_improvement_vs_creation": max(improvements) if improvements else None,
+        "best_delta_vs_anchor": max(anchor_deltas) if anchor_deltas else None,
     }
+
+
+def _classify_guidance_outcome(guidance: Dict[str, Any]) -> str:
+    outcomes = [dict(item) for item in guidance.get("outcomes") or []]
+    if any(item.get("created_new_best") for item in outcomes):
+        return "new_best"
+    if any(
+        item.get("improved_anchor") or (_coerce_float(item.get("delta_vs_anchor")) or 0.0) > 0
+        for item in outcomes
+    ):
+        return "improved_anchor"
+    if any(_is_valid_guidance_outcome(item) for item in outcomes):
+        return "regression"
+    return "failed"
+
+
+def _is_valid_guidance_outcome(outcome: Dict[str, Any]) -> bool:
+    if "valid_result" in outcome:
+        return bool(outcome.get("valid_result"))
+    return bool(outcome.get("entered_success_db"))
 
 
 def _coerce_float(value: Any) -> Optional[float]:
@@ -648,6 +690,7 @@ def _generation_instructions() -> List[str]:
         "You may inspect verifier/evaluator source during meta-guidance generation, matching AdaEvolve's paradigm-generation setup. Use it only to understand scoring logic, constraints, and failure modes.",
         "Analyze the current best critically: identify what works, what likely traps the search, and whether the next guidance should refine, depart from, or replace that route.",
         "Use notes_summary and guidance_history as evidence. Do not repeat guidance whose prior outcome_summary shows no improvement unless the failure condition is materially changed.",
+        "Interpret prior outcomes precisely: new_best beat the global best at completion, improved_anchor beat its assigned parent but not the then-current global best, regression produced a valid result without beating its assigned parent, and failed produced no valid result.",
         "Generate distinct guidance items with different approach_type values. Avoid minor parameter variants of the same algorithm family.",
         "Prefer concrete, implementable strategies. Each item should say how it relates to the current best and why it can escape or improve the observed plateau.",
     ]
