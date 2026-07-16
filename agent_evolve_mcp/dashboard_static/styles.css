@@ -157,8 +157,7 @@ button {
 
 .connection-pill,
 .state-badge,
-.count-chip,
-.rank-chip {
+.count-chip {
   display: inline-flex;
   align-items: center;
   gap: 7px;
@@ -403,8 +402,7 @@ h2 {
   border-bottom: 1px solid var(--line);
 }
 
-.count-chip,
-.rank-chip {
+.count-chip {
   justify-content: center;
   min-width: 29px;
   height: 25px;
@@ -412,7 +410,6 @@ h2 {
   font-weight: 600;
 }
 
-.rank-chip,
 .count-chip.accent {
   border-color: rgba(22, 124, 104, 0.22);
   background: var(--accent-soft);
