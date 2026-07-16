@@ -141,6 +141,35 @@ def test_hard_budget_still_stops(tmp_path, monkeypatch):
     assert result["search_state"] == "stopped"
 
 
+def test_retries_do_not_consume_task_budget(tmp_path, monkeypatch):
+    monkeypatch.setenv("AGENT_EVOLVE_NOTES_ENABLED", "0")
+    controller = _controller(tmp_path, monkeypatch, max_total_tasks=3)
+
+    for index in range(1, 4):
+        result_path = tmp_path / f"attempt_{index:03d}.json"
+        result_path.write_text(
+            json.dumps(
+                {
+                    "status": "failure",
+                    "artifact_ref": f"runs/run_meta_test/attempt_{index:03d}/candidate.py",
+                    "fitness": None,
+                }
+            ),
+            encoding="utf-8",
+        )
+        controller.record_attempt(
+            task_id="task_001",
+            attempt_id=f"attempt_{index:03d}",
+            verification_result_ref=str(result_path),
+            max_attempts=3,
+        )
+
+    assert controller.attempt_log.count() == 3
+    assert controller._task_count() == 1
+    assert controller._progress() == 1 / 3
+    assert controller.check_convergence()["action"] == "continue"
+
+
 def test_commit_guidance_uses_canonical_best_anchor(tmp_path, monkeypatch):
     controller = _controller(tmp_path, monkeypatch)
     _add_successes(controller, fitness=1.0)

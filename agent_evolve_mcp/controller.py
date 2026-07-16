@@ -361,13 +361,14 @@ class EvolutionController:
         """Return the next scheduler action from convergence/meta-evolve state."""
         self._load_state()
         run_state = self.run_state_store.load()
-        total_submitted = max(self.task_contexts.count(), self.attempt_log.count())
+        total_tasks = self._task_count()
+        total_attempts = self.attempt_log.count()
         total_success = len(self.db.get_all())
         elapsed_seconds = self.run_state_store.elapsed_seconds()
         should_stop, reason = self.convergence_detector.evaluate(
             self.db,
             self.lineage_tree,
-            total_submitted=total_submitted,
+            total_submitted=total_tasks,
             total_success=total_success,
             elapsed_seconds=elapsed_seconds,
         )
@@ -381,11 +382,11 @@ class EvolutionController:
         elif self.convergence_detector.state == SearchState.WATCHING:
             current_best = diagnostics.get("current_best_fitness")
             self.meta_guidance.note_watching(
-                task_count=total_submitted,
+                task_count=total_tasks,
                 current_best_fitness=current_best,
             )
             if self.meta_guidance.should_request_guidance(
-                task_count=total_submitted,
+                task_count=total_tasks,
                 current_best_fitness=current_best,
                 plateau_count=diagnostics.get("plateau_count"),
                 patience=diagnostics.get("patience"),
@@ -407,7 +408,7 @@ class EvolutionController:
                             "errors": [],
                         }
                     ),
-                    task_count=total_submitted,
+                    task_count=total_tasks,
                 )
                 if request is not None:
                     action = "request_meta_guidance"
@@ -425,7 +426,7 @@ class EvolutionController:
                 search_state=self.convergence_detector.state.value,
                 stop_reason=reason,
                 diagnostics=diagnostics,
-                last_checked_attempt_count=total_submitted,
+                last_checked_attempt_count=total_attempts,
             )
         )
         response: Dict[str, Any] = {
@@ -510,8 +511,20 @@ class EvolutionController:
     def _progress(self) -> float:
         """Compute search progress internally from registered tasks."""
         max_total = max(self.config.convergence.max_total_tasks, 1)
-        submitted_count = max(self.task_contexts.count(), self.attempt_log.count())
-        return min(submitted_count / max_total, 1.0)
+        return min(self._task_count() / max_total, 1.0)
+
+    def _task_count(self) -> int:
+        """Return the number of unique tasks registered in this run.
+
+        AttemptLog intentionally retains every retry for Notes and diagnostics,
+        so its row count must not be used as the task-budget counter.
+        """
+        attempt_task_ids = {
+            str(row["task_id"])
+            for row in self.attempt_log.get_all()
+            if row.get("task_id")
+        }
+        return max(self.task_contexts.count(), len(attempt_task_ids))
 
     def _parent_ref(self, parent_id: Optional[str]) -> Dict[str, Any]:
         """Return the minimal public parent payload."""
