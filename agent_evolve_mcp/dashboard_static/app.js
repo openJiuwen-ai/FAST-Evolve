@@ -8,6 +8,7 @@
     connected: false,
     chartPoints: [],
     chartGeometry: null,
+    chartScaleMode: "focus",
     pollTimer: null,
     openGuidance: new Set(),
     openNotes: new Set(),
@@ -38,6 +39,8 @@
     chartTooltip: $("chart-tooltip"),
     chartRange: $("chart-range"),
     chartUpdated: $("chart-updated"),
+    chartScaleFocus: $("chart-scale-focus"),
+    chartScaleFull: $("chart-scale-full"),
     bestContent: $("best-content"),
     agentsCount: $("agents-count"),
     agentsList: $("agents-list"),
@@ -287,11 +290,77 @@
       state.chartGeometry = null;
       return;
     }
-    const min = Math.min(...points.map((item) => item.fitness));
-    const max = Math.max(...points.map((item) => item.fitness));
-    elements.chartRange.textContent = `${points.length} scored tasks · ${formatCompact(min)}–${formatCompact(max)}`;
     elements.chartUpdated.textContent = `Updated ${formatTime(state.snapshot.generated_at, true)}`;
     drawChart(points);
+  }
+
+  function percentile(sortedValues, position) {
+    if (!sortedValues.length) return 0;
+    const index = (sortedValues.length - 1) * position;
+    const lower = Math.floor(index);
+    const upper = Math.ceil(index);
+    if (lower === upper) return sortedValues[lower];
+    const weight = index - lower;
+    return sortedValues[lower] * (1 - weight) + sortedValues[upper] * weight;
+  }
+
+  function paddedDomain(min, max) {
+    const span = max - min;
+    const margin = span > 0 ? span * 0.12 : Math.max(Math.abs(max) * 0.08, 0.05);
+    return { min: min - margin, max: max + margin };
+  }
+
+  function computeChartDomain(points, requestedMode) {
+    const values = points.map((point) => point.fitness).filter(Number.isFinite);
+    const sorted = [...values].sort((left, right) => left - right);
+    const rawMin = sorted[0];
+    const rawMax = sorted[sorted.length - 1];
+    const full = paddedDomain(rawMin, rawMax);
+    const fullResult = {
+      ...full,
+      mode: "full",
+      rawMin,
+      rawMax,
+      lowOutliers: 0,
+      highOutliers: 0,
+    };
+
+    if (requestedMode === "full" || sorted.length < 8) return fullResult;
+
+    const q1 = percentile(sorted, 0.25);
+    const q3 = percentile(sorted, 0.75);
+    const iqr = q3 - q1;
+    if (!(iqr > 0)) return fullResult;
+
+    const lowerFence = q1 - 1.5 * iqr;
+    const upperFence = q3 + 1.5 * iqr;
+    const inliers = sorted.filter((value) => value >= lowerFence && value <= upperFence);
+    if (inliers.length < 3 || inliers.length === sorted.length) return fullResult;
+
+    // The global best is always visible, even when it is statistically unusual.
+    const focusMin = Math.min(...inliers);
+    const focusMax = Math.max(...inliers, rawMax);
+    const focusSpan = focusMax - focusMin;
+    const rawSpan = rawMax - rawMin;
+    if (!(focusSpan > 0) || rawSpan < focusSpan * 2.4) return fullResult;
+
+    const focus = paddedDomain(focusMin, focusMax);
+    return {
+      ...focus,
+      mode: "focus",
+      rawMin,
+      rawMax,
+      lowOutliers: values.filter((value) => value < focus.min).length,
+      highOutliers: values.filter((value) => value > focus.max).length,
+    };
+  }
+
+  function updateChartScaleControls() {
+    const focus = state.chartScaleMode === "focus";
+    elements.chartScaleFocus.classList.toggle("active", focus);
+    elements.chartScaleFull.classList.toggle("active", !focus);
+    elements.chartScaleFocus.setAttribute("aria-pressed", String(focus));
+    elements.chartScaleFull.setAttribute("aria-pressed", String(!focus));
   }
 
   function drawChart(points) {
@@ -310,16 +379,26 @@
     const pad = { left: 54, right: 25, top: 25, bottom: 36 };
     const plotW = width - pad.left - pad.right;
     const plotH = height - pad.top - pad.bottom;
-    const values = points.flatMap((point) => [point.fitness, point.best_so_far].filter(Number.isFinite));
-    let yMin = Math.min(...values);
-    let yMax = Math.max(...values);
-    const span = yMax - yMin;
-    const margin = span > 0 ? span * 0.14 : Math.max(Math.abs(yMax) * 0.08, 0.05);
-    yMin -= margin;
-    yMax += margin;
+    const domain = computeChartDomain(points, state.chartScaleMode);
+    const yMin = domain.min;
+    const yMax = domain.max;
+    const outlierCount = domain.lowOutliers + domain.highOutliers;
+    const outlierParts = [
+      domain.lowOutliers ? `${domain.lowOutliers} low` : "",
+      domain.highOutliers ? `${domain.highOutliers} high` : "",
+    ].filter(Boolean);
+    const rangeLabel = domain.mode === "focus"
+      ? `focus ${formatCompact(yMin)}–${formatCompact(yMax)} · ${outlierParts.join(" / ")} ${outlierCount === 1 ? "outlier" : "outliers"}`
+      : state.chartScaleMode === "focus"
+        ? `focus · no compression needed · ${formatCompact(domain.rawMin)}–${formatCompact(domain.rawMax)}`
+        : `full ${formatCompact(domain.rawMin)}–${formatCompact(domain.rawMax)}`;
+    elements.chartRange.textContent = `${points.length} scored tasks · ${rangeLabel}`;
 
     const x = (index) => pad.left + (points.length === 1 ? plotW / 2 : (index / (points.length - 1)) * plotW);
-    const y = (value) => pad.top + (1 - (value - yMin) / (yMax - yMin)) * plotH;
+    const y = (value) => {
+      const clamped = Math.min(Math.max(value, yMin), yMax);
+      return pad.top + (1 - (clamped - yMin) / (yMax - yMin)) * plotH;
+    };
     const styles = getComputedStyle(document.documentElement);
     const line = styles.getPropertyValue("--line").trim();
     const muted = styles.getPropertyValue("--muted").trim();
@@ -366,6 +445,18 @@
     ctx.stroke();
 
     points.forEach((point, index) => {
+      const belowRange = point.fitness < yMin;
+      const aboveRange = point.fitness > yMax;
+      if (belowRange || aboveRange) {
+        drawBoundaryMarker(
+          ctx,
+          x(index),
+          belowRange ? height - pad.bottom - 1 : pad.top + 1,
+          belowRange ? "low" : "high",
+          `${blue}aa`,
+        );
+        return;
+      }
       ctx.beginPath();
       ctx.arc(x(index), y(point.fitness), point.is_new_best ? 3.2 : 2.2, 0, Math.PI * 2);
       ctx.fillStyle = point.is_new_best ? accentBright : `${blue}88`;
@@ -429,7 +520,21 @@
     ctx.textBaseline = "middle";
     ctx.fillText(label, labelX + labelW / 2, labelY + 10.5);
 
-    state.chartGeometry = { x, y, pad, width, height, points };
+    state.chartGeometry = { x, y, pad, width, height, points, domain };
+  }
+
+  function drawBoundaryMarker(ctx, x, y, direction, color) {
+    const base = direction === "low" ? y - 7 : y + 7;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x - 4.5, base);
+    ctx.lineTo(x + 4.5, base);
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(250,251,247,.92)";
+    ctx.lineWidth = 1;
+    ctx.stroke();
   }
 
   function handleChartPointer(event) {
@@ -443,10 +548,13 @@
     const point = points[index];
     const tx = state.chartGeometry.x(index);
     const ty = state.chartGeometry.y(point.fitness);
+    const outsideFocus = state.chartGeometry.domain.mode === "focus"
+      && (point.fitness < state.chartGeometry.domain.min || point.fitness > state.chartGeometry.domain.max);
     elements.chartTooltip.innerHTML = `
       <strong>${escapeHtml(point.task_id)}</strong>
       fitness&nbsp; ${formatFitness(point.fitness)}<br>
       best&nbsp;&nbsp;&nbsp;&nbsp; ${formatFitness(point.best_so_far)}
+      ${outsideFocus ? "<br>outside focused range" : ""}
     `;
     elements.chartTooltip.hidden = false;
     const tooltipWidth = 155;
@@ -578,10 +686,21 @@
   });
   elements.chart.addEventListener("pointermove", handleChartPointer);
   elements.chart.addEventListener("pointerleave", hideChartTooltip);
+  elements.chartScaleFocus.addEventListener("click", () => {
+    state.chartScaleMode = "focus";
+    updateChartScaleControls();
+    if (state.chartPoints.length) drawChart(state.chartPoints);
+  });
+  elements.chartScaleFull.addEventListener("click", () => {
+    state.chartScaleMode = "full";
+    updateChartScaleControls();
+    if (state.chartPoints.length) drawChart(state.chartPoints);
+  });
   elements.refresh.addEventListener("click", refresh);
   elements.guidanceList.addEventListener("toggle", (event) => trackDetailsToggle(event, state.openGuidance), true);
   elements.notesList.addEventListener("toggle", (event) => trackDetailsToggle(event, state.openNotes), true);
 
+  updateChartScaleControls();
   refresh();
   state.pollTimer = window.setInterval(refresh, POLL_INTERVAL);
 })();

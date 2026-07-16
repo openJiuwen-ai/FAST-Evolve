@@ -178,3 +178,16 @@ def test_dashboard_uses_next_port_and_serves_snapshot(tmp_path, monkeypatch):
     finally:
         server.stop()
         blocker.close()
+
+
+def test_dashboard_includes_robust_chart_scale_controls():
+    static_root = Path(__file__).parents[1] / "agent_evolve_mcp" / "dashboard_static"
+    html = (static_root / "index.html").read_text(encoding="utf-8")
+    javascript = (static_root / "app.js").read_text(encoding="utf-8")
+
+    assert 'id="chart-scale-focus"' in html
+    assert 'id="chart-scale-full"' in html
+    assert "function computeChartDomain" in javascript
+    assert "1.5 * iqr" in javascript
+    assert "rawSpan < focusSpan * 2.4" in javascript
+    assert "drawBoundaryMarker" in javascript

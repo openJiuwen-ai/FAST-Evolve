@@ -421,6 +421,12 @@ h2 {
   border-bottom: 0;
 }
 
+.chart-controls {
+  display: flex;
+  align-items: center;
+  gap: 17px;
+}
+
 .chart-legend {
   display: flex;
   gap: 15px;
@@ -448,6 +454,36 @@ h2 {
   height: 2px;
   border-radius: 2px;
   background: var(--accent);
+}
+
+.chart-scale-toggle {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: rgba(237, 239, 233, 0.72);
+}
+
+.chart-scale-toggle button {
+  min-height: 24px;
+  padding: 0 9px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: 0.02em;
+}
+
+.chart-scale-toggle button:hover {
+  color: var(--ink-soft);
+}
+
+.chart-scale-toggle button.active {
+  background: rgba(250, 251, 247, 0.96);
+  color: var(--accent);
+  box-shadow: 0 1px 4px rgba(23, 32, 30, 0.1);
 }
 
 .chart-wrap {

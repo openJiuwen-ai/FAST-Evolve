@@ -79,9 +79,15 @@
                 <span class="section-kicker">Search trajectory</span>
                 <h2>Evolution progress</h2>
               </div>
-              <div class="chart-legend" aria-label="Chart legend">
-                <span><i class="legend-dot raw"></i>Task fitness</span>
-                <span><i class="legend-line"></i>Best so far</span>
+              <div class="chart-controls">
+                <div class="chart-legend" aria-label="Chart legend">
+                  <span><i class="legend-dot raw"></i>Task fitness</span>
+                  <span><i class="legend-line"></i>Best so far</span>
+                </div>
+                <div class="chart-scale-toggle" role="group" aria-label="Chart scale">
+                  <button id="chart-scale-focus" class="active" type="button" aria-pressed="true" title="Focus the scale while preserving outlier markers">Focus</button>
+                  <button id="chart-scale-full" type="button" aria-pressed="false" title="Show the complete fitness range">Full range</button>
+                </div>
               </div>
             </div>
             <div class="chart-wrap" id="chart-wrap">
