@@ -67,6 +67,7 @@ runs/                  Per-run candidate artifacts and final reports (gitignored
 The math benchmarks require the `math` extra. The `dev` extra provides pytest.
 
 ```powershell
+pip install -r requirements.txt
 uv sync --extra math --extra dev
 uv run python benchmarks/install.py --all
 ```
