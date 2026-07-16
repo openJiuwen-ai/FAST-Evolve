@@ -61,9 +61,11 @@ run prefers `http://127.0.0.1:4000`; if that port is occupied, the server binds
 the next available port without requiring configuration. Concurrent runs can
 therefore remain open side by side.
 
-The terminal prints the selected URL once, followed only by throttled one-line
-heartbeats at meaningful milestones. Detailed task history and artifact paths
-stay in the dashboard. The first version includes:
+The terminal prints the selected URL once in a high-visibility startup banner,
+followed only by throttled one-line heartbeats at meaningful milestones.
+Scheduler transitions are persisted behind compact MCP calls, so repeated
+`scheduler_state.json` file diffs are not printed. Detailed task history and
+artifact paths stay in the dashboard. The first version includes:
 
 - task fitness and running-best curves, with the current best annotated;
 - the leading artifact and its core evaluator metrics;

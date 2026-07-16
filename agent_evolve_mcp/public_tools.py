@@ -15,6 +15,11 @@ from agent_evolve_mcp.config import load_evolution_controller_config
 from agent_evolve_mcp.controller import EvolutionController
 from agent_evolve_mcp.dashboard import start_dashboard
 from agent_evolve_mcp.mcp_server import mcp
+from agent_evolve_mcp.scheduler_state import (
+    get_scheduler_state,
+    initialize_scheduler_state,
+    update_task_status,
+)
 
 _controllers: Dict[str, EvolutionController] = {}
 
@@ -45,6 +50,7 @@ def evolve_configure_run(
     Subsequent calls for the same run_id are ignored (the configuration
     is locked after the first call).
     """
+    initialize_scheduler_state(run_id)
     if run_id in _controllers:
         config = _controllers[run_id].config
         return {
@@ -72,6 +78,28 @@ def evolve_configure_run(
             task_description=task_description,
         ),
     }
+
+
+@mcp.tool(run_in_thread=False)
+def evolve_update_task_status(
+    run_id: str,
+    task_id: str,
+    status: str,
+    agent_id: str = "",
+) -> Dict[str, Any]:
+    """Persist one scheduler task transition without exposing the state-file diff."""
+    return update_task_status(
+        run_id=run_id,
+        task_id=task_id,
+        status=status,
+        agent_id=agent_id,
+    )
+
+
+@mcp.tool(run_in_thread=False)
+def evolve_get_scheduler_state(run_id: str) -> Dict[str, Any]:
+    """Return only active tasks and agents for scheduling recovery."""
+    return get_scheduler_state(run_id)
 
 
 @mcp.tool(run_in_thread=False)
