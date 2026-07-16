@@ -13,6 +13,7 @@ from typing import Any, Dict
 
 from agent_evolve_mcp.config import load_evolution_controller_config
 from agent_evolve_mcp.controller import EvolutionController
+from agent_evolve_mcp.dashboard import start_dashboard
 from agent_evolve_mcp.mcp_server import mcp
 
 _controllers: Dict[str, EvolutionController] = {}
@@ -51,6 +52,11 @@ def evolve_configure_run(
             "reason": "Controller already exists for this run_id; configuration locked.",
             "max_total_tasks": config.convergence.max_total_tasks,
             "meta_evolve": _meta_evolve_config_ref(config),
+            "dashboard": _dashboard_ref(
+                run_id,
+                max_total_tasks=config.convergence.max_total_tasks,
+                task_description=task_description,
+            ),
         }
     config = load_evolution_controller_config(max_total_tasks=max_total_tasks)
     controller = EvolutionController(run_id, config=config)
@@ -60,6 +66,11 @@ def evolve_configure_run(
         "configured": True,
         "max_total_tasks": config.convergence.max_total_tasks,
         "meta_evolve": _meta_evolve_config_ref(config),
+        "dashboard": _dashboard_ref(
+            run_id,
+            max_total_tasks=config.convergence.max_total_tasks,
+            task_description=task_description,
+        ),
     }
 
 
@@ -178,4 +189,37 @@ def _meta_evolve_config_ref(config: Any) -> Dict[str, Any]:
         "guidance_num_to_generate": config.meta_evolve.guidance_num_to_generate,
         "guidance_max_uses": config.meta_evolve.guidance_max_uses,
         "max_tried_guidance": config.meta_evolve.max_tried_guidance,
+    }
+
+
+def _dashboard_ref(
+    run_id: str,
+    *,
+    max_total_tasks: int,
+    task_description: str,
+) -> Dict[str, Any]:
+    """Start the optional UI without making observability run-critical."""
+    try:
+        server = start_dashboard(
+            run_id,
+            max_total_tasks=max_total_tasks,
+            task_description=task_description,
+        )
+    except (OSError, RuntimeError) as exc:
+        return {
+            "enabled": True,
+            "started": False,
+            "error": str(exc),
+        }
+    if server is None:
+        return {
+            "enabled": False,
+            "started": False,
+            "reason": "AGENT_EVOLVE_UI_ENABLED disables automatic startup.",
+        }
+    return {
+        "enabled": True,
+        "started": True,
+        "url": server.url,
+        "port": server.port,
     }

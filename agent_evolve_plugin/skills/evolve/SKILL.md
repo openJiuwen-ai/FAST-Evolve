@@ -65,6 +65,7 @@ These templates are **exclusive** — they define the exact and complete content
    - If the user specified an iteration count (e.g., "200 iterations", "200 tasks", "max 200", "run 200 rounds"), extract that number.
    - If the user did not specify, default to 50.
    - Call `evolve_configure_run(run_id, max_total_tasks=<value>, task_description=<original user input>)` BEFORE any other `evolve_*` call for this run.
+   - Store `dashboard.url` from the response when available. Print exactly one short startup line: `Evolution started · UI <dashboard.url> · target <max_total_tasks> tasks`. If the dashboard did not start, print one short warning and continue; UI availability is never a reason to stop evolution.
 3. Create the run workspace directory and persistent state files. **All `runs/` paths are relative to the project root (cwd), not to the skill's base directory.** Use Bash to execute:
 
    ```bash
@@ -74,13 +75,13 @@ These templates are **exclusive** — they define the exact and complete content
    Then write `scheduler_state.json` using the Write tool:
 
    ```json
-   {"run_id": "<run_id>", "running_tasks": []}
+   {"run_id": "<run_id>", "running_tasks": [], "task_agents": {}}
    ```
 
    Write path: `runs/<run_id>/scheduler_state.json`.
 
    - `completed_tasks.jsonl`: subagents append to this file on completion; the orchestrator reads it. Pre-creating the empty file avoids the first subagent needing to handle a missing-file case.
-   - `scheduler_state.json`: only the orchestrator reads/writes this file. It is used to recover running-task knowledge after context compression, and to reconcile against completed_tasks.jsonl to discover tasks whose notifications were lost.
+   - `scheduler_state.json`: only the orchestrator reads/writes this file. It recovers scheduling state after context compression, reconciles completion notifications, and exposes the task-to-subagent mapping to the dashboard.
 
 4. Confirm with the user and start.
 
@@ -117,6 +118,7 @@ runs/<run_id>/
 MAX_CONCURRENT_TASKS = 4
 task_counter = 0
 running_tasks = []
+task_agents = {}
 stop_requested = false
 
 // Initial fill
@@ -124,8 +126,10 @@ FOR i = 1..MAX_CONCURRENT_TASKS:
   task_counter += 1
   task_id = f"task_{task_counter:03d}"
   Dispatch to task-executor using the task-executor dispatch template (fill: run_id, task_id, task_description, max_attempts=10)
+  Capture the exact subagent identifier returned by the dispatch operation
   running_tasks.append(task_id)
-  Update running_tasks in scheduler_state.json
+  task_agents[task_id] = {"agent_id": <returned_subagent_id>, "status": "running"}
+  Update running_tasks and task_agents in scheduler_state.json in one write
 
 // Event loop
 WHILE running_tasks is not empty:
@@ -137,8 +141,8 @@ WHILE running_tasks is not empty:
      → these are completed tasks
   4. For each newly discovered completed task:
      - Extract fitness, status, artifact_ref from its JSONL entry
-     - Update the Progress Update table with this info (see Progress Update Table section below)
-  5. Remove these completed task_ids from running_tasks and update scheduler_state.json
+     - Set task_agents[task_id].status = "completed"
+  5. Remove these completed task_ids from running_tasks and update running_tasks plus task_agents in scheduler_state.json in one write
 
   // Convergence/meta-evolve check & replenishment
   FOR each newly completed task:
@@ -161,8 +165,18 @@ WHILE running_tasks is not empty:
     task_counter += 1
     task_id = f"task_{task_counter:03d}"
     Dispatch to task-executor using the task-executor dispatch template (fill: run_id, task_id, task_description, max_attempts=3)
+    Capture the exact subagent identifier returned by the dispatch operation
     running_tasks.append(task_id)
-    Update scheduler_state.json
+    task_agents[task_id] = {"agent_id": <returned_subagent_id>, "status": "running"}
+    Update running_tasks and task_agents in scheduler_state.json in one write
+
+  // Compact terminal visibility
+  Emit at most one compact progress line after reconciliation and replenishment, and only when:
+    - completed task count reaches a multiple of 5, OR
+    - a new global best appears, OR
+    - meta-guidance is requested/committed, OR
+    - the run enters stopping/finalization
+  Do not emit repeated waiting messages when no persisted state changed
 
 END WHILE
 
@@ -174,7 +188,11 @@ END WHILE
 ```json
 {
   "run_id": "run_20260601204625",
-  "running_tasks": ["task_005", "task_002"]
+  "running_tasks": ["task_005", "task_002"],
+  "task_agents": {
+    "task_002": {"agent_id": "agent-7e15", "status": "running"},
+    "task_005": {"agent_id": "agent-93b2", "status": "running"}
+  }
 }
 ```
 
@@ -189,14 +207,19 @@ Each line is one JSON object, appended by the subagents on completion:
 
 While parsing, skip unparseable lines.
 
-### Progress Update Table
+### Compact Terminal Progress
 
-During the run, maintain a concise terminal `Progress Update` whenever a task completes, a replacement task is launched, or the workflow is waiting for remaining running tasks. Use a Unicode box-drawing table and keep status emoji. The table must include exactly these semantic columns: `Task`, `Status`, `Fitness`, and `Artifact`; do not use a `Note` column. **All values for completed tasks are extracted from completed_tasks.jsonl during the event loop. Running tasks show `—` for Fitness and Artifact.** Status mapping: `success` → `✅ Completed`, `failure` → `⚠️ Failed`, running task → `🔄 Running`. **Display fidelity rules: fitness values must be shown exactly as they appear in completed_tasks.jsonl — never round, truncate, or reformat them; artifact_ref paths must be shown in full — never abbreviate, shorten, or truncate them.** After the table, print one short line with the current best fitness and number of running tasks.
+The dashboard is the detailed observability surface. Never print the Unicode progress table, completed artifact paths, Notes content, meta-guidance content, task-by-task history, or the full running-task list in the main terminal.
 
-Fitness is always maximized. `Best fitness` MUST be the largest successful
-numeric fitness from `completed_tasks.jsonl`, or
-`convergence.diagnostics.current_best_fitness` when available. Do not infer the
-direction from raw benchmark metrics such as loss, c3, runtime, or distance.
+When one of the throttled visibility conditions in the pseudocode is met, print exactly one line in this shape:
+
+```text
+Progress <completed>/<max_total_tasks> · best <best_fitness_or_—> · <running_count> active · UI <dashboard.url>
+```
+
+This line is a heartbeat, not a report. Do not print it more than once for the same completed count unless the run state changed (for example meta-guidance was committed or stopping began). While merely waiting for subagents, print nothing unless there has been no user-visible output for at least 60 seconds; in that case print only `Evolution is active · <running_count> agents · UI <dashboard.url>`.
+
+Fitness is always maximized. `best_fitness` MUST be the largest successful numeric fitness from `completed_tasks.jsonl`, or `convergence.diagnostics.current_best_fitness` when available. Do not infer direction from raw benchmark metrics such as loss, c3, runtime, or distance.
 
 ### Critical Constraints
 
@@ -206,7 +229,7 @@ direction from raw benchmark metrics such as loss, c3, runtime, or distance.
 4. `evolve_finalize_run` returns report refs. Do not paste the full report into the conversation context.
 5. Do not let a freed slot sit idle while `action != "budget_exhausted"`: for every single completed task, immediately launch exactly one replacement task after the convergence check.
 6. Success and failure both count as task completion. A failed task still frees its slot and should be replaced unless `action == "budget_exhausted"`.
-7. scheduler_state.json is written only by the orchestrator. Every modification must be immediately persisted to disk via Write.
+7. scheduler_state.json is written only by the orchestrator. Every modification to `running_tasks` or `task_agents` must be immediately persisted to disk via Write. Preserve completed task-agent mappings for UI history and context-compression recovery.
 8. Every dispatch to task-executor MUST include `max_attempts`. Initial-fill tasks: `max_attempts = 10`. Replenishment tasks: `max_attempts = 3`. Never omit this parameter.
 9. Plateau, WATCHING, `request_meta_guidance`, and failed meta-guidance generation are NOT stop signals.
 
@@ -260,12 +283,9 @@ item concrete enough for task-executor to implement.
 
 ## Step 3: Run Finalization
 
-### 3.1 Final Progress Table Update
+### 3.1 Final Compact Progress Update
 
-After all running_tasks are empty, perform one final progress table update:
-
-1. Read `completed_tasks.jsonl`, parse all lines
-2. Update the Progress Update table to its final state
+After all running_tasks are empty, read `completed_tasks.jsonl` and emit one final compact progress line using the format below. Do not print a table or artifact paths.
 
 ### 3.2 Final Convergence Check & Finalize
 
