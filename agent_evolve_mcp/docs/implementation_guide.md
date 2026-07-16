@@ -2035,13 +2035,13 @@ None
 
 公开 MCP tool 不再要求 agent 传 `progress`。
 
-MCP 内部建议按本地 attempt 数计算：
+MCP 内部建议按已注册的唯一 task 数计算：
 
 ```python
-progress = min(total_submitted / max_total_tasks, 1.0)
+progress = min(total_tasks / max_total_tasks, 1.0)
 ```
 
-其中 `total_submitted` 来自 `max(task_contexts 中已注册 task 数, attempts.jsonl 行数)`，`max_total_tasks` 来自控制器配置，默认 100。后续如果 plugin 有自己的 budget，应保持 plugin 和 MCP 的 max_total_tasks 一致。
+其中 `total_tasks` 来自已注册 task 数，以及 attempts 日志中唯一 task ID 数量的较大值；同一 task 的多次 attempt 不会重复计入 `max_total_tasks`。`max_total_tasks` 来自控制器配置，默认 100。后续如果 plugin 有自己的 budget，应保持 plugin 和 MCP 的 max_total_tasks 一致。
 
 ### 10.2 total_success 如何计算
 
