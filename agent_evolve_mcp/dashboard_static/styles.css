@@ -1404,6 +1404,7 @@ h2 {
 .activity-list,
 .knowledge-list {
   max-height: 420px;
+  margin-bottom: 8px;
   overflow: auto;
   scrollbar-color: var(--line-strong) transparent;
   scrollbar-width: thin;
