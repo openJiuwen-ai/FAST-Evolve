@@ -13,7 +13,13 @@ from typing import Any, Dict
 
 from agent_evolve_mcp.config import load_evolution_controller_config
 from agent_evolve_mcp.controller import EvolutionController
+from agent_evolve_mcp.dashboard import start_dashboard
 from agent_evolve_mcp.mcp_server import mcp
+from agent_evolve_mcp.scheduler_state import (
+    get_scheduler_state,
+    initialize_scheduler_state,
+    update_task_status,
+)
 
 _controllers: Dict[str, EvolutionController] = {}
 
@@ -44,6 +50,7 @@ def evolve_configure_run(
     Subsequent calls for the same run_id are ignored (the configuration
     is locked after the first call).
     """
+    initialize_scheduler_state(run_id)
     if run_id in _controllers:
         config = _controllers[run_id].config
         return {
@@ -51,6 +58,11 @@ def evolve_configure_run(
             "reason": "Controller already exists for this run_id; configuration locked.",
             "max_total_tasks": config.convergence.max_total_tasks,
             "meta_evolve": _meta_evolve_config_ref(config),
+            "dashboard": _dashboard_ref(
+                run_id,
+                max_total_tasks=config.convergence.max_total_tasks,
+                task_description=task_description,
+            ),
         }
     config = load_evolution_controller_config(max_total_tasks=max_total_tasks)
     controller = EvolutionController(run_id, config=config)
@@ -60,7 +72,34 @@ def evolve_configure_run(
         "configured": True,
         "max_total_tasks": config.convergence.max_total_tasks,
         "meta_evolve": _meta_evolve_config_ref(config),
+        "dashboard": _dashboard_ref(
+            run_id,
+            max_total_tasks=config.convergence.max_total_tasks,
+            task_description=task_description,
+        ),
     }
+
+
+@mcp.tool(run_in_thread=False)
+def evolve_update_task_status(
+    run_id: str,
+    task_id: str,
+    status: str,
+    agent_id: str = "",
+) -> Dict[str, Any]:
+    """Persist one scheduler task transition without exposing the state-file diff."""
+    return update_task_status(
+        run_id=run_id,
+        task_id=task_id,
+        status=status,
+        agent_id=agent_id,
+    )
+
+
+@mcp.tool(run_in_thread=False)
+def evolve_get_scheduler_state(run_id: str) -> Dict[str, Any]:
+    """Return only active tasks and agents for scheduling recovery."""
+    return get_scheduler_state(run_id)
 
 
 @mcp.tool(run_in_thread=False)
@@ -178,4 +217,37 @@ def _meta_evolve_config_ref(config: Any) -> Dict[str, Any]:
         "guidance_num_to_generate": config.meta_evolve.guidance_num_to_generate,
         "guidance_max_uses": config.meta_evolve.guidance_max_uses,
         "max_tried_guidance": config.meta_evolve.max_tried_guidance,
+    }
+
+
+def _dashboard_ref(
+    run_id: str,
+    *,
+    max_total_tasks: int,
+    task_description: str,
+) -> Dict[str, Any]:
+    """Start the optional UI without making observability run-critical."""
+    try:
+        server = start_dashboard(
+            run_id,
+            max_total_tasks=max_total_tasks,
+            task_description=task_description,
+        )
+    except (OSError, RuntimeError) as exc:
+        return {
+            "enabled": True,
+            "started": False,
+            "error": str(exc),
+        }
+    if server is None:
+        return {
+            "enabled": False,
+            "started": False,
+            "reason": "AGENT_EVOLVE_UI_ENABLED disables automatic startup.",
+        }
+    return {
+        "enabled": True,
+        "started": True,
+        "url": server.url,
+        "port": server.port,
     }

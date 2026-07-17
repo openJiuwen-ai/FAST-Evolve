@@ -7,6 +7,9 @@ The implementation follows a minimal-context contract: agents pass only stable i
 ## Tools
 
 ```python
+evolve_configure_run(run_id: str, max_total_tasks: int = 50, task_description: str = "")
+evolve_update_task_status(run_id: str, task_id: str, status: str, agent_id: str = "")
+evolve_get_scheduler_state(run_id: str)
 evolve_select_parent(run_id: str, task_id: str)
 evolve_select_inspirations(run_id: str, task_id: str)
 evolve_record_attempt(run_id: str, task_id: str, verification_result_ref: str)
@@ -20,6 +23,7 @@ evolve_finalize_run(run_id: str, stop_reason: str = "")
 Public responses are intentionally compact:
 
 - parent/inspiration calls return ids, `artifact_ref`, and compact `fitness`
+- scheduler calls persist task transitions and return only active state or a compact acknowledgement, avoiding full `scheduler_state.json` diffs in the host terminal
 - attempt recording returns `entered_success_db` and `success_record_id`
 - convergence returns `action`: `continue`, `request_meta_guidance`, or `budget_exhausted`
 - `should_stop` is retained for compatibility and is true only for hard budget/external stops

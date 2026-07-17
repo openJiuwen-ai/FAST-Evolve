@@ -26,6 +26,9 @@ as loss, runtime, or distance remain inside the evaluator result.
 - Runs meta-evolve as a bounded guidance lifecycle: the host agent produces up
   to three distinct guidance items, each is assigned to at most two tasks, and
   the MCP records their outcomes for later guidance generation.
+- Starts a read-only live dashboard for every run. It shows the fitness curve,
+  current best, active subagents, recent activity, run-local Notes, and
+  meta-guidance without copying those details into the main agent context.
 - Stops automatic replenishment only for a hard task/time budget or an external
   stop, then writes deterministic run summaries.
 
@@ -50,6 +53,35 @@ benchmark skills and evaluators
 The controller keeps internal state out of agent context. Agents exchange
 stable IDs and artifact references through compact MCP responses; the MCP
 recovers parent, inspiration, note, and meta-guidance context from disk.
+
+## Live Dashboard 📈
+
+`evolve_configure_run` automatically starts one dashboard per run. The first
+run prefers `http://127.0.0.1:4000`; if that port is occupied, the server binds
+the next available port without requiring configuration. Concurrent runs can
+therefore remain open side by side.
+
+The terminal prints the selected URL once in a high-visibility startup banner,
+followed only by throttled one-line heartbeats at meaningful milestones.
+Scheduler transitions are persisted behind compact MCP calls, so repeated
+`scheduler_state.json` file diffs are not printed. Detailed task history and
+artifact paths stay in the dashboard. The first version includes:
+
+- task fitness and running-best curves, with the current best annotated;
+- a live, pannable Lineage graph with parent ancestry, hover-revealed inspiration links, and fullscreen inspection;
+- the leading artifact and its core evaluator metrics;
+- active task/subagent identifiers and inferred lifecycle activity;
+- a time-ordered operational activity feed;
+- current and tried meta-guidance, including use counts and outcomes;
+- run-local positive, negative, and error Notes.
+
+The UI is read-only: it polls the same persisted state used by the scheduler
+and controller and cannot change the search. To inspect a persisted run without
+starting a new evolution:
+
+```powershell
+python -m agent_evolve_mcp.dashboard run_20260710143000
+```
 
 ## Repository Layout 🗂️
 
@@ -161,6 +193,9 @@ $env:AGENT_EVOLVE_META_EVOLVE_ENABLED = "0"
 # Disable run-local Notes.
 $env:AGENT_EVOLVE_NOTES_ENABLED = "0"
 
+# Disable automatic dashboard startup (the evolution run still proceeds).
+$env:AGENT_EVOLVE_UI_ENABLED = "0"
+
 # Treat relative best-fitness improvement below 1% as plateau.
 $env:AGENT_EVOLVE_PERF_IMPROVEMENT_THRESHOLD = "0.01"
 
@@ -181,6 +216,7 @@ that case.
 runs/<run_id>/
   completed_tasks.jsonl
   scheduler_state.json
+  dashboard.json
   tasks/<task_id>/attempts/<attempt_id>/solution.py
   tasks/<task_id>/attempts/<attempt_id>/eval_result.json
   run_summary.md
