@@ -1,9 +1,15 @@
 import json
 import socket
+import urllib.error
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import quote
 
-from agent_evolve_mcp.dashboard import DashboardServer, build_snapshot
+import pytest
+
+import agent_evolve_mcp.dashboard as dashboard_module
+from agent_evolve_mcp.dashboard import DashboardServer, build_snapshot, list_runs
 
 RUN_ID = "signal_processing_20260715010101"
 
@@ -132,6 +138,59 @@ def _seed_run(tmp_path: Path, monkeypatch):
     return public, state
 
 
+def _seed_history_run(tmp_path: Path):
+    run_id = "run_20260714010101"
+    public = tmp_path / "runs" / run_id
+    state = tmp_path / ".agent_evolve" / "controller" / run_id
+    artifact = f"runs/{run_id}/tasks/task_001/attempts/attempt_001/solution.py"
+    _write_json(
+        public / "dashboard.json",
+        {
+            "run_id": run_id,
+            "task_description": "An older persisted run.",
+            "started_at": "2026-07-14T01:01:01+00:00",
+        },
+    )
+    _write_json(
+        public / "scheduler_state.json",
+        {"run_id": run_id, "running_tasks": [], "task_agents": {}},
+    )
+    _write_jsonl(
+        public / "completed_tasks.jsonl",
+        [
+            {
+                "task_id": "task_001",
+                "fitness": 0.2,
+                "status": "success",
+                "artifact_ref": artifact,
+            }
+        ],
+    )
+    _write_jsonl(
+        state / "attempts.jsonl",
+        [
+            {
+                "id": "attempt_001",
+                "task_id": "task_001",
+                "artifact_ref": artifact,
+                "created_at": "2026-07-14T01:02:00+00:00",
+                "generation": 0,
+                "verification_result": {"status": "success", "fitness": 0.2},
+            }
+        ],
+    )
+    _write_json(
+        state / "run_state.json",
+        {
+            "run_id": run_id,
+            "search_state": "stopped",
+            "started_at": "2026-07-14T01:01:01+00:00",
+            "updated_at": "2026-07-14T01:03:00+00:00",
+        },
+    )
+    return run_id
+
+
 def test_build_snapshot_aggregates_live_run_state(tmp_path, monkeypatch):
     _seed_run(tmp_path, monkeypatch)
 
@@ -164,8 +223,31 @@ def test_build_snapshot_aggregates_live_run_state(tmp_path, monkeypatch):
     assert snapshot["lineage"]["nodes"][-1]["status"] == "running"
 
 
+def test_list_runs_returns_flat_history_for_named_and_legacy_ids(tmp_path, monkeypatch):
+    _seed_run(tmp_path, monkeypatch)
+    history_run_id = _seed_history_run(tmp_path)
+    monkeypatch.setattr(
+        dashboard_module,
+        "_utc_now",
+        lambda: datetime(2026, 7, 15, 1, 4, tzinfo=timezone.utc),
+    )
+
+    history = list_runs(RUN_ID, tmp_path)
+
+    assert history["current"] == RUN_ID
+    assert [item["id"] for item in history["runs"]] == [RUN_ID, history_run_id]
+    assert history["runs"][0]["label"] == "signal_processing"
+    assert history["runs"][0]["timestamp"] == "20260715010101"
+    assert history["runs"][0]["status"] == "running"
+    assert history["runs"][0]["completed_tasks"] == 2
+    assert history["runs"][0]["best_fitness"] == 0.7
+    assert history["runs"][1]["label"] == "run"
+    assert history["runs"][1]["status"] == "stopped"
+
+
 def test_dashboard_uses_next_port_and_serves_snapshot(tmp_path, monkeypatch):
     _seed_run(tmp_path, monkeypatch)
+    history_run_id = _seed_history_run(tmp_path)
     blocker = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     blocker.bind(("127.0.0.1", 0))
     blocker.listen(1)
@@ -189,6 +271,20 @@ def test_dashboard_uses_next_port_and_serves_snapshot(tmp_path, monkeypatch):
             snapshot = json.loads(response.read())
         assert snapshot["best"]["fitness"] == 0.7
         assert snapshot["best"]["metrics"]["bad"] is None
+
+        with urllib.request.urlopen(f"{server.url}/api/runs", timeout=3) as response:
+            history = json.loads(response.read())
+        assert [item["id"] for item in history["runs"]] == [RUN_ID, history_run_id]
+
+        history_url = f"{server.url}/api/snapshot?run_id={quote(history_run_id)}"
+        with urllib.request.urlopen(history_url, timeout=3) as response:
+            historical_snapshot = json.loads(response.read())
+        assert historical_snapshot["run"]["id"] == history_run_id
+        assert historical_snapshot["best"]["fitness"] == 0.2
+
+        with pytest.raises(urllib.error.HTTPError) as missing:
+            urllib.request.urlopen(f"{server.url}/api/snapshot?run_id=missing_run", timeout=3)
+        assert missing.value.code == 404
     finally:
         server.stop()
         blocker.close()
@@ -205,6 +301,23 @@ def test_dashboard_includes_robust_chart_scale_controls():
     assert "1.5 * iqr" in javascript
     assert "rawSpan < focusSpan * 2.4" in javascript
     assert "drawBoundaryMarker" in javascript
+
+
+def test_dashboard_includes_flat_run_history_selector():
+    static_root = Path(__file__).parents[1] / "agent_evolve_mcp" / "dashboard_static"
+    html = (static_root / "index.html").read_text(encoding="utf-8")
+    javascript = (static_root / "app.js").read_text(encoding="utf-8")
+    stylesheet = (static_root / "styles.css").read_text(encoding="utf-8")
+
+    assert 'id="run-selector-trigger"' in html
+    assert 'id="run-history-list"' in html
+    assert 'id="run-history-count"' in html
+    assert 'fetch("/api/runs"' in javascript
+    assert "function switchRun" in javascript
+    assert "URLSearchParams(window.location.search)" in javascript
+    assert 'data-run-id="${escapeHtml(run.id)}"' in javascript
+    assert ".run-menu" in stylesheet
+    assert ".run-history-item.current" in stylesheet
 
 
 def test_dashboard_includes_interactive_lineage_controls():

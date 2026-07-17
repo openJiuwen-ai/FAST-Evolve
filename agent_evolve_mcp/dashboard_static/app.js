@@ -2,10 +2,16 @@
   "use strict";
 
   const POLL_INTERVAL = 2000;
+  const initialRunId = new URLSearchParams(window.location.search).get("run");
   const state = {
     snapshot: null,
     loading: false,
     connected: false,
+    selectedRunId: initialRunId,
+    launchRunId: null,
+    runHistory: [],
+    runHistoryLoading: false,
+    runMenuOpen: false,
     chartPoints: [],
     chartGeometry: null,
     chartScaleMode: "focus",
@@ -28,6 +34,12 @@
   const $ = (id) => document.getElementById(id);
   const elements = {
     runId: $("run-id"),
+    runSelector: $("run-selector"),
+    runSelectorTrigger: $("run-selector-trigger"),
+    runSelectorMeta: $("run-selector-meta"),
+    runMenu: $("run-menu"),
+    runHistoryCount: $("run-history-count"),
+    runHistoryList: $("run-history-list"),
     connectionPill: $("connection-pill"),
     connectionLabel: $("connection-label"),
     refresh: $("refresh-button"),
@@ -79,10 +91,14 @@
     state.loading = true;
     elements.refresh.classList.add("loading");
     try {
-      const response = await fetch("/api/snapshot", { cache: "no-store" });
+      const query = state.selectedRunId
+        ? `?run_id=${encodeURIComponent(state.selectedRunId)}`
+        : "";
+      const response = await fetch(`/api/snapshot${query}`, { cache: "no-store" });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const snapshot = await response.json();
       state.snapshot = snapshot;
+      state.selectedRunId = snapshot.run?.id || state.selectedRunId;
       setConnected(true);
       render(snapshot);
     } catch (error) {
@@ -92,6 +108,27 @@
     } finally {
       state.loading = false;
       elements.refresh.classList.remove("loading");
+    }
+  }
+
+  async function refreshRunHistory() {
+    if (state.runHistoryLoading) return;
+    state.runHistoryLoading = true;
+    try {
+      const response = await fetch("/api/runs", { cache: "no-store" });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const data = await response.json();
+      state.runHistory = Array.isArray(data.runs) ? data.runs : [];
+      state.launchRunId = data.current || state.launchRunId;
+      if (!state.selectedRunId) state.selectedRunId = data.current || null;
+      renderRunHistory();
+    } catch (error) {
+      if (!state.runHistory.length) {
+        elements.runHistoryList.innerHTML = '<div class="run-history-empty">Unable to load persisted runs.</div>';
+      }
+      console.warn("Run history refresh failed", error);
+    } finally {
+      state.runHistoryLoading = false;
     }
   }
 
@@ -124,6 +161,12 @@
 
     document.title = `${run.id || "Agent Evolve"} · Run Observatory`;
     elements.runId.textContent = run.id || "Unknown run";
+    const historyItem = state.runHistory.find((item) => item.id === run.id);
+    const timestamp = formatRunTimestamp(historyItem || { id: run.id, started_at: run.started_at });
+    elements.runSelectorMeta.textContent = [
+      timestamp,
+      `${completed} completed`,
+    ].filter(Boolean).join(" · ");
     elements.statusTitle.textContent = statusHeadline(run.state, completed);
     elements.taskDescription.textContent = run.task_description || "No task description recorded.";
     elements.stateBadge.className = `state-badge ${run.state || "initializing"}`;
@@ -140,6 +183,103 @@
       ? "Diversity —"
       : `Diversity ${formatCompact(diagnostics.diversity)}`;
     elements.footerTime.textContent = `Last sync ${formatTime(snapshot.generated_at, true)}`;
+  }
+
+  function renderRunHistory() {
+    elements.runHistoryCount.textContent = String(state.runHistory.length);
+    if (!state.runHistory.length) {
+      elements.runHistoryList.innerHTML = '<div class="run-history-empty">No persisted runs found.</div>';
+      return;
+    }
+    elements.runHistoryList.innerHTML = state.runHistory.map((run) => {
+      const current = run.id === state.selectedRunId;
+      const legacy = run.label === "run";
+      const label = legacy ? run.id : run.label || run.id;
+      const subtitle = legacy
+        ? run.task_description || "Original timestamp-only ID"
+        : run.id;
+      const best = run.best_fitness == null ? "" : `best ${formatCompact(run.best_fitness)}`;
+      return `
+        <button class="run-history-item ${current ? "current" : ""}" type="button" data-run-id="${escapeHtml(run.id)}" title="Open ${escapeHtml(run.id)}">
+          <span class="run-history-status ${run.status === "running" ? "running" : ""}" title="${run.status === "running" ? "Running" : "Persisted"}"></span>
+          <span class="run-history-main">
+            <strong class="run-history-title">${escapeHtml(label)}</strong>
+            <span class="run-history-id">${escapeHtml(subtitle)}</span>
+          </span>
+          <span class="run-history-side">
+            <span>${escapeHtml(formatRunTimestamp(run))}</span>
+            <span class="run-history-meta">
+              <span>${Number(run.attempts) || Number(run.completed_tasks) || 0} att${best ? ` · ${escapeHtml(best)}` : ""}</span>
+              ${current ? '<span class="run-current-chip">current</span>' : ""}
+            </span>
+          </span>
+        </button>`;
+    }).join("");
+  }
+
+  function toggleRunMenu(force = null) {
+    const open = force == null ? !state.runMenuOpen : Boolean(force);
+    state.runMenuOpen = open;
+    elements.runSelector.classList.toggle("open", open);
+    elements.runSelectorTrigger.setAttribute("aria-expanded", String(open));
+    elements.runMenu.hidden = !open;
+    if (open) refreshRunHistory();
+  }
+
+  function switchRun(runId, { pushHistory = true } = {}) {
+    const nextRunId = String(runId || "");
+    if (!nextRunId || nextRunId === state.selectedRunId) {
+      toggleRunMenu(false);
+      return;
+    }
+    state.selectedRunId = nextRunId;
+    state.snapshot = null;
+    state.lineageSignature = "";
+    state.lineageLayout = null;
+    state.lineageUserAdjusted = false;
+    state.openGuidance.clear();
+    state.openNotes.clear();
+    state.guidanceInitialized = false;
+    state.notesInitialized = false;
+    const url = new URL(window.location.href);
+    url.searchParams.set("run", nextRunId);
+    if (pushHistory) window.history.pushState({ run: nextRunId }, "", url);
+    renderRunHistory();
+    toggleRunMenu(false);
+    setConnected(false);
+    elements.connectionLabel.textContent = "Loading";
+    refresh();
+  }
+
+  function formatRunTimestamp(run) {
+    const raw = String(run?.timestamp || run?.id || "");
+    const match = raw.match(/(?:^|_)(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/);
+    if (match) {
+      const [, year, month, day, hour, minute] = match;
+      const date = new Date(
+        Number(year),
+        Number(month) - 1,
+        Number(day),
+        Number(hour),
+        Number(minute),
+      );
+      return date.toLocaleString([], {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
+    const started = new Date(run?.started_at || run?.updated_at || "");
+    if (!Number.isNaN(started.getTime())) {
+      return started.toLocaleString([], {
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
+    return "Unknown time";
   }
 
   function renderBest(best) {
@@ -1175,11 +1315,35 @@
   elements.lineageFit.addEventListener("click", () => fitLineage());
   elements.lineageFullscreen.addEventListener("click", toggleLineageFullscreen);
   document.addEventListener("fullscreenchange", updateLineageFullscreenControl);
-  elements.refresh.addEventListener("click", refresh);
+  elements.runSelectorTrigger.addEventListener("click", () => toggleRunMenu());
+  elements.runHistoryList.addEventListener("click", (event) => {
+    const item = event.target.closest("[data-run-id]");
+    if (item) switchRun(item.dataset.runId);
+  });
+  document.addEventListener("pointerdown", (event) => {
+    if (state.runMenuOpen && !elements.runSelector.contains(event.target)) {
+      toggleRunMenu(false);
+    }
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && state.runMenuOpen) toggleRunMenu(false);
+  });
+  window.addEventListener("popstate", () => {
+    const requested = new URLSearchParams(window.location.search).get("run");
+    const nextRunId = requested || state.launchRunId;
+    if (nextRunId && nextRunId !== state.selectedRunId) {
+      switchRun(nextRunId, { pushHistory: false });
+    }
+  });
+  elements.refresh.addEventListener("click", () => {
+    refresh();
+    refreshRunHistory();
+  });
   elements.guidanceList.addEventListener("toggle", (event) => trackDetailsToggle(event, state.openGuidance), true);
   elements.notesList.addEventListener("toggle", (event) => trackDetailsToggle(event, state.openNotes), true);
 
   updateChartScaleControls();
+  refreshRunHistory();
   refresh();
   state.pollTimer = window.setInterval(refresh, POLL_INTERVAL);
 })();
