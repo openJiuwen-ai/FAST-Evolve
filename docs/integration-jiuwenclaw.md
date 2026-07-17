@@ -160,7 +160,7 @@ for name in mcp._tool_manager._tools:
 ### 运行流程
 
 ```
-1. evolve skill 初始化 run → 生成 run_id（如 run_20260527163000）
+1. evolve skill 初始化 run → 生成 `<task_slug>_<YYYYMMDDHHMMSS>` 格式的 run_id（如 `circle_packing_20260527163000`）
 2. 调度器启动最多 4 个并发 task
 3. 每个 task 由 task-executor agent 执行：
    a. select_parent     → 从 SuccessDB 选择父代

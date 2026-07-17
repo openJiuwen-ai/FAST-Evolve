@@ -5,7 +5,7 @@ from pathlib import Path
 
 from agent_evolve_mcp.dashboard import DashboardServer, build_snapshot
 
-RUN_ID = "run_20260715010101"
+RUN_ID = "signal_processing_20260715010101"
 
 
 def _write_json(path: Path, value):

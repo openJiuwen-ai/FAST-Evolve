@@ -80,7 +80,7 @@ and controller and cannot change the search. To inspect a persisted run without
 starting a new evolution:
 
 ```powershell
-python -m agent_evolve_mcp.dashboard run_20260710143000
+python -m agent_evolve_mcp.dashboard circle_packing_20260710143000
 ```
 
 ## Repository Layout 🗂️
@@ -123,10 +123,12 @@ Then submit a task such as:
 /agent_evolve_plugin:evolve run the circle_packing benchmark end to end.
 ```
 
-The orchestrator creates a run ID such as `run_20260710143000`, configures the
-hard task budget before dispatching any task, waits for four root directions,
-and fills the queue. The original task text is passed unchanged to each
-subagent.
+The orchestrator derives a safe task slug from the original request and creates
+a run ID such as `circle_packing_20260710143000`, with no `run_` prefix. The
+same ID names both `runs/<run_id>/` and `.agent_evolve/controller/<run_id>/`.
+It then configures the hard task budget before dispatching any task, waits for
+four root directions, and fills the queue. The original task text is passed
+unchanged to each subagent.
 
 For each task, the executor:
 

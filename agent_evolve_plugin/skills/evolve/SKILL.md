@@ -59,9 +59,16 @@ These templates are **exclusive** — they define the exact and complete content
 
 ## Step 1: Run Initialization
 
-1. Generate `run_id`: `run_YYYYMMDDHHMMSS`.
+1. Derive `task_slug` from the user's original input.
+   - When the input contains the word `benchmark`, use the nearest preceding ASCII snake-case identifier as the benchmark name. For example, use `minimizing_max_min_dist_3` for `run the solve minimizing_max_min_dist_3 benchmark end to end.`.
+   - For the compact `/evolve <identifier>` form, use that explicit identifier; for example, `/evolve circle_packing` uses `circle_packing`.
+   - Otherwise derive a concise descriptive label for the task target.
+   - Normalize the label to lowercase ASCII snake case using only `[a-z0-9_]`, trim leading/trailing underscores, and limit it to 64 characters. If normalization produces an empty label, use `task`.
+   - `task_slug` is only a run identifier component. It must not change the original input passed as `task_description`.
+2. Generate `run_id`: `<task_slug>_YYYYMMDDHHMMSS`.
+   - Do not add a `run_` prefix.
    - Use the current local start time with second-level precision. Use the Bash tool to execute `date +%Y%m%d%H%M%S`.
-2. Determine `max_total_tasks` from the user's request:
+3. Determine `max_total_tasks` from the user's request:
    - If the user specified an iteration count (e.g., "200 iterations", "200 tasks", "max 200", "run 200 rounds"), extract that number.
    - If the user did not specify, default to 50.
    - Call `evolve_configure_run(run_id, max_total_tasks=<value>, task_description=<original user input>)` BEFORE any other `evolve_*` call for this run.
@@ -75,7 +82,7 @@ These templates are **exclusive** — they define the exact and complete content
      ```
 
      Do not emit raw ANSI color codes because renderer support varies. The banner is printed only once, so its visibility does not create recurring context cost. If the dashboard did not start, print one short warning and continue; UI availability is never a reason to stop evolution.
-3. Create the run workspace directory and persistent state files. **All `runs/` paths are relative to the project root (cwd), not to the skill's base directory.** Use Bash to execute:
+4. Create the run workspace directory and persistent state files. **All `runs/` paths are relative to the project root (cwd), not to the skill's base directory.** Use Bash to execute:
 
    ```bash
    mkdir -p "runs/<run_id>" && touch "runs/<run_id>/completed_tasks.jsonl"
@@ -84,7 +91,7 @@ These templates are **exclusive** — they define the exact and complete content
    - `completed_tasks.jsonl`: subagents append to this file on completion; the orchestrator reads it. Pre-creating the empty file avoids the first subagent needing to handle a missing-file case.
    - `scheduler_state.json`: `evolve_configure_run` initializes this file. The scheduler-state MCP tools update and read it without exposing full-file diffs in the terminal. It supports context-compression recovery and exposes the task-to-subagent mapping to the dashboard.
 
-4. Confirm with the user and start.
+5. Confirm with the user and start.
 
 ---
 
@@ -188,7 +195,7 @@ This is an MCP-owned on-disk format for the dashboard and recovery. Never inspec
 
 ```json
 {
-  "run_id": "run_20260601204625",
+  "run_id": "circle_packing_20260601204625",
   "running_tasks": ["task_005", "task_002"],
   "task_agents": {
     "task_002": {"agent_id": "agent-7e15", "status": "running"},

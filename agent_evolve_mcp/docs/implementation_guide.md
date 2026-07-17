@@ -1435,13 +1435,13 @@ evolve_finalize_run(
 主 agent / plugin 决定一个 run：
 
 ```text
-run_id = "run_20260506143310"
+run_id = "circle_packing_20260506143310"
 ```
 
 它也会创建自己的 workspace，例如：
 
 ```text
-runs/run_20260506143310/
+runs/circle_packing_20260506143310/
 ```
 
 注意这个 workspace 不归 MCP 管。
@@ -1449,7 +1449,7 @@ runs/run_20260506143310/
 MCP 只会在默认位置创建自己的 controller 状态：
 
 ```text
-.agent_evolve/controller/run_20260506143310/
+.agent_evolve/controller/circle_packing_20260506143310/
 ```
 
 ### Step 2：generator subagent 领取 parent
@@ -1564,7 +1564,7 @@ should_stop = true
 
 ```python
 evolve_finalize_run(
-  run_id="run_20260506143310"
+  run_id="circle_packing_20260506143310"
 )
 ```
 
@@ -1572,8 +1572,8 @@ evolve_finalize_run(
 
 ```json
 {
-  "report_ref": "runs/run_20260506143310/run_summary.md",
-  "summary_ref": "runs/run_20260506143310/run_summary.json"
+  "report_ref": "runs/circle_packing_20260506143310/run_summary.md",
+  "summary_ref": "runs/circle_packing_20260506143310/run_summary.json"
 }
 ```
 
