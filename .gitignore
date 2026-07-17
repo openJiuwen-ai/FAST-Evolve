@@ -231,6 +231,12 @@ agent_evolve_smoke_*/
 runs/
 
 .claude/settings.local.json
+
+# External ADRS benchmark data downloaded locally for evaluation.
+benchmarks/skills/cloudcast/profiles/
+benchmarks/skills/cloudcast/examples/
+benchmarks/skills/eplb/expert-load.json
+benchmarks/skills/llm_sql/datasets/
 uv.lock
 
 .vscode/

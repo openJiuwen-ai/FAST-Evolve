@@ -88,7 +88,7 @@ python -m agent_evolve_mcp.dashboard run_20260710143000
 ```text
 agent_evolve_mcp/       Evolution Controller MCP and persistence layer
 agent_evolve_plugin/    Claude Code skills and task-executor agents
-benchmarks/             18 benchmark skills, evaluators, and reference programs
+benchmarks/             23 benchmark skills (math and ADRS), evaluators, and reference programs
 tests/                  Controller and benchmark regression tests
 runs/                  Per-run candidate artifacts and final reports (gitignored)
 .agent_evolve/         Per-run controller state (gitignored)
@@ -96,11 +96,12 @@ runs/                  Per-run candidate artifacts and final reports (gitignored
 
 ## Setup ⚙️
 
-The math benchmarks require the `math` extra. The `dev` extra provides pytest.
+The math benchmarks require the `math` extra, and the ADRS benchmarks require
+the `adrs` extra. The `dev` extra provides pytest.
 
 ```powershell
 pip install -r requirements.txt
-uv sync --extra math --extra dev
+uv sync --extra adrs --extra math --extra dev
 uv run python benchmarks/install.py --all
 ```
 
