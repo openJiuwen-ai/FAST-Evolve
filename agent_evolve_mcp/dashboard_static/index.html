@@ -174,6 +174,51 @@
           </article>
         </section>
 
+        <section class="lineage-section">
+          <article class="card lineage-card" id="lineage-card">
+            <div class="card-header lineage-header">
+              <div>
+                <span class="section-kicker">Evolutionary ancestry</span>
+                <h2>Lineage</h2>
+              </div>
+              <div class="lineage-header-actions">
+                <div class="lineage-legend" aria-label="Lineage legend">
+                  <span><i class="lineage-key parent"></i>Parent</span>
+                  <span><i class="lineage-key inspiration"></i>Inspiration on hover</span>
+                </div>
+                <span class="count-chip accent" id="lineage-count">0</span>
+                <button class="lineage-fullscreen" id="lineage-fullscreen" type="button" aria-label="Show lineage fullscreen" title="Show lineage fullscreen">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+            <div class="lineage-viewport" id="lineage-viewport" tabindex="0" aria-label="Interactive evolution lineage graph">
+              <div class="lineage-grid" aria-hidden="true"></div>
+              <div class="lineage-stage" id="lineage-stage"></div>
+              <div class="lineage-empty" id="lineage-empty">
+                <span class="lineage-empty-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+                <strong>Waiting for lineage data</strong>
+                <small>Successful and active tasks will appear automatically.</small>
+              </div>
+              <div class="lineage-tooltip" id="lineage-tooltip" hidden></div>
+              <div class="lineage-zoom-controls" aria-label="Lineage zoom controls">
+                <button id="lineage-zoom-in" type="button" title="Zoom in" aria-label="Zoom in">+</button>
+                <button id="lineage-zoom-out" type="button" title="Zoom out" aria-label="Zoom out">−</button>
+                <button id="lineage-fit" class="fit" type="button" title="Fit graph" aria-label="Fit graph">FIT</button>
+              </div>
+              <span class="lineage-scale" id="lineage-scale">100%</span>
+            </div>
+
+            <div class="lineage-footer">
+              <span id="lineage-summary">No lineage nodes yet</span>
+              <span>Drag to pan · scroll to zoom · hover a node for inspirations</span>
+            </div>
+          </article>
+        </section>
+
         <footer class="footer">
           <span>Agent Evolve · read-only live observability</span>
           <span id="footer-time">Not connected</span>

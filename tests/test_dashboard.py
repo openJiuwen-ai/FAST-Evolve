@@ -148,6 +148,20 @@ def test_build_snapshot_aggregates_live_run_state(tmp_path, monkeypatch):
     assert snapshot["notes"][0]["note_id"] == "note_positive_1"
     assert snapshot["guidance"][0]["guidance_id"] == "mg_0001"
     assert any(item["kind"] == "agent" for item in snapshot["activity"])
+    assert [node["id"] for node in snapshot["lineage"]["nodes"]] == [
+        "task_001",
+        "task_002",
+        "task_003",
+    ]
+    assert snapshot["lineage"]["best_id"] == "task_002"
+    assert snapshot["lineage"]["parent_edges"] == [
+        {"source": "task_001", "target": "task_002", "kind": "parent"},
+        {"source": "task_002", "target": "task_003", "kind": "parent"},
+    ]
+    assert snapshot["lineage"]["inspiration_edges"] == [
+        {"source": "task_001", "target": "task_003", "kind": "inspiration"}
+    ]
+    assert snapshot["lineage"]["nodes"][-1]["status"] == "running"
 
 
 def test_dashboard_uses_next_port_and_serves_snapshot(tmp_path, monkeypatch):
@@ -191,3 +205,26 @@ def test_dashboard_includes_robust_chart_scale_controls():
     assert "1.5 * iqr" in javascript
     assert "rawSpan < focusSpan * 2.4" in javascript
     assert "drawBoundaryMarker" in javascript
+
+
+def test_dashboard_includes_interactive_lineage_controls():
+    static_root = Path(__file__).parents[1] / "agent_evolve_mcp" / "dashboard_static"
+    html = (static_root / "index.html").read_text(encoding="utf-8")
+    javascript = (static_root / "app.js").read_text(encoding="utf-8")
+    stylesheet = (static_root / "styles.css").read_text(encoding="utf-8")
+
+    assert 'id="lineage-viewport"' in html
+    assert 'id="lineage-fullscreen"' in html
+    assert 'id="lineage-fit"' in html
+    assert html.index('class="knowledge-grid"') < html.index('class="lineage-section"')
+    assert "function computeLineageLayout" in javascript
+    assert "function showLineageHover" in javascript
+    assert "requestFullscreen()" in javascript
+    assert "data-inspiration-target" in javascript
+    assert "lineageSuppressClick" in javascript
+    assert 'addEventListener("selectstart"' in javascript
+    assert "lineage-best-trophy" in javascript
+    assert ".lineage-inspiration-edge.visible" in stylesheet
+    assert ".lineage-node.is-best .lineage-node-shell" in stylesheet
+    assert "-webkit-user-drag: none" in stylesheet
+    assert ".lineage-card:fullscreen" in stylesheet

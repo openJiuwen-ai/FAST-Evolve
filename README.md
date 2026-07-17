@@ -68,6 +68,7 @@ Scheduler transitions are persisted behind compact MCP calls, so repeated
 artifact paths stay in the dashboard. The first version includes:
 
 - task fitness and running-best curves, with the current best annotated;
+- a live, pannable Lineage graph with parent ancestry, hover-revealed inspiration links, and fullscreen inspection;
 - the leading artifact and its core evaluator metrics;
 - active task/subagent identifiers and inferred lifecycle activity;
 - a time-ordered operational activity feed;

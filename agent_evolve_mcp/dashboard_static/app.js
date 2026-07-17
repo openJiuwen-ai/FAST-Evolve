@@ -9,6 +9,15 @@
     chartPoints: [],
     chartGeometry: null,
     chartScaleMode: "focus",
+    lineageData: { nodes: [], parent_edges: [], inspiration_edges: [], roots: [] },
+    lineageSignature: "",
+    lineageLayout: null,
+    lineageScale: 1,
+    lineagePan: { x: 0, y: 0 },
+    lineagePanStart: null,
+    lineageSuppressClick: false,
+    lineageUserAdjusted: false,
+    lineageHoveredId: null,
     pollTimer: null,
     openGuidance: new Set(),
     openNotes: new Set(),
@@ -41,6 +50,18 @@
     chartUpdated: $("chart-updated"),
     chartScaleFocus: $("chart-scale-focus"),
     chartScaleFull: $("chart-scale-full"),
+    lineageCard: $("lineage-card"),
+    lineageViewport: $("lineage-viewport"),
+    lineageStage: $("lineage-stage"),
+    lineageEmpty: $("lineage-empty"),
+    lineageTooltip: $("lineage-tooltip"),
+    lineageCount: $("lineage-count"),
+    lineageSummary: $("lineage-summary"),
+    lineageScale: $("lineage-scale"),
+    lineageFullscreen: $("lineage-fullscreen"),
+    lineageZoomIn: $("lineage-zoom-in"),
+    lineageZoomOut: $("lineage-zoom-out"),
+    lineageFit: $("lineage-fit"),
     bestContent: $("best-content"),
     agentsCount: $("agents-count"),
     agentsList: $("agents-list"),
@@ -84,6 +105,7 @@
   function render(snapshot) {
     renderRun(snapshot);
     renderChart(snapshot.progress || []);
+    renderLineage(snapshot.lineage || {});
     renderBest(snapshot.best);
     renderAgents(snapshot.agents || []);
     renderActivity(snapshot.activity || []);
@@ -278,6 +300,368 @@
         </details>
       `;
     }).join("");
+  }
+
+  const LINEAGE_NODE_W = 176;
+  const LINEAGE_NODE_H = 64;
+  const LINEAGE_COL_STEP = 265;
+  const LINEAGE_ROW_STEP = 86;
+  const LINEAGE_PAD = 34;
+  const LINEAGE_MIN_SCALE = 0.14;
+  const LINEAGE_FOCUS_SCALE = 0.68;
+  const LINEAGE_MAX_SCALE = 2.4;
+  const LINEAGE_COLORS = ["#167c68", "#527a91", "#a27645", "#75658b", "#4f8176", "#8a665f"];
+
+  function renderLineage(rawLineage) {
+    const lineage = {
+      nodes: Array.isArray(rawLineage.nodes) ? rawLineage.nodes : [],
+      parent_edges: Array.isArray(rawLineage.parent_edges) ? rawLineage.parent_edges : [],
+      inspiration_edges: Array.isArray(rawLineage.inspiration_edges) ? rawLineage.inspiration_edges : [],
+      roots: Array.isArray(rawLineage.roots) ? rawLineage.roots : [],
+      best_id: rawLineage.best_id || null,
+    };
+    state.lineageData = lineage;
+    elements.lineageCount.textContent = String(lineage.nodes.length);
+    elements.lineageEmpty.hidden = lineage.nodes.length > 0;
+    elements.lineageSummary.textContent = lineage.nodes.length
+      ? `${lineage.nodes.length} nodes · ${lineage.roots.length} roots · ${lineage.inspiration_edges.length} inspiration links`
+      : "No lineage nodes yet";
+
+    const signature = JSON.stringify(lineage);
+    if (signature === state.lineageSignature) return;
+    state.lineageSignature = signature;
+    hideLineageHover();
+
+    if (!lineage.nodes.length) {
+      elements.lineageStage.innerHTML = "";
+      state.lineageLayout = null;
+      return;
+    }
+
+    const layout = computeLineageLayout(lineage);
+    state.lineageLayout = layout;
+    elements.lineageStage.style.width = `${layout.width}px`;
+    elements.lineageStage.style.height = `${layout.height}px`;
+    elements.lineageStage.innerHTML = lineageSvg(lineage, layout);
+    applyLineageTransform();
+
+    if (!state.lineageUserAdjusted) {
+      requestAnimationFrame(() => focusLineage(false));
+    }
+  }
+
+  function computeLineageLayout(lineage) {
+    const byId = new Map(lineage.nodes.map((node) => [String(node.id), node]));
+    const children = new Map();
+    lineage.parent_edges.forEach((edge) => {
+      const source = String(edge.source);
+      const target = String(edge.target);
+      if (!byId.has(source) || !byId.has(target)) return;
+      if (!children.has(source)) children.set(source, []);
+      children.get(source).push(target);
+    });
+    children.forEach((items) => items.sort((left, right) => {
+      const a = byId.get(left) || {};
+      const b = byId.get(right) || {};
+      return String(a.created_at || a.id).localeCompare(String(b.created_at || b.id));
+    }));
+
+    const positions = new Map();
+    const visiting = new Set();
+    let nextLeaf = 0;
+    let maxGeneration = 0;
+
+    function walk(id) {
+      if (positions.has(id)) return positions.get(id).y;
+      const node = byId.get(id);
+      if (!node) return LINEAGE_PAD + nextLeaf++ * LINEAGE_ROW_STEP;
+      if (visiting.has(id)) {
+        const y = LINEAGE_PAD + nextLeaf++ * LINEAGE_ROW_STEP;
+        positions.set(id, { x: LINEAGE_PAD, y, node });
+        return y;
+      }
+      visiting.add(id);
+      const childIds = (children.get(id) || []).filter((childId) => !visiting.has(childId));
+      const childYs = childIds.map(walk);
+      const y = childYs.length
+        ? (childYs[0] + childYs[childYs.length - 1]) / 2
+        : LINEAGE_PAD + nextLeaf++ * LINEAGE_ROW_STEP;
+      const generation = Math.max(0, Number(node.generation) || 0);
+      maxGeneration = Math.max(maxGeneration, generation);
+      positions.set(id, {
+        x: LINEAGE_PAD + generation * LINEAGE_COL_STEP,
+        y,
+        node,
+      });
+      visiting.delete(id);
+      return y;
+    }
+
+    const roots = lineage.roots.filter((id) => byId.has(String(id))).map(String);
+    roots.forEach((rootId, index) => {
+      if (index > 0 && nextLeaf > 0) nextLeaf += 0.65;
+      walk(rootId);
+    });
+    lineage.nodes.forEach((node) => {
+      const id = String(node.id);
+      if (!positions.has(id)) {
+        if (nextLeaf > 0) nextLeaf += 0.35;
+        walk(id);
+      }
+    });
+
+    const maxY = Math.max(...[...positions.values()].map((position) => position.y));
+    return {
+      positions,
+      width: LINEAGE_PAD * 2 + maxGeneration * LINEAGE_COL_STEP + LINEAGE_NODE_W,
+      height: Math.max(LINEAGE_PAD * 2 + LINEAGE_NODE_H, maxY + LINEAGE_NODE_H + LINEAGE_PAD),
+    };
+  }
+
+  function lineageSvg(lineage, layout) {
+    const rootIds = lineage.roots.map(String);
+    const rootIndex = new Map(rootIds.map((id, index) => [id, index]));
+    const rootColor = (node) => LINEAGE_COLORS[(rootIndex.get(String(node.root_id)) || 0) % LINEAGE_COLORS.length];
+
+    const parentEdges = lineage.parent_edges.map((edge) => {
+      const source = layout.positions.get(String(edge.source));
+      const target = layout.positions.get(String(edge.target));
+      if (!source || !target) return "";
+      const color = rootColor(target.node);
+      const path = lineageEdgePath(source, target, false);
+      const endX = target.x;
+      const endY = target.y + LINEAGE_NODE_H / 2;
+      return `<g style="--edge-color:${color}88"><path class="lineage-parent-edge" d="${path}"></path><circle class="lineage-parent-end" cx="${endX}" cy="${endY}" r="2.5"></circle></g>`;
+    }).join("");
+
+    const inspirationEdges = lineage.inspiration_edges.map((edge) => {
+      const source = layout.positions.get(String(edge.source));
+      const target = layout.positions.get(String(edge.target));
+      if (!source || !target) return "";
+      return `<path class="lineage-inspiration-edge" data-inspiration-target="${escapeHtml(String(edge.target))}" data-inspiration-source="${escapeHtml(String(edge.source))}" d="${lineageEdgePath(source, target, true)}"></path>`;
+    }).join("");
+
+    const nodes = [...layout.positions.values()].map((position) => {
+      const node = position.node;
+      const id = String(node.id);
+      const color = rootColor(node);
+      const status = String(node.status || "pending").toLowerCase();
+      const statusColor = status === "running"
+        ? "#527a91"
+        : status === "success"
+          ? "#22a889"
+          : status === "failure"
+            ? "#a7524d"
+            : "#9aa39f";
+      const classes = [
+        "lineage-node",
+        status === "failure" ? "is-failure" : "",
+        node.is_best ? "is-best" : "",
+      ].filter(Boolean).join(" ");
+      const fitness = node.fitness == null
+        ? status === "running" ? "exploring" : "no score"
+        : formatCompact(node.fitness);
+      const bestMark = node.is_best
+        ? `<circle class="lineage-best-trophy-ring" cx="156" cy="16" r="10"></circle><text class="lineage-best-trophy" x="156" y="20" text-anchor="middle">🏆</text>`
+        : "";
+      const generationX = node.is_best ? 136 : 161;
+      const title = [
+        id,
+        `fitness ${node.fitness == null ? "—" : node.fitness}`,
+        `generation ${node.generation ?? 0}`,
+        `parent ${node.parent_id || "root"}`,
+      ].join(" · ");
+      return `
+        <g class="${classes}" data-node-id="${escapeHtml(id)}" tabindex="0" transform="translate(${position.x} ${position.y})" style="--node-color:${color};--status-color:${statusColor}">
+          <title>${escapeHtml(title)}</title>
+          <rect class="lineage-node-shell" width="${LINEAGE_NODE_W}" height="${LINEAGE_NODE_H}" rx="11"></rect>
+          <rect class="lineage-node-accent" x="1.5" y="9" width="3.5" height="46" rx="1.75"></rect>
+          <text class="lineage-node-id" x="15" y="20">${escapeHtml(id)}</text>
+          <text class="lineage-node-generation" x="${generationX}" y="19" text-anchor="end">G${Number(node.generation) || 0}</text>
+          <text class="lineage-node-fitness" x="15" y="47">${escapeHtml(fitness)}</text>
+          <circle class="lineage-status-dot ${status === "running" ? "running" : ""}" cx="121" cy="44" r="3"></circle>
+          <text class="lineage-node-status" x="129" y="47">${escapeHtml(status)}</text>
+          ${bestMark}
+        </g>`;
+    }).join("");
+
+    // Keep inspiration edges in the DOM but invisible until their target node is hovered.
+    return `
+      <svg width="${layout.width}" height="${layout.height}" viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-label="Evolution lineage with ${lineage.nodes.length} nodes">
+        <g class="lineage-parent-layer">${parentEdges}</g>
+        <g class="lineage-inspiration-layer">${inspirationEdges}</g>
+        <g class="lineage-node-layer">${nodes}</g>
+      </svg>`;
+  }
+
+  function lineageEdgePath(source, target, inspiration) {
+    const x1 = source.x + LINEAGE_NODE_W;
+    const y1 = source.y + (inspiration ? LINEAGE_NODE_H * 0.72 : LINEAGE_NODE_H / 2);
+    const x2 = target.x;
+    const y2 = target.y + (inspiration ? LINEAGE_NODE_H * 0.28 : LINEAGE_NODE_H / 2);
+    const distance = x2 - x1;
+    if (distance > 30) {
+      const curve = Math.max(42, distance * 0.5);
+      return `M ${x1} ${y1} C ${x1 + curve} ${y1}, ${x2 - curve} ${y2}, ${x2} ${y2}`;
+    }
+    // Backward and same-generation inspiration links take a soft outer loop.
+    // Both cubic segments meet with the same vertical tangent, avoiding a cusp.
+    const loopX = Math.max(x1, x2) + Math.min(140, 68 + Math.abs(y2 - y1) * 0.12);
+    const middleY = (y1 + y2) / 2;
+    return `M ${x1} ${y1} C ${x1 + 38} ${y1}, ${loopX} ${y1}, ${loopX} ${middleY} C ${loopX} ${y2}, ${x2 - 38} ${y2}, ${x2} ${y2}`;
+  }
+
+  function applyLineageTransform() {
+    elements.lineageStage.style.transform = `translate(${state.lineagePan.x}px, ${state.lineagePan.y}px) scale(${state.lineageScale})`;
+    elements.lineageScale.textContent = `${Math.round(state.lineageScale * 100)}%`;
+  }
+
+  function fitLineage(markAdjusted = true) {
+    if (!state.lineageLayout) return;
+    const rect = elements.lineageViewport.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const scale = Math.min(
+      1,
+      (rect.width - 42) / state.lineageLayout.width,
+      (rect.height - 42) / state.lineageLayout.height,
+    );
+    state.lineageScale = Math.max(LINEAGE_MIN_SCALE, Math.min(LINEAGE_MAX_SCALE, scale));
+    state.lineagePan = {
+      x: Math.max(21, (rect.width - state.lineageLayout.width * state.lineageScale) / 2),
+      y: Math.max(21, (rect.height - state.lineageLayout.height * state.lineageScale) / 2),
+    };
+    if (markAdjusted) state.lineageUserAdjusted = true;
+    applyLineageTransform();
+  }
+
+  function focusLineage(markAdjusted = false) {
+    if (!state.lineageLayout) return;
+    const rect = elements.lineageViewport.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const focusId = String(state.lineageData.best_id || state.lineageData.roots[0] || "");
+    const focus = state.lineageLayout.positions.get(focusId)
+      || state.lineageLayout.positions.values().next().value;
+    if (!focus) return;
+
+    state.lineageScale = Math.max(
+      LINEAGE_MIN_SCALE,
+      Math.min(LINEAGE_MAX_SCALE, LINEAGE_FOCUS_SCALE),
+    );
+    const scaledWidth = state.lineageLayout.width * state.lineageScale;
+    const scaledHeight = state.lineageLayout.height * state.lineageScale;
+    const centeredX = rect.width * 0.72 - (focus.x + LINEAGE_NODE_W / 2) * state.lineageScale;
+    const centeredY = rect.height / 2 - (focus.y + LINEAGE_NODE_H / 2) * state.lineageScale;
+    state.lineagePan = {
+      x: scaledWidth <= rect.width - 42
+        ? (rect.width - scaledWidth) / 2
+        : Math.min(21, Math.max(rect.width - scaledWidth - 21, centeredX)),
+      y: scaledHeight <= rect.height - 42
+        ? (rect.height - scaledHeight) / 2
+        : Math.min(21, Math.max(rect.height - scaledHeight - 21, centeredY)),
+    };
+    if (markAdjusted) state.lineageUserAdjusted = true;
+    applyLineageTransform();
+  }
+
+  function zoomLineage(factor, clientX = null, clientY = null) {
+    if (!state.lineageLayout) return;
+    const rect = elements.lineageViewport.getBoundingClientRect();
+    const anchorX = clientX == null ? rect.width / 2 : clientX - rect.left;
+    const anchorY = clientY == null ? rect.height / 2 : clientY - rect.top;
+    const previous = state.lineageScale;
+    const next = Math.max(LINEAGE_MIN_SCALE, Math.min(LINEAGE_MAX_SCALE, previous * factor));
+    if (next === previous) return;
+    const worldX = (anchorX - state.lineagePan.x) / previous;
+    const worldY = (anchorY - state.lineagePan.y) / previous;
+    state.lineageScale = next;
+    state.lineagePan = {
+      x: anchorX - worldX * next,
+      y: anchorY - worldY * next,
+    };
+    state.lineageUserAdjusted = true;
+    applyLineageTransform();
+  }
+
+  function showLineageHover(nodeId, event = null) {
+    const id = String(nodeId);
+    if (state.lineageHoveredId === id && event) {
+      positionLineageTooltip(event);
+      return;
+    }
+    hideLineageHover();
+    state.lineageHoveredId = id;
+    const sourceIds = new Set();
+    elements.lineageStage.querySelectorAll(".lineage-inspiration-edge").forEach((edge) => {
+      const visible = edge.dataset.inspirationTarget === id;
+      edge.classList.toggle("visible", visible);
+      if (visible) sourceIds.add(edge.dataset.inspirationSource);
+    });
+    elements.lineageStage.querySelectorAll(".lineage-node").forEach((node) => {
+      node.classList.toggle("hovered", node.dataset.nodeId === id);
+      node.classList.toggle("inspiration-source", sourceIds.has(node.dataset.nodeId));
+    });
+
+    const node = state.lineageData.nodes.find((item) => String(item.id) === id);
+    if (!node) return;
+    const inspirations = node.inspiration_ids || [];
+    elements.lineageTooltip.innerHTML = `
+      <strong>${escapeHtml(id)}</strong>
+      <div class="lineage-tooltip-grid">
+        <span>fitness</span><span>${node.fitness == null ? "—" : escapeHtml(formatFitness(node.fitness))}</span>
+        <span>generation</span><span>G${Number(node.generation) || 0}</span>
+        <span>parent</span><span>${escapeHtml(node.parent_id || "root")}</span>
+        <span>status</span><span>${escapeHtml(prettyKey(node.status || "pending"))}</span>
+        <span>inspirations</span><span>${inspirations.length ? escapeHtml(inspirations.join(", ")) : "none"}</span>
+      </div>
+      <div class="lineage-tooltip-note">${inspirations.length ? "Dashed links show the inspirations used by this task." : "This task did not use additional inspirations."}</div>`;
+    elements.lineageTooltip.hidden = false;
+    if (event) positionLineageTooltip(event);
+  }
+
+  function hideLineageHover() {
+    state.lineageHoveredId = null;
+    elements.lineageTooltip.hidden = true;
+    elements.lineageStage.querySelectorAll(".lineage-inspiration-edge.visible").forEach((edge) => edge.classList.remove("visible"));
+    elements.lineageStage.querySelectorAll(".lineage-node.hovered, .lineage-node.inspiration-source").forEach((node) => {
+      node.classList.remove("hovered", "inspiration-source");
+    });
+  }
+
+  function positionLineageTooltip(event) {
+    if (elements.lineageTooltip.hidden) return;
+    const rect = elements.lineageViewport.getBoundingClientRect();
+    const width = 224;
+    const height = elements.lineageTooltip.offsetHeight || 150;
+    const left = Math.min(Math.max(event.clientX - rect.left + 14, 8), rect.width - width - 8);
+    const top = Math.min(Math.max(event.clientY - rect.top + 14, 8), rect.height - height - 8);
+    elements.lineageTooltip.style.left = `${left}px`;
+    elements.lineageTooltip.style.top = `${top}px`;
+  }
+
+  async function toggleLineageFullscreen() {
+    try {
+      if (document.fullscreenElement === elements.lineageCard) {
+        await document.exitFullscreen();
+      } else {
+        await elements.lineageCard.requestFullscreen();
+      }
+    } catch (error) {
+      console.warn("Unable to toggle lineage fullscreen", error);
+    }
+  }
+
+  function updateLineageFullscreenControl() {
+    const active = document.fullscreenElement === elements.lineageCard;
+    elements.lineageFullscreen.classList.toggle("active", active);
+    elements.lineageFullscreen.setAttribute("aria-label", active ? "Exit lineage fullscreen" : "Show lineage fullscreen");
+    elements.lineageFullscreen.title = active ? "Exit fullscreen" : "Show lineage fullscreen";
+    const path = elements.lineageFullscreen.querySelector("path");
+    if (path) {
+      path.setAttribute("d", active
+        ? "M9 3v6H3M15 3v6h6M9 21v-6H3M15 21v-6h6"
+        : "M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5");
+    }
+    requestAnimationFrame(() => focusLineage(false));
   }
 
   function renderChart(progress) {
@@ -682,6 +1066,7 @@
     clearTimeout(resizeTimer);
     resizeTimer = setTimeout(() => {
       if (state.chartPoints.length) drawChart(state.chartPoints);
+      if (state.lineageLayout && !state.lineageUserAdjusted) focusLineage(false);
     }, 120);
   });
   elements.chart.addEventListener("pointermove", handleChartPointer);
@@ -696,6 +1081,100 @@
     updateChartScaleControls();
     if (state.chartPoints.length) drawChart(state.chartPoints);
   });
+  elements.lineageViewport.addEventListener("pointerdown", (event) => {
+    if (event.button !== 0 || event.target.closest("button, .lineage-tooltip")) return;
+    event.preventDefault();
+    state.lineageSuppressClick = false;
+    state.lineagePanStart = {
+      pointerId: event.pointerId,
+      clientX: event.clientX,
+      clientY: event.clientY,
+      panX: state.lineagePan.x,
+      panY: state.lineagePan.y,
+      moved: false,
+    };
+    elements.lineageViewport.classList.add("panning");
+    elements.lineageViewport.setPointerCapture(event.pointerId);
+  });
+  elements.lineageViewport.addEventListener("pointermove", (event) => {
+    if (state.lineagePanStart?.pointerId === event.pointerId) {
+      const deltaX = event.clientX - state.lineagePanStart.clientX;
+      const deltaY = event.clientY - state.lineagePanStart.clientY;
+      if (!state.lineagePanStart.moved && Math.hypot(deltaX, deltaY) > 3) {
+        state.lineagePanStart.moved = true;
+        state.lineageSuppressClick = true;
+        hideLineageHover();
+      }
+      state.lineagePan = {
+        x: state.lineagePanStart.panX + deltaX,
+        y: state.lineagePanStart.panY + deltaY,
+      };
+      state.lineageUserAdjusted = true;
+      applyLineageTransform();
+    } else if (state.lineageHoveredId) {
+      positionLineageTooltip(event);
+    }
+  });
+  const finishLineagePan = (event) => {
+    if (state.lineagePanStart?.pointerId !== event.pointerId) return;
+    const moved = state.lineagePanStart.moved;
+    state.lineagePanStart = null;
+    elements.lineageViewport.classList.remove("panning");
+    if (elements.lineageViewport.hasPointerCapture(event.pointerId)) {
+      elements.lineageViewport.releasePointerCapture(event.pointerId);
+    }
+    if (moved) window.setTimeout(() => { state.lineageSuppressClick = false; }, 0);
+  };
+  elements.lineageViewport.addEventListener("pointerup", finishLineagePan);
+  elements.lineageViewport.addEventListener("pointercancel", finishLineagePan);
+  elements.lineageViewport.addEventListener("wheel", (event) => {
+    event.preventDefault();
+    zoomLineage(event.deltaY > 0 ? 0.9 : 1.1, event.clientX, event.clientY);
+  }, { passive: false });
+  elements.lineageViewport.addEventListener("dblclick", (event) => {
+    if (!event.target.closest(".lineage-node")) fitLineage();
+  });
+  elements.lineageViewport.addEventListener("keydown", (event) => {
+    if (event.key === "+" || event.key === "=") zoomLineage(1.18);
+    else if (event.key === "-") zoomLineage(1 / 1.18);
+    else if (event.key === "0") fitLineage();
+    else return;
+    event.preventDefault();
+  });
+  elements.lineageStage.addEventListener("pointerover", (event) => {
+    const node = event.target.closest(".lineage-node");
+    if (node) showLineageHover(node.dataset.nodeId, event);
+  });
+  elements.lineageStage.addEventListener("pointerout", (event) => {
+    const from = event.target.closest(".lineage-node");
+    const to = event.relatedTarget?.closest?.(".lineage-node");
+    if (from && from !== to) hideLineageHover();
+  });
+  elements.lineageStage.addEventListener("click", (event) => {
+    if (state.lineageSuppressClick) return;
+    const node = event.target.closest(".lineage-node");
+    if (!node) return;
+    showLineageHover(node.dataset.nodeId, event);
+  });
+  elements.lineageViewport.addEventListener("dragstart", (event) => event.preventDefault());
+  elements.lineageViewport.addEventListener("selectstart", (event) => event.preventDefault());
+  elements.lineageStage.addEventListener("focusin", (event) => {
+    const node = event.target.closest(".lineage-node");
+    if (!node) return;
+    const rect = node.getBoundingClientRect();
+    showLineageHover(node.dataset.nodeId, {
+      clientX: rect.right,
+      clientY: rect.top + rect.height / 2,
+    });
+  });
+  elements.lineageStage.addEventListener("focusout", (event) => {
+    if (event.target.closest(".lineage-node")) hideLineageHover();
+  });
+  elements.lineageZoomIn.addEventListener("click", () => zoomLineage(1.18));
+  elements.lineageZoomOut.addEventListener("click", () => zoomLineage(1 / 1.18));
+  elements.lineageFit.addEventListener("click", () => fitLineage());
+  elements.lineageFullscreen.addEventListener("click", toggleLineageFullscreen);
+  document.addEventListener("fullscreenchange", updateLineageFullscreenControl);
   elements.refresh.addEventListener("click", refresh);
   elements.guidanceList.addEventListener("toggle", (event) => trackDetailsToggle(event, state.openGuidance), true);
   elements.notesList.addEventListener("toggle", (event) => trackDetailsToggle(event, state.openNotes), true);

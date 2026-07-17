@@ -144,13 +144,20 @@ def build_snapshot(run_id: str, workspace_root: Path) -> Dict[str, Any]:
     progress = _build_progress(completed, attempt_index)
     best = _best_record(progress, attempt_index)
     running_tasks = [str(item) for item in scheduler.get("running_tasks") or []]
+    task_contexts = _read_json(state_root / "task_contexts.json", {})
     agents = _build_agents(
         public_run_dir=public_run_dir,
         running_tasks=running_tasks,
         task_agents=scheduler.get("task_agents") or {},
         attempts=attempts,
-        task_contexts=_read_json(state_root / "task_contexts.json", {}),
+        task_contexts=task_contexts,
         meta_assignments=meta_state.get("task_assignments") or {},
+    )
+    lineage = _build_lineage(
+        attempts=attempts,
+        completed=completed,
+        running_tasks=running_tasks,
+        task_contexts=task_contexts,
     )
 
     notes = sorted(
@@ -210,6 +217,7 @@ def build_snapshot(run_id: str, workspace_root: Path) -> Dict[str, Any]:
         "notes": notes[:40],
         "guidance": guidance,
         "activity": activity[:60],
+        "lineage": lineage,
         "diagnostics": {
             "search_state": diagnostics.get("state") or search_state,
             "plateau_count": diagnostics.get("plateau_count"),
@@ -305,6 +313,162 @@ def _handler_factory(run_id: str, workspace_root: Path) -> type[BaseHTTPRequestH
             return
 
     return Handler
+
+
+def _build_lineage(
+    *,
+    attempts: List[Dict[str, Any]],
+    completed: List[Dict[str, Any]],
+    running_tasks: List[str],
+    task_contexts: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Build a task-level lineage DAG for the read-only dashboard.
+
+    Parent and inspiration selection are task-scoped, so the latest attempt
+    represents a stable task node across retries. Active tasks are included
+    before their first attempt so the graph advances in real time.
+    """
+    latest_by_task: Dict[str, Dict[str, Any]] = {}
+    for attempt in attempts:
+        task_id = str(attempt.get("task_id") or "")
+        if task_id:
+            latest_by_task[task_id] = attempt
+
+    completed_by_task = {
+        str(item.get("task_id") or ""): item for item in completed if item.get("task_id")
+    }
+    running = {str(task_id) for task_id in running_tasks}
+    task_ids = set(latest_by_task) | running
+    nodes_by_id: Dict[str, Dict[str, Any]] = {}
+
+    for task_id in task_ids:
+        attempt = latest_by_task.get(task_id) or {}
+        context = task_contexts.get(task_id) or {}
+        completion = completed_by_task.get(task_id) or {}
+        verification = dict(attempt.get("verification_result") or {})
+        fitness = _finite_float(verification.get("fitness"))
+        if fitness is None:
+            fitness = _finite_float(completion.get("fitness"))
+
+        raw_status = str(verification.get("status") or completion.get("status") or "")
+        status = "running" if task_id in running else raw_status.lower() or "pending"
+        if status == "success" and fitness is None:
+            status = "failure"
+
+        parent_id = attempt.get("parent_id", context.get("parent_id"))
+        inspiration_ids = attempt.get("inspiration_ids")
+        if inspiration_ids is None:
+            inspiration_ids = context.get("inspiration_ids") or []
+
+        nodes_by_id[task_id] = {
+            "id": task_id,
+            "task_id": task_id,
+            "attempt_id": attempt.get("id"),
+            "parent_id": str(parent_id) if parent_id else None,
+            "inspiration_ids": list(dict.fromkeys(str(item) for item in inspiration_ids if item)),
+            "generation": _coerce_int(attempt.get("generation")),
+            "fitness": fitness,
+            "status": status,
+            "created_at": attempt.get("created_at") or context.get("created_at"),
+            "artifact_ref": attempt.get("artifact_ref") or completion.get("artifact_ref"),
+            "meta_guidance_id": attempt.get("meta_guidance_id") or context.get("meta_guidance_id"),
+            "summary": str(
+                attempt.get("sketch")
+                or verification.get("summary")
+                or verification.get("feedback")
+                or ""
+            )[:240],
+            "is_best": False,
+            "is_new_best": False,
+        }
+
+    known_ids = set(nodes_by_id)
+    for node in nodes_by_id.values():
+        if node["parent_id"] not in known_ids:
+            node["parent_id"] = None
+        node["inspiration_ids"] = [
+            item
+            for item in node["inspiration_ids"]
+            if item in known_ids and item != node["id"] and item != node["parent_id"]
+        ]
+
+    generation_cache: Dict[str, int] = {}
+
+    def generation_for(task_id: str, visiting: Optional[set[str]] = None) -> int:
+        if task_id in generation_cache:
+            return generation_cache[task_id]
+        node = nodes_by_id[task_id]
+        explicit = node.get("generation")
+        if explicit is not None and explicit >= 0:
+            generation_cache[task_id] = explicit
+            return explicit
+        visiting = set(visiting or ())
+        if task_id in visiting or not node.get("parent_id"):
+            value = 0
+        else:
+            visiting.add(task_id)
+            value = generation_for(str(node["parent_id"]), visiting) + 1
+        generation_cache[task_id] = value
+        return value
+
+    def root_for(task_id: str) -> str:
+        current = task_id
+        visited: set[str] = set()
+        while current not in visited:
+            visited.add(current)
+            parent_id = nodes_by_id[current].get("parent_id")
+            if not parent_id or parent_id not in nodes_by_id:
+                return current
+            current = str(parent_id)
+        return task_id
+
+    for task_id, node in nodes_by_id.items():
+        node["generation"] = generation_for(task_id)
+        node["root_id"] = root_for(task_id)
+
+    ordered_nodes = sorted(
+        nodes_by_id.values(),
+        key=lambda node: (
+            int(node.get("generation") or 0),
+            str(node.get("created_at") or ""),
+            str(node["id"]),
+        ),
+    )
+    best_fitness: Optional[float] = None
+    best_node: Optional[Dict[str, Any]] = None
+    chronological_nodes = sorted(
+        ordered_nodes,
+        key=lambda node: (str(node.get("created_at") or ""), str(node["id"])),
+    )
+    for node in chronological_nodes:
+        fitness = node.get("fitness")
+        if node.get("status") != "success" or fitness is None:
+            continue
+        if best_fitness is None or fitness > best_fitness:
+            best_fitness = fitness
+            best_node = node
+            node["is_new_best"] = True
+    if best_node is not None:
+        best_node["is_best"] = True
+
+    parent_edges = [
+        {"source": str(node["parent_id"]), "target": str(node["id"]), "kind": "parent"}
+        for node in ordered_nodes
+        if node.get("parent_id")
+    ]
+    inspiration_edges = [
+        {"source": source, "target": str(node["id"]), "kind": "inspiration"}
+        for node in ordered_nodes
+        for source in node.get("inspiration_ids") or []
+    ]
+    roots = sorted({str(node["root_id"]) for node in ordered_nodes})
+    return {
+        "nodes": ordered_nodes,
+        "parent_edges": parent_edges,
+        "inspiration_edges": inspiration_edges,
+        "roots": roots,
+        "best_id": best_node.get("id") if best_node else None,
+    }
 
 
 def _build_progress(
