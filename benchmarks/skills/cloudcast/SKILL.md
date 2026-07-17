@@ -1,0 +1,65 @@
+---
+name: cloudcast
+description: Use when the user wants to solve or evolve the Cloudcast multi-cloud broadcast routing benchmark.
+argument-hint: [run_id] [task_id] [artifact_ref]
+---
+
+# Cloudcast Multi-Cloud Broadcast Optimization
+
+Evolve a routing algorithm that broadcasts data from one cloud region to several
+destinations at minimum total transfer cost. The evaluator runs the candidate on
+five network configurations and maximizes the normalized fitness
+`1 / (1 + total_cost)`.
+
+## Evaluator
+
+Use the standard attempt-local artifact contract:
+
+```text
+main_artifact_name = solution.py
+artifact_ref = runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/solution.py
+```
+
+Run only the benchmark evaluator command:
+
+```bash
+uv run python benchmarks/skills/cloudcast/scripts/evaluator.py --run-id <run_id> --task-id <task_id> --artifact-ref <artifact_ref> --out runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/eval_result.json
+```
+
+The evaluator writes the normalized result with `status`, `artifact_ref`,
+`fitness`, `metrics`, `profile`, and `misc` fields. A successful evaluation has
+exit code 0 and `status: "success"`.
+
+## Program interface
+
+The candidate must define:
+
+```python
+def search_algorithm(src, dsts, G, num_partitions):
+    ...
+```
+
+It must return a `BroadCastTopology`-compatible object whose paths contain every
+destination and every partition, with contiguous graph edges carrying the
+original edge data. `initial_program.py` is the initial reference program.
+
+## Required data
+
+The following source-controlled-by-download files are required under this skill:
+
+- `profiles/cost.csv`
+- `profiles/throughput.csv`
+- `examples/config/intra_aws.json`
+- `examples/config/intra_azure.json`
+- `examples/config/intra_gcp.json`
+- `examples/config/inter_agz.json`
+- `examples/config/inter_gaz2.json`
+
+Download them once with:
+
+```bash
+uv run python benchmarks/skills/cloudcast/scripts/download_data.py
+```
+
+Do not add API keys or SkyDiscover run configuration to this skill. The evaluator
+uses only the benchmark data and the candidate artifact.
