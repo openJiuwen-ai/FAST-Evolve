@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 import pytest
 
@@ -7,6 +8,24 @@ from agent_evolve_mcp.scheduler_state import (
     initialize_scheduler_state,
     update_task_status,
 )
+from agent_evolve_mcp.storage import ensure_run_dir
+
+
+NAMED_RUN_ID = "signal_processing_20260715010101"
+
+
+def test_named_run_id_keeps_public_and_controller_directories_aligned(
+    tmp_path, monkeypatch
+):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("AGENT_EVOLVE_CONTROLLER_DIR", raising=False)
+
+    initialize_scheduler_state(NAMED_RUN_ID)
+    controller_dir = ensure_run_dir(NAMED_RUN_ID)
+
+    assert (tmp_path / "runs" / NAMED_RUN_ID / "scheduler_state.json").is_file()
+    assert controller_dir == Path(".agent_evolve") / "controller" / NAMED_RUN_ID
+    assert controller_dir.is_dir()
 
 
 def test_scheduler_state_tracks_transitions_and_returns_compact_active_state(tmp_path, monkeypatch):

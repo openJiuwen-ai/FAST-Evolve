@@ -18,7 +18,7 @@ from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 from agent_evolve_mcp.storage import controller_root
 
@@ -229,6 +229,84 @@ def build_snapshot(run_id: str, workspace_root: Path) -> Dict[str, Any]:
     }
 
 
+def list_runs(current_run_id: str, workspace_root: Path) -> Dict[str, Any]:
+    """Return a flat, newest-first index of persisted runs.
+
+    Agent Evolve stores every run directly under ``runs/``.  Keeping this
+    index flat mirrors that contract and lets one read-only dashboard inspect
+    history without mutating the active controller or starting extra servers.
+    """
+    workspace_root = Path(workspace_root).resolve()
+    runs_root = workspace_root / "runs"
+    entries: List[Dict[str, Any]] = []
+    if not runs_root.is_dir():
+        return {"current": current_run_id, "runs": entries}
+
+    for run_dir in runs_root.iterdir():
+        if not run_dir.is_dir() or run_dir.is_symlink() or run_dir.name.startswith("."):
+            continue
+        run_id = run_dir.name
+        state_root = _controller_run_dir(workspace_root, run_id)
+        manifest = _read_json(run_dir / "dashboard.json", {})
+        scheduler = _read_json(run_dir / "scheduler_state.json", {})
+        run_state = _read_json(state_root / "run_state.json", {})
+        completed = _read_jsonl(run_dir / "completed_tasks.jsonl")
+        attempts = _read_jsonl(state_root / "attempts.jsonl")
+        successful_fitness = [
+            value
+            for item in completed
+            if item.get("status") == "success"
+            for value in [_finite_float(item.get("fitness"))]
+            if value is not None
+        ]
+        name_match = re.match(r"^(?P<label>.+)_(?P<timestamp>\d{14})$", run_id)
+        try:
+            modified_at = datetime.fromtimestamp(run_dir.stat().st_mtime, timezone.utc).isoformat()
+        except OSError:
+            modified_at = None
+        updated_at = _latest_timestamp(
+            [
+                run_state.get("updated_at"),
+                run_state.get("started_at"),
+                manifest.get("started_at"),
+                modified_at,
+            ]
+        )
+        updated_time = _parse_time(updated_at)
+        recently_updated = bool(
+            updated_time and (_utc_now() - updated_time).total_seconds() <= 15 * 60
+        )
+        entries.append(
+            {
+                "id": run_id,
+                "label": name_match.group("label") if name_match else run_id,
+                "timestamp": name_match.group("timestamp") if name_match else None,
+                "status": (
+                    "running" if scheduler.get("running_tasks") and recently_updated else "stopped"
+                ),
+                "completed_tasks": len(completed),
+                "attempts": len(attempts),
+                "best_fitness": max(successful_fitness) if successful_fitness else None,
+                "started_at": run_state.get("started_at") or manifest.get("started_at"),
+                "updated_at": updated_at,
+                "task_description": run_state.get("task_description")
+                or manifest.get("task_description")
+                or "",
+                "is_launch_run": run_id == current_run_id,
+            }
+        )
+
+    entries.sort(
+        key=lambda item: (
+            str(item.get("timestamp") or ""),
+            str(item.get("updated_at") or ""),
+            str(item["id"]),
+        ),
+        reverse=True,
+    )
+    return {"current": current_run_id, "runs": entries}
+
+
 class _DashboardHTTPServer(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = False
@@ -263,12 +341,25 @@ def _handler_factory(run_id: str, workspace_root: Path) -> type[BaseHTTPRequestH
         server_version = "AgentEvolveDashboard/1.0"
 
         def do_GET(self) -> None:  # noqa: N802 - stdlib callback name
-            path = urlparse(self.path).path
+            parsed = urlparse(self.path)
+            path = parsed.path
+            query = parse_qs(parsed.query)
             if path == "/api/health":
                 self._json({"status": "ok", "run_id": run_id})
                 return
+            if path == "/api/runs":
+                self._json(list_runs(run_id, workspace_root))
+                return
             if path == "/api/snapshot":
-                self._json(build_snapshot(run_id, workspace_root))
+                requested_run_id = str(query.get("run_id", [run_id])[0])
+                selected_run_id = _available_run_id(requested_run_id, workspace_root)
+                if selected_run_id is None:
+                    self._json(
+                        {"error": "run not found", "run_id": requested_run_id},
+                        status=HTTPStatus.NOT_FOUND,
+                    )
+                    return
+                self._json(build_snapshot(selected_run_id, workspace_root))
                 return
             asset_map = {
                 "/": ("index.html", "text/html; charset=utf-8"),
@@ -293,14 +384,14 @@ def _handler_factory(run_id: str, workspace_root: Path) -> type[BaseHTTPRequestH
             self.end_headers()
             self.wfile.write(payload)
 
-        def _json(self, data: Dict[str, Any]) -> None:
+        def _json(self, data: Dict[str, Any], status: HTTPStatus = HTTPStatus.OK) -> None:
             payload = json.dumps(
                 _json_safe(data),
                 ensure_ascii=False,
                 allow_nan=False,
                 separators=(",", ":"),
             ).encode("utf-8")
-            self.send_response(HTTPStatus.OK)
+            self.send_response(status)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(payload)))
             self.send_header("Cache-Control", "no-store")
@@ -750,6 +841,18 @@ def _controller_run_dir(workspace_root: Path, run_id: str) -> Path:
     if not root.is_absolute():
         root = workspace_root / root
     return root / run_id
+
+
+def _available_run_id(run_id: str, workspace_root: Path) -> Optional[str]:
+    """Resolve a direct child of ``runs/`` without allowing path traversal."""
+    requested = str(run_id).strip()
+    safe = _safe_name(requested)
+    if not requested or safe != requested:
+        return None
+    run_dir = Path(workspace_root).resolve() / "runs" / safe
+    if not run_dir.is_dir() or run_dir.is_symlink():
+        return None
+    return safe
 
 
 def _write_dashboard_manifest(

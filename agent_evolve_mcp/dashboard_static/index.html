@@ -11,17 +11,47 @@
   <body>
     <div class="app-shell">
       <header class="topbar">
-        <a class="brand" href="/" aria-label="Agent Evolve dashboard home">
-          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
-          <span class="brand-copy">
-            <strong>Agent Evolve</strong>
-            <small>Run Observatory</small>
-          </span>
-        </a>
+        <div class="topbar-primary">
+          <a class="brand" href="/" aria-label="Agent Evolve dashboard home">
+            <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+            <span class="brand-copy">
+              <strong>Agent Evolve</strong>
+              <small>Run Observatory</small>
+            </span>
+          </a>
 
-        <div class="run-identity">
-          <span class="eyebrow">Active run</span>
-          <strong id="run-id">Connecting…</strong>
+          <span class="topbar-divider" aria-hidden="true">/</span>
+          <div class="run-selector" id="run-selector">
+            <button
+              class="run-selector-trigger"
+              id="run-selector-trigger"
+              type="button"
+              aria-haspopup="dialog"
+              aria-expanded="false"
+            >
+              <span class="run-selector-copy">
+                <strong id="run-id">Connecting…</strong>
+                <small id="run-selector-meta">Run archive</small>
+              </span>
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <path d="m5 7.5 5 5 5-5" />
+              </svg>
+            </button>
+
+            <div class="run-menu" id="run-menu" role="dialog" aria-label="Run history" hidden>
+              <div class="run-menu-header">
+                <div>
+                  <span class="section-kicker">Persisted results</span>
+                  <strong>Run history</strong>
+                </div>
+                <span class="count-chip accent" id="run-history-count">0</span>
+              </div>
+              <div class="run-history-list" id="run-history-list">
+                <div class="run-history-empty">Loading persisted runs…</div>
+              </div>
+              <div class="run-menu-footer">Read-only · newest first</div>
+            </div>
+          </div>
         </div>
 
         <div class="topbar-actions">
