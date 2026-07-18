@@ -60,7 +60,7 @@ These templates are **exclusive** — they define the exact and complete content
 ## Step 1: Run Initialization
 
 1. Derive `task_slug` from the user's original input.
-   - When the input contains the word `benchmark`, use the nearest preceding ASCII snake-case identifier as the benchmark name. For example, use `minimizing_max_min_dist_3` for `run the solve minimizing_max_min_dist_3 benchmark end to end.`.
+   - When the input contains the word `benchmark`, use the nearest preceding ASCII snake-case identifier as the benchmark name. For example, use `minimizing_max_min_dist_3` for `run the minimizing_max_min_dist_3 benchmark end to end.`.
    - For the compact `/evolve <identifier>` form, use that explicit identifier; for example, `/evolve circle_packing` uses `circle_packing`.
    - Otherwise derive a concise descriptive label for the task target.
    - Normalize the label to lowercase ASCII snake case using only `[a-z0-9_]`, trim leading/trailing underscores, and limit it to 64 characters. If normalization produces an empty label, use `task`.
