@@ -35,11 +35,7 @@ program. The method returns `(reordered_dataframe, column_orderings)` and must
 not add or remove rows or columns. `initial_program.py`, `scripts/solver.py`,
 and `scripts/utils.py` provide the reference implementation and scoring helper.
 
-## Solver-facing task prompt
-
-The source SkyDiscover benchmark provides the following full task guidance.
-These definitions, API constraints, design guidelines, and output constraints
-are part of the benchmark information available to the solver.
+## Problem definition and optimization guidance
 
 You are an expert in data optimization and LLM prompt caching. Your task is to
 evolve the existing `Evolved` class to maximize prefix hit count (PHC) for
@@ -132,8 +128,8 @@ Place these files under `datasets/` in this skill directory:
 - `products.csv`
 
 These external datasets are intentionally not checked into the repository. The
-evaluator preserves the source behavior: a missing dataset is skipped during the
-loop and the evaluation fails when not all files are processed. Download
+A missing dataset is skipped during the evaluation loop, and the evaluation
+fails when not all files are processed. Download
 them once with:
 
 ```bash

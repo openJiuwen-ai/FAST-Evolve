@@ -44,10 +44,7 @@ is the initial reference program.
 The evaluator uses `NUM_REPLICAS=288`, `NUM_GROUPS=8`, `NUM_NODES=4`, and
 `NUM_GPUS=32`.
 
-## Solver-facing task prompt
-
-The source SkyDiscover benchmark provides the following task guidance to the
-solver. Preserve this problem context and both optimization objectives:
+## Optimization objective and guidance
 
 You are an expert programmer specializing in optimization algorithms. Your task
 is to improve the Mixture-of-Expert models Expert Parallelism Load Balancer

@@ -43,11 +43,7 @@ It must return a `BroadCastTopology`-compatible object whose paths contain every
 destination and every partition, with contiguous graph edges carrying the
 original edge data. `initial_program.py` is the initial reference program.
 
-## Solver-facing task prompt
-
-The source SkyDiscover benchmark provides the following task guidance to the
-solver. Preserve all of these objectives and strategy hints when evolving a
-candidate:
+## Optimization objective and guidance
 
 You are an expert in cloud infrastructure optimization. Your task is to evolve
 the `search_algorithm(src, dsts, G, num_partitions)` function to minimize overall
@@ -77,5 +73,4 @@ Download them once with:
 uv run python benchmarks/skills/cloudcast/scripts/download_data.py
 ```
 
-Do not add API keys or SkyDiscover run configuration to this skill. The evaluator
-uses only the benchmark data and the candidate artifact.
+The evaluator uses only the benchmark data and the candidate artifact.

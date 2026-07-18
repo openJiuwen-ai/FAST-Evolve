@@ -41,10 +41,7 @@ Return a mapping from GPU IDs to lists containing exactly the input model
 objects. `initial_program.py` is the initial reference program; the naive
 baseline is retained as `initial_program_naive.py` for comparison only.
 
-## Solver-facing task prompt
-
-The source SkyDiscover benchmark provides the following task guidance to the
-solver:
+## Optimization objective and guidance
 
 You are an expert in model placement on GPUs. Improve the model placement
 algorithm by improving the `compute_model_placement` function in the initial

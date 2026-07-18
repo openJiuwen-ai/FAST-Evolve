@@ -44,10 +44,7 @@ and the public `get_random_costs()` driver, which returns
 initial reference program; `txn_simulator.py` and `workloads.py` are supporting
 benchmark modules and are not candidate artifacts.
 
-## Solver-facing task prompt
-
-The source SkyDiscover benchmark provides the following task guidance and
-editing constraint. Preserve it when evolving a candidate:
+## Task definition and search guidance
 
 You are an expert in database transaction optimization.
 
