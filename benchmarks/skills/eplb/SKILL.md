@@ -25,8 +25,8 @@ Run only:
 uv run python benchmarks/skills/eplb/scripts/evaluator.py --run-id <run_id> --task-id <task_id> --artifact-ref <artifact_ref> --out runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/eval_result.json
 ```
 
-The evaluator writes the standard result JSON and returns exit code 0 only when
-the candidate passes structural checks and produces a positive fitness.
+The evaluator writes the standard result JSON. Structural or runtime errors are
+reported as failures; the numeric fitness remains the benchmark's raw score.
 
 ## Program interface
 
@@ -43,6 +43,27 @@ is the initial reference program.
 
 The evaluator uses `NUM_REPLICAS=288`, `NUM_GROUPS=8`, `NUM_NODES=4`, and
 `NUM_GPUS=32`.
+
+## Solver-facing task prompt
+
+The source SkyDiscover benchmark provides the following task guidance to the
+solver. Preserve this problem context and both optimization objectives:
+
+You are an expert programmer specializing in optimization algorithms. Your task
+is to improve the Mixture-of-Expert models Expert Parallelism Load Balancer
+(MoE EPLB) expert rearrangement algorithm.
+
+This algorithm takes load metrics recorded by the vLLM server and rearranges
+the experts to balance the load. It can make replicas of some experts to
+achieve better load balancing.
+
+Your goals are two-fold:
+
+1. Improve the algorithm to achieve better load balancing.
+2. Improve the algorithm's efficiency by reducing its execution time, since
+   perfect load balancing is NP-hard.
+
+The current algorithm is implemented in the `rebalance_experts` function.
 
 ## Required data
 

@@ -43,6 +43,22 @@ It must return a `BroadCastTopology`-compatible object whose paths contain every
 destination and every partition, with contiguous graph edges carrying the
 original edge data. `initial_program.py` is the initial reference program.
 
+## Solver-facing task prompt
+
+The source SkyDiscover benchmark provides the following task guidance to the
+solver. Preserve all of these objectives and strategy hints when evolving a
+candidate:
+
+You are an expert in cloud infrastructure optimization. Your task is to evolve
+the `search_algorithm(src, dsts, G, num_partitions)` function to minimize overall
+data transfer cost across multiple clouds.
+
+Focus on efficiently broadcasting input data to multiple destination nodes by
+leveraging parallel paths and overlapping transfers across networks. Use the
+`BroadCastTopology` class and `make_nx_graph` function to identify low-cost
+routes. Prioritize strategies that reduce redundant transfers, balance load
+across networks, and exploit multi-network topologies to minimize cost.
+
 ## Required data
 
 The following source-controlled-by-download files are required under this skill:
