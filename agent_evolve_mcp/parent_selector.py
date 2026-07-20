@@ -87,11 +87,20 @@ class LineageAwareParentSelector:
         if len(all_stats) == 1:
             return next(iter(all_stats))
 
-        # Fitness is the only task-generic quality signal.  Softmax handles
-        # negative or differently scaled fitness values without requiring a
-        # domain-specific normalization step.
+        # Normalize the task-generic quality signal before applying softmax.
+        # The raw fitness scale is benchmark-dependent, while tau is shared
+        # across benchmarks.  Min-max normalization keeps the selection
+        # policy stable without changing the stored or reported fitness.
+        fitnesses = [stats.best_fitness for stats in all_stats.values()]
+        min_fitness = min(fitnesses)
+        max_fitness = max(fitnesses)
+        fitness_range = max_fitness - min_fitness
         potentials = {
-            root_id: stats.best_fitness
+            root_id: (
+                (stats.best_fitness - min_fitness) / fitness_range
+                if fitness_range > 1e-9
+                else 0.0
+            )
             for root_id, stats in all_stats.items()
         }
         deserved = self._softmax(potentials, tau)
