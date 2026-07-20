@@ -149,11 +149,21 @@ class LineageBoltzmannInspirationSelector:
         if len(candidates) == 1:
             return candidates[0]
 
-        max_fitness = max(record.fitness for record in candidates)
+        fitnesses = [record.fitness for record in candidates]
+        min_fitness = min(fitnesses)
+        max_fitness = max(fitnesses)
+        fitness_range = max_fitness - min_fitness
+        normalized_fitnesses = [
+            (fitness - min_fitness) / fitness_range
+            if fitness_range > 1e-9
+            else 0.0
+            for fitness in fitnesses
+        ]
+        max_normalized_fitness = max(normalized_fitnesses)
         T = max(T, 1e-9)
         exp_values = [
-            math.exp((record.fitness - max_fitness) / T)
-            for record in candidates
+            math.exp((fitness - max_normalized_fitness) / T)
+            for fitness in normalized_fitnesses
         ]
         total = sum(exp_values)
         if total < 1e-15:
