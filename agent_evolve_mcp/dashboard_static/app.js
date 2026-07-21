@@ -159,7 +159,7 @@
     const progressPct = max ? Math.min((completed / max) * 100, 100) : 0;
     const displayState = humanizeState(run.state);
 
-    document.title = `${run.id || "Agent Evolve"} · Run Observatory`;
+    document.title = `${run.id || "EvoTrias"} · EvoTrias Evolution Dashboard`;
     elements.runId.textContent = run.id || "Unknown run";
     const historyItem = state.runHistory.find((item) => item.id === run.id);
     const timestamp = formatRunTimestamp(historyItem || { id: run.id, started_at: run.started_at });

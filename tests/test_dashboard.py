@@ -320,6 +320,19 @@ def test_dashboard_includes_flat_run_history_selector():
     assert ".run-history-item.current" in stylesheet
 
 
+def test_dashboard_uses_evotrias_branding():
+    static_root = Path(__file__).parents[1] / "agent_evolve_mcp" / "dashboard_static"
+    html = (static_root / "index.html").read_text(encoding="utf-8")
+    stylesheet = (static_root / "styles.css").read_text(encoding="utf-8")
+
+    assert "<strong>EvoTrias</strong>" in html
+    assert 'src="/assets/evotrias-logo-v2.png"' in html
+    assert "Run Observatory" not in html
+    assert (static_root / "evotrias-logo.png").is_file()
+    assert (static_root / "evotrias-logo-v2.png").is_file()
+    assert ".brand-logo" in stylesheet
+
+
 def test_dashboard_includes_interactive_lineage_controls():
     static_root = Path(__file__).parents[1] / "agent_evolve_mcp" / "dashboard_static"
     html = (static_root / "index.html").read_text(encoding="utf-8")
