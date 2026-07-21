@@ -995,10 +995,10 @@ h2 {
 }
 
 .lineage-tooltip-grid span:nth-child(even) {
-  overflow: hidden;
+  min-width: 0;
   color: #f5f7f2;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .lineage-tooltip-note {
