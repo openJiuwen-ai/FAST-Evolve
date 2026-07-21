@@ -122,7 +122,6 @@ class MultiDimensionalConvergenceDetector:
             plateau
             and not latest_is_new_best
             and plateau_count >= self.patience
-            and activity >= self.activity_threshold
         ):
             self._state = SearchState.WATCHING
         else:

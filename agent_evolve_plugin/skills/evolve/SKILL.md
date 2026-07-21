@@ -60,13 +60,12 @@ These templates are **exclusive** — they define the exact and complete content
 ## Step 1: Run Initialization
 
 1. Derive `task_slug` from the user's original input.
-   - When the input contains the word `benchmark`, use the nearest preceding ASCII snake-case identifier as the benchmark name. For example, use `minimizing_max_min_dist_3` for `run the solve minimizing_max_min_dist_3 benchmark end to end.`.
+   - When the input contains the word `benchmark`, use the nearest preceding ASCII snake-case identifier as the benchmark name. For example, use `minimizing_max_min_dist_3` for `run the minimizing_max_min_dist_3 benchmark end to end.`.
    - For the compact `/evolve <identifier>` form, use that explicit identifier; for example, `/evolve circle_packing` uses `circle_packing`.
    - Otherwise derive a concise descriptive label for the task target.
    - Normalize the label to lowercase ASCII snake case using only `[a-z0-9_]`, trim leading/trailing underscores, and limit it to 64 characters. If normalization produces an empty label, use `task`.
    - `task_slug` is only a run identifier component. It must not change the original input passed as `task_description`.
 2. Generate `run_id`: `<task_slug>_YYYYMMDDHHMMSS`.
-   - Do not add a `run_` prefix.
    - Use the current local start time with second-level precision. Use the Bash tool to execute `date +%Y%m%d%H%M%S`.
 3. Determine `max_total_tasks` from the user's request:
    - If the user specified an iteration count (e.g., "200 iterations", "200 tasks", "max 200", "run 200 rounds"), extract that number.
@@ -132,7 +131,7 @@ stop_requested = false
 FOR i = 1..MAX_CONCURRENT_TASKS:
   task_counter += 1
   task_id = f"task_{task_counter:03d}"
-  Dispatch to task-executor using the task-executor dispatch template (fill: run_id, task_id, task_description, max_attempts=10)
+  Dispatch to task-executor with `run_in_background: true` using the task-executor dispatch template (fill: run_id, task_id, task_description, max_attempts=10)
   Capture the exact subagent identifier returned by the dispatch operation
   evolve_update_task_status(run_id, task_id, status="running", agent_id=<returned_subagent_id>)
   running_tasks.append(task_id)
@@ -171,7 +170,7 @@ WHILE running_tasks is not empty:
   FOR each newly completed task (when stop_requested == false):
     task_counter += 1
     task_id = f"task_{task_counter:03d}"
-    Dispatch to task-executor using the task-executor dispatch template (fill: run_id, task_id, task_description, max_attempts=3)
+    Dispatch to task-executor with `run_in_background: true` using the task-executor dispatch template (fill: run_id, task_id, task_description, max_attempts=3)
     Capture the exact subagent identifier returned by the dispatch operation
     evolve_update_task_status(run_id, task_id, status="running", agent_id=<returned_subagent_id>)
     running_tasks.append(task_id)
@@ -238,7 +237,7 @@ Fitness is always maximized. `best_fitness` MUST be the largest successful numer
 5. Do not let a freed slot sit idle while `action != "budget_exhausted"`: for every single completed task, immediately launch exactly one replacement task after the convergence check.
 6. Success and failure both count as task completion. A failed task still frees its slot and should be replaced unless `action == "budget_exhausted"`.
 7. Never inspect or modify `scheduler_state.json` with `Read`, `Write`, `Edit`, or shell commands. Persist every task start/completion immediately through `evolve_update_task_status`; recover active scheduling state through `evolve_get_scheduler_state`. These compact tools preserve completed task-agent mappings for UI history without printing full-file diffs.
-8. Every dispatch to task-executor MUST include `max_attempts`. Initial-fill tasks: `max_attempts = 10`. Replenishment tasks: `max_attempts = 3`. Never omit this parameter.
+8. Every task-executor dispatch MUST set `run_in_background: true` and include `max_attempts`. Initial fill: `max_attempts=10`; replenishment: `max_attempts=3`.
 9. Plateau, WATCHING, `request_meta_guidance`, and failed meta-guidance generation are NOT stop signals.
 
 ### Meta-Guidance Generation

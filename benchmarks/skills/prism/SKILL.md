@@ -40,3 +40,18 @@ def compute_model_placement(gpu_num, models):
 Return a mapping from GPU IDs to lists containing exactly the input model
 objects. `initial_program.py` is the initial reference program; the naive
 baseline is retained as `initial_program_naive.py` for comparison only.
+
+## Optimization objective and guidance
+
+You are an expert in model placement on GPUs. Improve the model placement
+algorithm by improving the `compute_model_placement` function in the initial
+program that places models on available GPUs.
+
+The algorithm must minimize the maximum KVPR across all GPUs while ensuring
+that models fit in the GPUs' memory. KVPR is KV-cache pressure for a GPU and
+indicates how crowded that GPU is. For a specific GPU, compute it as:
+
+`sum(model.req_rate / model.slo for model in models) / (GPU_MEM_SIZE - sum(model.model_size for model in models))`
+
+The generated program should be as simple as possible and execute correctly
+without errors.
