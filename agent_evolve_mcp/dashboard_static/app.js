@@ -612,8 +612,7 @@
         `parent ${node.parent_id || "root"}`,
       ].join(" · ");
       return `
-        <g class="${classes}" data-node-id="${escapeHtml(id)}" tabindex="0" transform="translate(${position.x} ${position.y})" style="--node-color:${color};--status-color:${statusColor}">
-          <title>${escapeHtml(title)}</title>
+        <g class="${classes}" data-node-id="${escapeHtml(id)}" tabindex="0" role="img" aria-label="${escapeHtml(title)}" transform="translate(${position.x} ${position.y})" style="--node-color:${color};--status-color:${statusColor}">
           <rect class="lineage-node-shell" width="${LINEAGE_NODE_W}" height="${LINEAGE_NODE_H}" rx="11"></rect>
           <rect class="lineage-node-accent" x="1.5" y="9" width="3.5" height="46" rx="1.75"></rect>
           <text class="lineage-node-id" x="15" y="20">${escapeHtml(id)}</text>

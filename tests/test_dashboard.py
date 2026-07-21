@@ -333,6 +333,20 @@ def test_dashboard_uses_evotrias_branding():
     assert ".brand-logo" in stylesheet
 
 
+def test_lineage_tooltip_avoids_native_duplicate_and_wraps_inspirations():
+    static_root = Path(__file__).parents[1] / "agent_evolve_mcp" / "dashboard_static"
+    javascript = (static_root / "app.js").read_text(encoding="utf-8")
+    stylesheet = (static_root / "styles.css").read_text(encoding="utf-8")
+
+    assert "<title>${escapeHtml(title)}</title>" not in javascript
+    assert 'role="img" aria-label="${escapeHtml(title)}"' in javascript
+    assert "overflow-wrap: anywhere" in stylesheet
+    assert (
+        "text-overflow: ellipsis"
+        not in stylesheet.split(".lineage-tooltip-grid span:nth-child(even)", 1)[1].split("}", 1)[0]
+    )
+
+
 def test_dashboard_includes_interactive_lineage_controls():
     static_root = Path(__file__).parents[1] / "agent_evolve_mcp" / "dashboard_static"
     html = (static_root / "index.html").read_text(encoding="utf-8")
