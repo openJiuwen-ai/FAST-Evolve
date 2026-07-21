@@ -76,8 +76,8 @@ artifact paths stay in the dashboard. The first version includes:
 - run-local positive, negative, and error Notes.
 
 The UI is read-only: it polls the same persisted state used by the scheduler
-and controller and cannot change the search. The selector beside the Agent
-Evolve logo lists every direct child of `runs/` newest-first, so one dashboard
+and controller and cannot change the search. The selector beside the EvoTrias
+logo lists every direct child of `runs/` newest-first, so one dashboard
 can switch among historical runs without starting extra servers. Both legacy
 `run_<timestamp>` IDs and named `<task>_<timestamp>` IDs are supported.
 

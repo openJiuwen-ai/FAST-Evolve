@@ -366,6 +366,8 @@ def _handler_factory(run_id: str, workspace_root: Path) -> type[BaseHTTPRequestH
                 "/index.html": ("index.html", "text/html; charset=utf-8"),
                 "/assets/styles.css": ("styles.css", "text/css; charset=utf-8"),
                 "/assets/app.js": ("app.js", "text/javascript; charset=utf-8"),
+                "/assets/evotrias-logo.png": ("evotrias-logo.png", "image/png"),
+                "/assets/evotrias-logo-v2.png": ("evotrias-logo-v2.png", "image/png"),
             }
             asset = asset_map.get(path)
             if asset is None:
@@ -991,7 +993,7 @@ def main() -> None:
     """Serve a persisted run for local inspection or dashboard development."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Serve an Agent Evolve run dashboard.")
+    parser = argparse.ArgumentParser(description="Serve an EvoTrias run dashboard.")
     parser.add_argument("run_id", help="Run id under runs/ and controller state.")
     parser.add_argument("--port", type=int, default=DEFAULT_DASHBOARD_PORT)
     parser.add_argument("--workspace", type=Path, default=Path.cwd())
@@ -1003,7 +1005,7 @@ def main() -> None:
     )
     if server is None:
         raise SystemExit("Dashboard startup is disabled by AGENT_EVOLVE_UI_ENABLED.")
-    print(f"Agent Evolve UI: {server.url}", flush=True)
+    print(f"EvoTrias UI: {server.url}", flush=True)
     try:
         while True:
             time.sleep(3600)
