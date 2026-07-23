@@ -30,7 +30,7 @@ MCP 服务器是独立进程，通过 `python -m agent_evolve_mcp` 启动。包�
 | `evolve_select_parent` | 为 task 选择父代（返回 id + artifact_ref） |
 | `evolve_select_inspirations` | 选择灵感参考（Boltzmann 采样 + 跨谱系迁移） |
 | `evolve_record_attempt` | 记录 task 的验证结果，成功的加入 SuccessDB |
-| `evolve_check_convergence` | 多维收敛检测（性能平台 + 多样性 + 谱系活跃度） |
+| `evolve_check_convergence` | fitness plateau 检测、meta-guidance 动作与硬预算停止信号 |
 | `evolve_finalize_run` | 生成确定性的 run summary 报告 |
 
 ### Step 2：更新 pyproject.toml

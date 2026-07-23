@@ -21,28 +21,11 @@ def utc_now_iso() -> str:
 
 
 class SearchState(Enum):
-    """Internal convergence state maintained by the controller."""
+    """Internal search state maintained by the controller."""
 
     EXPLORING = "exploring"
     WATCHING = "watching"
     STOPPED = "stopped"
-
-
-@dataclass
-class StrategySignal:
-    """Temporary strategy adjustment emitted by the convergence detector.
-
-    The detector does not directly modify parent or inspiration selections.
-    Instead, selectors read this signal and can bias their existing heuristics.
-    The controller may suppress a WATCHING boost when meta-guidance is
-    configured to trigger immediately.
-    """
-
-    tau_multiplier: float = 1.0
-    p_exploit_override: Optional[float] = None
-    p_migrate_multiplier: float = 1.0
-    T_insp_multiplier: float = 1.0
-    reason: str = "normal"
 
 
 @dataclass
@@ -76,17 +59,20 @@ class InspirationSelectionConfig:
 
 
 @dataclass
-class ConvergenceConfig:
-    """Configuration for the multi-dimensional convergence detector."""
+class RunBudgetConfig:
+    """Hard run limits that stop task replenishment."""
 
-    enabled: bool = True
-    convergence_window: int = 5
-    perf_improvement_threshold: float = 0.0
-    diversity_change_threshold: float = 0.05
-    activity_threshold: float = 0.9
-    patience: int = 4
     max_total_tasks: int = 100
     max_time_seconds: Optional[float] = None
+
+
+@dataclass
+class PlateauConfig:
+    """Configuration for fitness-plateau detection."""
+
+    window: int = 5
+    improvement_threshold: float = 0.0
+    patience: int = 4
 
 
 @dataclass
@@ -94,7 +80,6 @@ class MetaEvolveConfig:
     """Configuration for lightweight meta-guidance control."""
 
     enabled: bool = True
-    watch_tasks_before_guidance: int = 0
     guidance_num_to_generate: int = 3
     guidance_max_uses: int = 2
     max_tried_guidance: int = 10
@@ -106,7 +91,8 @@ class EvolutionControllerConfig:
 
     parent_selection: ParentSelectionConfig = field(default_factory=ParentSelectionConfig)
     inspiration: InspirationSelectionConfig = field(default_factory=InspirationSelectionConfig)
-    convergence: ConvergenceConfig = field(default_factory=ConvergenceConfig)
+    budget: RunBudgetConfig = field(default_factory=RunBudgetConfig)
+    plateau: PlateauConfig = field(default_factory=PlateauConfig)
     meta_evolve: MetaEvolveConfig = field(default_factory=MetaEvolveConfig)
 
 

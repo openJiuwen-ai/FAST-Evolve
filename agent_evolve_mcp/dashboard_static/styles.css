@@ -614,6 +614,53 @@ h2 {
   border-bottom: 1px solid var(--line);
 }
 
+.card-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.feature-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 25px;
+  padding: 0 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.58);
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.feature-status i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--muted);
+  box-shadow: 0 0 0 3px rgba(125, 135, 131, 0.12);
+}
+
+.feature-status.enabled {
+  border-color: rgba(22, 124, 104, 0.2);
+  background: var(--accent-pale);
+  color: var(--accent);
+}
+
+.feature-status.enabled i {
+  background: var(--accent-bright);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.feature-status.disabled {
+  background: rgba(237, 239, 233, 0.72);
+  color: var(--muted);
+}
+
 .count-chip {
   justify-content: center;
   min-width: 29px;

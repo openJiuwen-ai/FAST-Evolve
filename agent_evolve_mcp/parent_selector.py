@@ -15,7 +15,7 @@ import random
 from typing import Dict, Optional
 
 from agent_evolve_mcp.lineage_tree import LineageTree
-from agent_evolve_mcp.models import ParentSelectionConfig, StrategySignal, SuccessRecord
+from agent_evolve_mcp.models import ParentSelectionConfig, SuccessRecord
 from agent_evolve_mcp.success_db import SuccessDB
 
 
@@ -37,7 +37,6 @@ class LineageAwareParentSelector:
         self,
         db: SuccessDB,
         progress: float,
-        signal: Optional[StrategySignal] = None,
     ) -> Optional[SuccessRecord]:
         """Select a parent record and increment its selection count.
 
@@ -59,11 +58,6 @@ class LineageAwareParentSelector:
         tau = self._anneal(self.tau_start, self.tau_end, progress)
         c_local = self._anneal(self.c_local_start, self.c_local_end, progress)
         p_exploit = self.p_exploit
-
-        if signal:
-            tau *= signal.tau_multiplier
-            if signal.p_exploit_override is not None:
-                p_exploit = signal.p_exploit_override
 
         # Stage 1 chooses which evolutionary branch deserves this attempt.
         lineage_id = self._select_lineage(tau, p_exploit)
@@ -97,9 +91,7 @@ class LineageAwareParentSelector:
         fitness_range = max_fitness - min_fitness
         potentials = {
             root_id: (
-                (stats.best_fitness - min_fitness) / fitness_range
-                if fitness_range > 1e-9
-                else 0.0
+                (stats.best_fitness - min_fitness) / fitness_range if fitness_range > 1e-9 else 0.0
             )
             for root_id, stats in all_stats.items()
         }
@@ -120,9 +112,8 @@ class LineageAwareParentSelector:
             max_fitness = max(fitnesses)
             scores = {}
             for root_id, stats in all_stats.items():
-                normalized_quality = (
-                    (stats.best_fitness - min_fitness)
-                    / (max_fitness - min_fitness + 1e-9)
+                normalized_quality = (stats.best_fitness - min_fitness) / (
+                    max_fitness - min_fitness + 1e-9
                 )
                 quality_bonus = 1.0 + self.quality_bonus_strength * normalized_quality
                 scores[root_id] = deficits[root_id] * quality_bonus
@@ -186,8 +177,7 @@ class LineageAwareParentSelector:
         max_value = max(values.values())
         temperature = max(temperature, 1e-9)
         exp_values = {
-            key: math.exp((value - max_value) / temperature)
-            for key, value in values.items()
+            key: math.exp((value - max_value) / temperature) for key, value in values.items()
         }
         total = sum(exp_values.values())
         if total < 1e-15:

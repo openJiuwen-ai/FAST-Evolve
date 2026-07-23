@@ -15,6 +15,7 @@ from agent_evolve_mcp.config import load_evolution_controller_config
 from agent_evolve_mcp.controller import EvolutionController
 from agent_evolve_mcp.dashboard import start_dashboard
 from agent_evolve_mcp.mcp_server import mcp
+from agent_evolve_mcp.notes import notes_enabled
 from agent_evolve_mcp.scheduler_state import (
     get_scheduler_state,
     initialize_scheduler_state,
@@ -56,12 +57,14 @@ def evolve_configure_run(
         return {
             "configured": False,
             "reason": "Controller already exists for this run_id; configuration locked.",
-            "max_total_tasks": config.convergence.max_total_tasks,
+            "max_total_tasks": config.budget.max_total_tasks,
             "meta_evolve": _meta_evolve_config_ref(config),
             "dashboard": _dashboard_ref(
                 run_id,
-                max_total_tasks=config.convergence.max_total_tasks,
+                max_total_tasks=config.budget.max_total_tasks,
                 task_description=task_description,
+                meta_guidance_enabled=config.meta_evolve.enabled,
+                notes_feature_enabled=notes_enabled(),
             ),
         }
     config = load_evolution_controller_config(max_total_tasks=max_total_tasks)
@@ -70,12 +73,14 @@ def evolve_configure_run(
     _controllers[run_id] = controller
     return {
         "configured": True,
-        "max_total_tasks": config.convergence.max_total_tasks,
+        "max_total_tasks": config.budget.max_total_tasks,
         "meta_evolve": _meta_evolve_config_ref(config),
         "dashboard": _dashboard_ref(
             run_id,
-            max_total_tasks=config.convergence.max_total_tasks,
+            max_total_tasks=config.budget.max_total_tasks,
             task_description=task_description,
+            meta_guidance_enabled=config.meta_evolve.enabled,
+            notes_feature_enabled=notes_enabled(),
         ),
     }
 
@@ -213,7 +218,6 @@ def evolve_finalize_run(run_id: str, stop_reason: str = "") -> Dict[str, Any]:
 def _meta_evolve_config_ref(config: Any) -> Dict[str, Any]:
     return {
         "enabled": config.meta_evolve.enabled,
-        "watch_tasks_before_guidance": config.meta_evolve.watch_tasks_before_guidance,
         "guidance_num_to_generate": config.meta_evolve.guidance_num_to_generate,
         "guidance_max_uses": config.meta_evolve.guidance_max_uses,
         "max_tried_guidance": config.meta_evolve.max_tried_guidance,
@@ -225,6 +229,8 @@ def _dashboard_ref(
     *,
     max_total_tasks: int,
     task_description: str,
+    meta_guidance_enabled: bool,
+    notes_feature_enabled: bool,
 ) -> Dict[str, Any]:
     """Start the optional UI without making observability run-critical."""
     try:
@@ -232,6 +238,10 @@ def _dashboard_ref(
             run_id,
             max_total_tasks=max_total_tasks,
             task_description=task_description,
+            feature_flags={
+                "meta_guidance": meta_guidance_enabled,
+                "notes": notes_feature_enabled,
+            },
         )
     except (OSError, RuntimeError) as exc:
         return {

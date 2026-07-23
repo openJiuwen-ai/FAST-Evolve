@@ -13,7 +13,7 @@
       <header class="topbar">
         <div class="topbar-primary">
           <a class="brand" href="/" aria-label="EvoTrias dashboard home">
-            <img class="brand-logo" src="/assets/evotrias-logo-v2.png" alt="" />
+            <img class="brand-logo" src="/assets/evotrias-logo-v6.png" alt="" />
             <span class="brand-copy">
               <strong>EvoTrias</strong>
             </span>
@@ -182,7 +182,12 @@
                 <span class="section-kicker">Adaptive control</span>
                 <h2>Meta-guidance</h2>
               </div>
-              <span class="count-chip accent" id="guidance-count">0</span>
+              <div class="card-header-actions">
+                <span class="feature-status" id="guidance-status" title="Meta-guidance feature status">
+                  <i aria-hidden="true"></i><span>Unknown</span>
+                </span>
+                <span class="count-chip accent" id="guidance-count">0</span>
+              </div>
             </div>
             <div class="knowledge-list" id="guidance-list">
               <div class="empty-panel">No meta-guidance generated yet.</div>
@@ -195,7 +200,12 @@
                 <span class="section-kicker">Run-local memory</span>
                 <h2>Notes</h2>
               </div>
-              <div class="note-counts" id="note-counts"></div>
+              <div class="card-header-actions">
+                <span class="feature-status" id="notes-status" title="Notes feature status">
+                  <i aria-hidden="true"></i><span>Unknown</span>
+                </span>
+                <div class="note-counts" id="note-counts"></div>
+              </div>
             </div>
             <div class="knowledge-list" id="notes-list">
               <div class="empty-panel">No notes recorded yet.</div>

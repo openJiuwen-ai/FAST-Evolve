@@ -89,6 +89,7 @@ def start_dashboard(
     preferred_port: int = DEFAULT_DASHBOARD_PORT,
     max_total_tasks: Optional[int] = None,
     task_description: str = "",
+    feature_flags: Optional[Dict[str, bool]] = None,
 ) -> Optional[DashboardServer]:
     """Start or return the dashboard for ``run_id``.
 
@@ -119,6 +120,7 @@ def start_dashboard(
         port=server.port,
         max_total_tasks=max_total_tasks,
         task_description=task_description,
+        feature_flags=feature_flags,
     )
     return server
 
@@ -166,6 +168,7 @@ def build_snapshot(run_id: str, workspace_root: Path) -> Dict[str, Any]:
         reverse=True,
     )
     guidance = _build_guidance(meta_state)
+    feature_flags = dict(manifest.get("features") or {})
     activity = _build_activity(
         attempts=attempts,
         completed=completed,
@@ -218,12 +221,16 @@ def build_snapshot(run_id: str, workspace_root: Path) -> Dict[str, Any]:
         "guidance": guidance,
         "activity": activity[:60],
         "lineage": lineage,
+        "features": {
+            "meta_guidance": feature_flags.get("meta_guidance"),
+            "notes": feature_flags.get("notes"),
+        },
         "diagnostics": {
             "search_state": diagnostics.get("state") or search_state,
             "plateau_count": diagnostics.get("plateau_count"),
             "patience": diagnostics.get("patience"),
             "diversity": diagnostics.get("current_diversity"),
-            "fitness_improvement": diagnostics.get("s1_fitness_improvement"),
+            "fitness_improvement": diagnostics.get("fitness_improvement"),
             "meta_guidance": diagnostics.get("meta_guidance") or {},
         },
     }
@@ -367,7 +374,7 @@ def _handler_factory(run_id: str, workspace_root: Path) -> type[BaseHTTPRequestH
                 "/assets/styles.css": ("styles.css", "text/css; charset=utf-8"),
                 "/assets/app.js": ("app.js", "text/javascript; charset=utf-8"),
                 "/assets/evotrias-logo.png": ("evotrias-logo.png", "image/png"),
-                "/assets/evotrias-logo-v2.png": ("evotrias-logo-v2.png", "image/png"),
+                "/assets/evotrias-logo-v6.png": ("evotrias-logo-v6.png", "image/png"),
             }
             asset = asset_map.get(path)
             if asset is None:
@@ -865,6 +872,7 @@ def _write_dashboard_manifest(
     port: int,
     max_total_tasks: Optional[int],
     task_description: str,
+    feature_flags: Optional[Dict[str, bool]],
 ) -> None:
     run_path = workspace_root / "runs" / _safe_name(run_id)
     run_path.mkdir(parents=True, exist_ok=True)
@@ -879,6 +887,7 @@ def _write_dashboard_manifest(
             max_total_tasks if max_total_tasks is not None else existing.get("max_total_tasks")
         ),
         "task_description": task_description or existing.get("task_description") or "",
+        "features": dict(feature_flags or {}),
         "started_at": existing.get("started_at") or _now_iso(),
     }
     tmp = path.with_suffix(".json.tmp")

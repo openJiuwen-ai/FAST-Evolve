@@ -21,8 +21,7 @@ as loss, runtime, or distance remain inside the evaluator result.
 - Maintains run-local Notes distilled from verified attempts and injects the
   relevant notes into later task contexts.
 - Detects a plateau and enters `WATCHING`; a plateau never stops a run. The
-  controller either requests meta-guidance immediately or temporarily increases
-  exploration before requesting it.
+  controller requests meta-guidance immediately when that feature is enabled.
 - Runs meta-evolve as a bounded guidance lifecycle: the host agent produces up
   to three distinct guidance items, each is assigned to at most two tasks, and
   the MCP records their outcomes for later guidance generation.
@@ -151,8 +150,8 @@ For each task, the executor:
 records and sees a sustained plateau. It is a search-mode transition, not a
 stop condition.
 
-With the default `watch_tasks_before_guidance: 0`, entering `WATCHING` directly
-returns `action="request_meta_guidance"`. The orchestrator asks MCP for a
+Entering `WATCHING` directly returns `action="request_meta_guidance"` when
+meta-guidance is enabled. The orchestrator asks MCP for a
 request payload, then produces structured guidance using the current-best
 candidate, plateau diagnostics, lineage summaries, run-local Notes, and
 outcomes from prior guidance. During this explicit generation step it may read
@@ -167,11 +166,6 @@ force an incoherent parent/inspiration hybrid. Once an item has used its budget,
 MCP stores whether it succeeded, created a new best, and its measured
 improvement. Future guidance requests receive that history.
 
-Set `watch_tasks_before_guidance` above zero only when an experiment needs the
-first-level `WATCHING` exploration boost before requesting guidance. In that
-mode the controller temporarily increases parent-selection temperature,
-cross-lineage migration, and inspiration sampling temperature while waiting.
-
 ## Defaults and Runtime Switches 🎛️
 
 | Setting | Default | Effect |
@@ -179,7 +173,7 @@ cross-lineage migration, and inspiration sampling temperature while waiting.
 | Initial directions | 4 | Number of root exploration branches |
 | Maximum concurrent tasks | 4 | Rolling scheduler queue limit |
 | Default task budget | 50 | Used when the request does not specify a task count |
-| Convergence window | 5 successes | Window used for plateau diagnostics |
+| Plateau window | 5 successes | Window used for plateau diagnostics |
 | Plateau patience | 4 | Consecutive plateau count required for `WATCHING` |
 | Fitness improvement threshold | 0.0 | A positive running-best improvement is progress |
 | Meta-guidance items per request | 3 | Maximum distinct guidance items generated |
@@ -191,10 +185,7 @@ new run. That configuration is locked for the run. The following environment
 variables must be set before the MCP process starts:
 
 ```powershell
-# Disable plateau detection and therefore meta-guidance requests.
-$env:AGENT_EVOLVE_CONVERGENCE_ENABLED = "false"
-
-# Disable meta-guidance request creation while retaining normal selection.
+# Disable meta-guidance requests while retaining plateau diagnostics and normal selection.
 $env:AGENT_EVOLVE_META_EVOLVE_ENABLED = "0"
 
 # Disable run-local Notes.
@@ -210,10 +201,9 @@ $env:AGENT_EVOLVE_PERF_IMPROVEMENT_THRESHOLD = "0.01"
 $env:AGENT_EVOLVE_CONTROLLER_DIR = "D:\agent-evolve-state"
 ```
 
-Hard budgets remain active when convergence detection is disabled. A completed
-run has `action="budget_exhausted"` only when its task or optional time budget
-is exhausted; `should_stop` is retained for compatibility and is true only in
-that case.
+Hard budgets remain active independently of plateau detection. A run returns
+`action="budget_exhausted"` only when its task or optional time budget is
+exhausted.
 
 ## Run Artifacts 📁
 

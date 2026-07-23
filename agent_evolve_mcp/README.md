@@ -26,7 +26,6 @@ Public responses are intentionally compact:
 - scheduler calls persist task transitions and return only active state or a compact acknowledgement, avoiding full `scheduler_state.json` diffs in the host terminal
 - attempt recording returns `entered_success_db` and `success_record_id`
 - convergence returns `action`: `continue`, `request_meta_guidance`, or `budget_exhausted`
-- `should_stop` is retained for compatibility and is true only for hard budget/external stops
 - meta-guidance request/commit/prompt tools keep guidance state in MCP instead of task-executor memory
 - finalization writes `runs/<run_id>/run_summary.md` and `runs/<run_id>/run_summary.json`, then returns only refs
 
@@ -44,26 +43,14 @@ Override it with:
 AGENT_EVOLVE_CONTROLLER_DIR
 ```
 
-Convergence checking is enabled by default. Plateau no longer causes early
-stop. With the default `watch_tasks_before_guidance: 0`, WATCHING immediately
-returns `action="request_meta_guidance"` so the main agent can generate
-meta-guidance. If `watch_tasks_before_guidance` is set above `0`, MCP waits
-that many tasks before the request and keeps the WATCHING exploration boost
-active during the waiting window.
-
-To disable convergence plateau detection, restart the MCP process with:
-
-```text
-AGENT_EVOLVE_CONVERGENCE_ENABLED=false
-```
-
-This switch does not disable hard budgets. `max_total_tasks` and
-`max_time_seconds` can still make `evolve_check_convergence` return
-`{"action": "budget_exhausted", "should_stop": true}`.
+Plateau detection is always active and no longer causes early stop. WATCHING
+immediately returns `action="request_meta_guidance"` when meta-guidance is
+enabled. It does not alter parent or inspiration selection. Hard task/time
+budgets remain the only automatic stop conditions.
 
 By default, the best-fitness improvement threshold is `0.0`: any positive
 running-best improvement is progress, and equal running-best fitness is
-counted as an S1 plateau. For noisy verifier domains such as operator profiling,
+counted as a plateau. For noisy verifier domains such as operator profiling,
 set a relative fuzzy boundary before starting the MCP process:
 
 ```text
@@ -75,16 +62,12 @@ Meta-evolve defaults:
 ```yaml
 meta_evolve:
   enabled: true
-  watch_tasks_before_guidance: 0
   guidance_num_to_generate: 3
   guidance_max_uses: 2
   max_tried_guidance: 10
 ```
 
 `AGENT_EVOLVE_META_EVOLVE_ENABLED=0` disables meta-guidance request creation.
-`watch_tasks_before_guidance: 0` skips the first-layer parameter adjustment for
-the current run. Set it above `0` to re-enable the WATCHING-stage selector boost
-before meta-guidance is requested.
 
 Active meta-guidance is generated from the canonical best at request time, but
 each task binds it to the latest canonical best when `evolve_select_parent` is

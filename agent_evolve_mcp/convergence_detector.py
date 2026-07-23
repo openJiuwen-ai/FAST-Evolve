@@ -1,37 +1,26 @@
-"""Multi-dimensional convergence detection.
+"""Deterministic fitness-plateau detection.
 
-The detector is intentionally lightweight and deterministic.  It checks hard
-budget limits first, then uses three signals from the SuccessDB:
-
-S1: best-fitness improvement over a rolling window.
-S2: diversity trend over the same window.
-S3: current lineage diversity as an activity proxy.
-
-Plateau is not a stop signal. WATCHING can provide a temporary selector
-exploration boost while the controller waits before requesting meta-guidance.
+The detector observes running-best fitness over a rolling window. A sustained
+plateau enters WATCHING so the controller can request meta-guidance. Plateau is
+never a stop signal and does not modify parent or inspiration selection.
 """
 
 from __future__ import annotations
 
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
 from agent_evolve_mcp.lineage_tree import LineageTree
-from agent_evolve_mcp.models import ConvergenceConfig, SearchState, StrategySignal, SuccessRecord
+from agent_evolve_mcp.models import PlateauConfig, SearchState, SuccessRecord
 from agent_evolve_mcp.success_db import SuccessDB
 
 
-class MultiDimensionalConvergenceDetector:
-    """State machine that returns EXPLORING, WATCHING, or STOPPED."""
+class FitnessPlateauDetector:
+    """Maintain EXPLORING or WATCHING from running-best fitness history."""
 
-    def __init__(self, config: ConvergenceConfig):
-        self.enabled = config.enabled
-        self.window = config.convergence_window
-        self.perf_threshold = config.perf_improvement_threshold
-        self.diversity_threshold = config.diversity_change_threshold
-        self.activity_threshold = config.activity_threshold
+    def __init__(self, config: PlateauConfig):
+        self.window = config.window
+        self.improvement_threshold = config.improvement_threshold
         self.patience = config.patience
-        self.max_total_tasks = config.max_total_tasks
-        self.max_time_seconds = config.max_time_seconds
         self._state = SearchState.EXPLORING
         self._stop_reason = ""
         self._diagnostics = {}
@@ -50,7 +39,7 @@ class MultiDimensionalConvergenceDetector:
         stop_reason: str = "",
         diagnostics: Optional[dict] = None,
     ) -> None:
-        """Restore persisted detector state before a selection call."""
+        """Restore persisted state before a controller operation."""
         try:
             self._state = SearchState(state)
         except ValueError:
@@ -62,67 +51,28 @@ class MultiDimensionalConvergenceDetector:
         self,
         db: SuccessDB,
         lineage_tree: LineageTree,
-        total_submitted: int,
         total_success: int,
-        elapsed_seconds: Optional[float] = None,
-    ) -> Tuple[bool, str]:
-        """Evaluate convergence from the current SuccessDB snapshot.
-
-        ``total_submitted`` is still the hard safety valve.  The softer
-        convergence logic only runs after enough successful records exist to
-        compute a meaningful window.
-        """
-        if total_submitted >= self.max_total_tasks:
-            self._state = SearchState.STOPPED
-            self._stop_reason = f"Reached max_total_tasks ({self.max_total_tasks})"
-            self._diagnostics = self._build_diagnostics(db, lineage_tree)
-            return True, self._stop_reason
-
-        if (
-            self.max_time_seconds is not None
-            and elapsed_seconds is not None
-            and elapsed_seconds >= self.max_time_seconds
-        ):
-            self._state = SearchState.STOPPED
-            self._stop_reason = f"Time budget exhausted ({self.max_time_seconds}s)"
-            self._diagnostics = self._build_diagnostics(db, lineage_tree)
-            return True, self._stop_reason
-
-        if not self.enabled:
-            self._state = SearchState.EXPLORING
-            self._stop_reason = ""
-            diagnostics = self._build_diagnostics(db, lineage_tree)
-            diagnostics["state"] = self._state.value
-            diagnostics["stop_reason"] = self._stop_reason
-            diagnostics["convergence_disabled_reason"] = "disabled_by_config"
-            self._diagnostics = diagnostics
-            return False, ""
-
+    ) -> None:
+        """Update the current search state from the SuccessDB snapshot."""
         if self._state == SearchState.STOPPED and self._stop_reason:
-            diagnostics = self._build_diagnostics(db, lineage_tree)
-            diagnostics["state"] = self._state.value
-            diagnostics["stop_reason"] = self._stop_reason
-            self._diagnostics = diagnostics
-            return True, self._stop_reason
+            self._diagnostics = self._build_diagnostics(db, lineage_tree)
+            self._diagnostics["state"] = self._state.value
+            self._diagnostics["stop_reason"] = self._stop_reason
+            return
 
         min_success = max(self.window, 5)
         if total_success < min_success:
             self._state = SearchState.EXPLORING
             self._stop_reason = ""
             self._diagnostics = self._build_diagnostics(db, lineage_tree)
-            return False, ""
+            return
 
         diagnostics = self._build_diagnostics(db, lineage_tree)
-        plateau = bool(diagnostics["s1_plateau"])
+        plateau = bool(diagnostics["plateau_detected"])
         plateau_count = int(diagnostics["plateau_count"])
-        activity = diagnostics["s3_activity"] or 0.0
         latest_is_new_best = bool(diagnostics["latest_success_is_new_best"])
 
-        if (
-            plateau
-            and not latest_is_new_best
-            and plateau_count >= self.patience
-        ):
+        if plateau and not latest_is_new_best and plateau_count >= self.patience:
             self._state = SearchState.WATCHING
         else:
             self._state = SearchState.EXPLORING
@@ -130,77 +80,53 @@ class MultiDimensionalConvergenceDetector:
         diagnostics["state"] = self._state.value
         diagnostics["stop_reason"] = self._stop_reason
         self._diagnostics = diagnostics
-        return False, ""
 
-    def get_strategy_signal(self) -> StrategySignal:
-        """Return the selector bias associated with the current state."""
-        if self._state == SearchState.WATCHING:
-            return StrategySignal(
-                tau_multiplier=1.5,
-                p_migrate_multiplier=2.0,
-                T_insp_multiplier=1.3,
-                reason="watching_boost_exploration",
-            )
-        if self._state == SearchState.STOPPED:
-            return StrategySignal(reason="stopped")
-        return StrategySignal(reason="normal")
+    def mark_stopped(
+        self,
+        reason: str,
+        db: SuccessDB,
+        lineage_tree: LineageTree,
+    ) -> None:
+        """Record a hard-budget stop without treating plateau as convergence."""
+        self._state = SearchState.STOPPED
+        self._stop_reason = reason
+        diagnostics = self._build_diagnostics(db, lineage_tree)
+        diagnostics["state"] = self._state.value
+        diagnostics["stop_reason"] = reason
+        self._diagnostics = diagnostics
 
     def get_diagnostics(self) -> dict:
         """Return the most recent diagnostic snapshot."""
         return dict(self._diagnostics)
 
     def _build_diagnostics(self, db: SuccessDB, lineage_tree: LineageTree) -> dict:
-        """Compute human-readable convergence signals from persisted records."""
+        """Compute plateau inputs plus useful current search context."""
         records = db.get_all()
         best_history = self._best_fitness_history(records)
-        diversity_history = self._diversity_history(records)
         total_success = len(records)
         window = max(self.window, 1)
-        latest_success_is_new_best = self._latest_success_is_new_best(records)
 
         improvement = None
-        s1_plateau = False
+        plateau_detected = False
         if len(best_history) > window:
-            # Fitness is maximized, so improvement is positive when the latest
-            # window improved over the previous best.
             old_best = best_history[-(window + 1)]
             new_best = best_history[-1]
             improvement = (new_best - old_best) / max(abs(old_best), 1e-9)
-            s1_plateau = improvement <= self.perf_threshold
-
-        diversity_change = None
-        s2_trend = "stable"
-        if len(diversity_history) > window:
-            # Diversity is diagnostic.  The current MVP does not require a
-            # declining trend to stop, but it is useful for run summaries.
-            diversity_change = diversity_history[-1] - diversity_history[-(window + 1)]
-            if diversity_change < -self.diversity_threshold:
-                s2_trend = "declining"
-            elif diversity_change > self.diversity_threshold:
-                s2_trend = "increasing"
-
-        plateau_count = self._consecutive_plateau_count(best_history, window)
-        current_diversity = lineage_tree.get_diversity_index()
+            plateau_detected = improvement <= self.improvement_threshold
 
         return {
             "state": self._state.value,
             "stop_reason": self._stop_reason,
-            "convergence_enabled": self.enabled,
-            "plateau_count": plateau_count,
+            "plateau_count": self._consecutive_plateau_count(best_history, window),
             "patience": self.patience,
             "window": window,
-            "s1_fitness_improvement": round(improvement, 6) if improvement is not None else None,
-            "s1_fitness_threshold": self.perf_threshold,
-            "s1_plateau": s1_plateau,
-            "s2_diversity_change": round(diversity_change, 6) if diversity_change is not None else None,
-            "s2_diversity_threshold": self.diversity_threshold,
-            "s2_trend": s2_trend,
-            "s3_activity": round(current_diversity, 4),
-            "s3_activity_threshold": self.activity_threshold,
+            "fitness_improvement": round(improvement, 6) if improvement is not None else None,
+            "fitness_improvement_threshold": self.improvement_threshold,
+            "plateau_detected": plateau_detected,
             "current_best_fitness": best_history[-1] if best_history else None,
-            "current_diversity": round(current_diversity, 4),
+            "current_diversity": round(lineage_tree.get_diversity_index(), 4),
             "total_success_tracked": total_success,
-            "latest_success_is_new_best": latest_success_is_new_best,
+            "latest_success_is_new_best": self._latest_success_is_new_best(records),
         }
 
     @staticmethod
@@ -213,22 +139,6 @@ class MultiDimensionalConvergenceDetector:
             history.append(best)
         return history
 
-    def _diversity_history(self, records: List[SuccessRecord]) -> List[float]:
-        """Recompute prefix diversity values for diagnostics.
-
-        This is O(N^2) if called on many records, but the MVP SuccessDB is small
-        and this keeps the implementation simple.  A future version can persist
-        a checkpointed diversity series if needed.
-        """
-        history = []
-        prefix: List[SuccessRecord] = []
-        for record in records:
-            prefix.append(record)
-            tree = LineageTree()
-            tree.rebuild(_RecordsView(prefix))
-            history.append(tree.get_diversity_index())
-        return history
-
     def _consecutive_plateau_count(self, best_history: List[float], window: int) -> int:
         """Count consecutive windows whose best-fitness gain is below threshold."""
         count = 0
@@ -236,7 +146,7 @@ class MultiDimensionalConvergenceDetector:
             old_best = best_history[index - window]
             new_best = best_history[index]
             improvement = (new_best - old_best) / max(abs(old_best), 1e-9)
-            if improvement <= self.perf_threshold:
+            if improvement <= self.improvement_threshold:
                 count += 1
             else:
                 break
@@ -249,13 +159,3 @@ class MultiDimensionalConvergenceDetector:
             return bool(records)
         previous_best = max(record.fitness for record in records[:-1])
         return records[-1].fitness > previous_best
-
-
-class _RecordsView:
-    """Minimal adapter so LineageTree can rebuild from a prefix record list."""
-
-    def __init__(self, records: List[SuccessRecord]):
-        self._records = list(records)
-
-    def get_all(self) -> List[SuccessRecord]:
-        return list(self._records)

@@ -12,8 +12,9 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
+from agent_evolve_mcp.budget_guard import RunBudgetGuard
 from agent_evolve_mcp.config import load_evolution_controller_config
-from agent_evolve_mcp.convergence_detector import MultiDimensionalConvergenceDetector
+from agent_evolve_mcp.convergence_detector import FitnessPlateauDetector
 from agent_evolve_mcp.inspiration_selector import LineageBoltzmannInspirationSelector
 from agent_evolve_mcp.lineage_tree import LineageTree
 from agent_evolve_mcp.models import (
@@ -22,7 +23,6 @@ from agent_evolve_mcp.models import (
     RunState,
     SearchState,
     SuccessRecord,
-    StrategySignal,
 )
 from agent_evolve_mcp.meta_guidance import MetaGuidanceManager
 from agent_evolve_mcp.notes import NOTES_ENABLED_ENV, NotesManager, notes_enabled
@@ -63,9 +63,8 @@ class EvolutionController:
             self.config.inspiration,
             self.lineage_tree,
         )
-        self.convergence_detector = MultiDimensionalConvergenceDetector(
-            self.config.convergence,
-        )
+        self.budget_guard = RunBudgetGuard(self.config.budget)
+        self.plateau_detector = FitnessPlateauDetector(self.config.plateau)
 
     def configure_run(self, task_description: str = "") -> None:
         """Persist optional run metadata supplied during initial configuration."""
@@ -108,7 +107,6 @@ class EvolutionController:
             parent = self.parent_selector.select(
                 self.db,
                 self._progress(),
-                signal=self._selection_strategy_signal(),
             )
 
         context.parent_id = parent.id if parent is not None else None
@@ -149,7 +147,6 @@ class EvolutionController:
             parent,
             self.db,
             self._progress(),
-            signal=self._selection_strategy_signal(),
         )
         context.inspiration_ids = [
             str(item["id"])
@@ -314,9 +311,13 @@ class EvolutionController:
 
         self.db.load()
         best_after = _best_fitness(self.db)
-        final_task_attempt = status == "success" or _attempt_number(resolved_attempt_id) >= max_attempts
+        final_task_attempt = (
+            status == "success" or _attempt_number(resolved_attempt_id) >= max_attempts
+        )
         if final_task_attempt:
-            anchor_record = self.db.get(context.anchor_parent_id) if context.anchor_parent_id else None
+            anchor_record = (
+                self.db.get(context.anchor_parent_id) if context.anchor_parent_id else None
+            )
             self.meta_guidance.record_attempt_outcome(
                 task_id=task_id,
                 attempt_id=resolved_attempt_id,
@@ -365,31 +366,34 @@ class EvolutionController:
         total_attempts = self.attempt_log.count()
         total_success = len(self.db.get_all())
         elapsed_seconds = self.run_state_store.elapsed_seconds()
-        should_stop, reason = self.convergence_detector.evaluate(
-            self.db,
-            self.lineage_tree,
-            total_submitted=total_tasks,
-            total_success=total_success,
+        reason = self.budget_guard.exhaustion_reason(
+            total_tasks=total_tasks,
             elapsed_seconds=elapsed_seconds,
         )
+        budget_exhausted = bool(reason)
+        if budget_exhausted:
+            self.plateau_detector.mark_stopped(reason, self.db, self.lineage_tree)
+        else:
+            self.plateau_detector.evaluate(
+                self.db,
+                self.lineage_tree,
+                total_success=total_success,
+            )
 
-        diagnostics = self.convergence_detector.get_diagnostics()
+        diagnostics = self.plateau_detector.get_diagnostics()
         action = "continue"
         request_id = None
 
-        if should_stop:
+        if budget_exhausted:
             action = "budget_exhausted"
-        elif self.convergence_detector.state == SearchState.WATCHING:
+        elif self.plateau_detector.state == SearchState.WATCHING:
             current_best = diagnostics.get("current_best_fitness")
             self.meta_guidance.note_watching(
                 task_count=total_tasks,
                 current_best_fitness=current_best,
             )
             if self.meta_guidance.should_request_guidance(
-                task_count=total_tasks,
                 current_best_fitness=current_best,
-                plateau_count=diagnostics.get("plateau_count"),
-                patience=diagnostics.get("patience"),
             ):
                 request = self.meta_guidance.ensure_pending_request(
                     db=self.db,
@@ -423,7 +427,7 @@ class EvolutionController:
                 run_id=self.run_id,
                 started_at=run_state.started_at,
                 task_description=run_state.task_description,
-                search_state=self.convergence_detector.state.value,
+                search_state=self.plateau_detector.state.value,
                 stop_reason=reason,
                 diagnostics=diagnostics,
                 last_checked_attempt_count=total_attempts,
@@ -431,9 +435,8 @@ class EvolutionController:
         )
         response: Dict[str, Any] = {
             "action": action,
-            "should_stop": action == "budget_exhausted",
-            "search_state": self.convergence_detector.state.value,
-            "plateau": self.convergence_detector.state == SearchState.WATCHING,
+            "search_state": self.plateau_detector.state.value,
+            "plateau": self.plateau_detector.state == SearchState.WATCHING,
             "stop_reason": reason,
             "meta_guidance": meta_stats,
             "diagnostics": diagnostics,
@@ -445,16 +448,6 @@ class EvolutionController:
     def get_meta_guidance_request(self, request_id: str = "") -> Dict[str, Any]:
         """Return a pending meta-guidance request."""
         return self.meta_guidance.get_request(request_id or None)
-
-    def _selection_strategy_signal(self) -> StrategySignal:
-        """Return selector signal after applying meta-evolve timing policy."""
-        signal = self.convergence_detector.get_strategy_signal()
-        if (
-            self.convergence_detector.state == SearchState.WATCHING
-            and self.config.meta_evolve.watch_tasks_before_guidance <= 0
-        ):
-            return StrategySignal(reason="watching_request_meta_guidance")
-        return signal
 
     def commit_meta_guidance(self, request_id: str, guidance_json: Any) -> Dict[str, Any]:
         """Validate and activate host-generated meta-guidance."""
@@ -501,7 +494,7 @@ class EvolutionController:
         self.db.load()
         self.task_contexts.load()
         run_state = self.run_state_store.load()
-        self.convergence_detector.restore_state(
+        self.plateau_detector.restore_state(
             run_state.search_state,
             stop_reason=run_state.stop_reason,
             diagnostics=run_state.diagnostics,
@@ -510,7 +503,7 @@ class EvolutionController:
 
     def _progress(self) -> float:
         """Compute search progress internally from registered tasks."""
-        max_total = max(self.config.convergence.max_total_tasks, 1)
+        max_total = max(self.config.budget.max_total_tasks, 1)
         return min(self._task_count() / max_total, 1.0)
 
     def _task_count(self) -> int:
@@ -520,9 +513,7 @@ class EvolutionController:
         so its row count must not be used as the task-budget counter.
         """
         attempt_task_ids = {
-            str(row["task_id"])
-            for row in self.attempt_log.get_all()
-            if row.get("task_id")
+            str(row["task_id"]) for row in self.attempt_log.get_all() if row.get("task_id")
         }
         return max(self.task_contexts.count(), len(attempt_task_ids))
 
