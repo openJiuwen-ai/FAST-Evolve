@@ -374,7 +374,7 @@ def _handler_factory(run_id: str, workspace_root: Path) -> type[BaseHTTPRequestH
                 "/assets/styles.css": ("styles.css", "text/css; charset=utf-8"),
                 "/assets/app.js": ("app.js", "text/javascript; charset=utf-8"),
                 "/assets/evotrias-logo.png": ("evotrias-logo.png", "image/png"),
-                "/assets/evotrias-logo-v6.png": ("evotrias-logo-v6.png", "image/png"),
+                "/assets/evotrias-logo-v5.png": ("evotrias-logo-v5.png", "image/png"),
             }
             asset = asset_map.get(path)
             if asset is None:
