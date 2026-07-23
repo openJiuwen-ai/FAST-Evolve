@@ -378,10 +378,10 @@ def test_dashboard_uses_evotrias_branding():
     stylesheet = (static_root / "styles.css").read_text(encoding="utf-8")
 
     assert "<strong>EvoTrias</strong>" in html
-    assert 'src="/assets/evotrias-logo-v6.png"' in html
+    assert 'src="/assets/evotrias-logo-v5.png"' in html
     assert "Run Observatory" not in html
     assert (static_root / "evotrias-logo.png").is_file()
-    assert (static_root / "evotrias-logo-v6.png").is_file()
+    assert (static_root / "evotrias-logo-v5.png").is_file()
     assert ".brand-logo" in stylesheet
 
 
