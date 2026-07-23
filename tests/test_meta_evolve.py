@@ -5,9 +5,10 @@ import json
 from agent_evolve_mcp.controller import EvolutionController
 from agent_evolve_mcp.storage import attempts_log_path, notes_path, read_jsonl
 from agent_evolve_mcp.models import (
-    ConvergenceConfig,
     EvolutionControllerConfig,
     MetaEvolveConfig,
+    PlateauConfig,
+    RunBudgetConfig,
     SuccessRecord,
 )
 
@@ -17,23 +18,20 @@ def _controller(
     monkeypatch,
     *,
     max_total_tasks=100,
-    watch_tasks=0,
     perf_improvement_threshold=0.1,
     patience=1,
+    meta_enabled=True,
 ):
     monkeypatch.setenv("AGENT_EVOLVE_CONTROLLER_DIR", str(tmp_path / "controller"))
     config = EvolutionControllerConfig(
-        convergence=ConvergenceConfig(
-            enabled=True,
-            convergence_window=1,
-            perf_improvement_threshold=perf_improvement_threshold,
-            activity_threshold=0.0,
+        budget=RunBudgetConfig(max_total_tasks=max_total_tasks),
+        plateau=PlateauConfig(
+            window=1,
+            improvement_threshold=perf_improvement_threshold,
             patience=patience,
-            max_total_tasks=max_total_tasks,
         ),
         meta_evolve=MetaEvolveConfig(
-            enabled=True,
-            watch_tasks_before_guidance=watch_tasks,
+            enabled=meta_enabled,
             guidance_num_to_generate=3,
             guidance_max_uses=2,
             max_tried_guidance=10,
@@ -65,7 +63,6 @@ def test_plateau_requests_guidance_without_stop(tmp_path, monkeypatch):
     result = controller.check_convergence()
 
     assert result["action"] == "request_meta_guidance"
-    assert result["should_stop"] is False
     assert result["search_state"] == "watching"
     assert result["request_id"].startswith("mgr_")
 
@@ -80,54 +77,25 @@ def test_equal_best_counts_as_plateau_at_zero_threshold(tmp_path, monkeypatch):
     assert result["search_state"] == "watching"
 
 
-def test_zero_watch_delay_suppresses_first_layer_parameter_adjustment(tmp_path, monkeypatch):
-    controller = _controller(tmp_path, monkeypatch, perf_improvement_threshold=0.0)
-    _add_successes(controller, fitness=1.0)
-
-    controller.check_convergence()
-    signal = controller._selection_strategy_signal()
-
-    assert signal.reason == "watching_request_meta_guidance"
-    assert signal.tau_multiplier == 1.0
-    assert signal.p_migrate_multiplier == 1.0
-    assert signal.T_insp_multiplier == 1.0
-    assert signal.p_exploit_override is None
-
-
-def test_positive_watch_delay_keeps_first_layer_parameter_adjustment(tmp_path, monkeypatch):
+def test_meta_disabled_observes_plateau_without_requesting_guidance(tmp_path, monkeypatch):
     controller = _controller(
         tmp_path,
         monkeypatch,
-        watch_tasks=3,
-        perf_improvement_threshold=0.0,
-        patience=4,
-    )
-    _add_successes(controller, fitness=1.0)
-
-    result = controller.check_convergence()
-    signal = controller._selection_strategy_signal()
-
-    assert result["action"] == "continue"
-    assert signal.reason == "watching_boost_exploration"
-    assert signal.tau_multiplier == 1.5
-    assert signal.p_migrate_multiplier == 2.0
-    assert signal.T_insp_multiplier == 1.3
-
-
-def test_late_watching_observation_uses_plateau_count_for_guidance_delay(tmp_path, monkeypatch):
-    controller = _controller(
-        tmp_path,
-        monkeypatch,
-        watch_tasks=3,
         perf_improvement_threshold=0.0,
         patience=1,
+        meta_enabled=False,
     )
     _add_successes(controller, fitness=1.0, count=5)
 
     result = controller.check_convergence()
 
-    assert result["action"] == "request_meta_guidance"
+    assert result["action"] == "continue"
+    assert result["search_state"] == "watching"
+    assert result["meta_guidance"]["enabled"] is False
     assert result["diagnostics"]["plateau_count"] == 4
+    assert result["diagnostics"]["plateau_detected"] is True
+    assert "s2_diversity_change" not in result["diagnostics"]
+    assert "s3_activity" not in result["diagnostics"]
 
 
 def test_hard_budget_still_stops(tmp_path, monkeypatch):
@@ -137,7 +105,6 @@ def test_hard_budget_still_stops(tmp_path, monkeypatch):
     result = controller.check_convergence()
 
     assert result["action"] == "budget_exhausted"
-    assert result["should_stop"] is True
     assert result["search_state"] == "stopped"
 
 
@@ -284,8 +251,7 @@ def test_meta_guidance_request_includes_current_best_artifact_excerpt(tmp_path, 
         for item in request["generation_instructions"]
     )
     assert any(
-        "may read verifier/evaluator source" in item.lower()
-        for item in request["constraints"]
+        "may read verifier/evaluator source" in item.lower() for item in request["constraints"]
     )
 
 
@@ -482,7 +448,10 @@ def test_attempt_records_meta_guidance_and_report_summary(tmp_path, monkeypatch)
                     "description": "Change representation before applying the existing objective.",
                     "target_metric": "fitness",
                     "novelty_claim": "The current bests use the same representation.",
-                    "implementation_plan": ["Build alternate representation", "Convert output back"],
+                    "implementation_plan": [
+                        "Build alternate representation",
+                        "Convert output back",
+                    ],
                     "cautions": ["Keep output contract unchanged"],
                     "approach_type": "representation",
                     "max_uses": 1,

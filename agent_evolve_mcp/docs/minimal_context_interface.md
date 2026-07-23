@@ -8,7 +8,7 @@
 2. 长字段用 ref 指代，不传原文。
 3. Parent、inspirations、attempt、notes、meta-guidance 的状态都由 MCP 本地持久化。
 4. 主 agent 只处理调度和少量 LLM 生成任务；能交给 MCP 决定的状态流转都交给 MCP。
-5. Plateau 不会触发提前停止。`should_stop` 只作为兼容字段保留，只有硬预算或外部停止才为 `true`。
+5. Plateau 不会触发提前停止；只有 `action = "budget_exhausted"` 才表示停止补充新任务。
 
 ## 2. 公开 Tools
 
@@ -34,7 +34,6 @@ evolve_configure_run(run_id: str, max_total_tasks: int = 50, task_description: s
   "max_total_tasks": 50,
   "meta_evolve": {
     "enabled": true,
-    "watch_tasks_before_guidance": 0,
     "guidance_num_to_generate": 3,
     "guidance_max_uses": 2,
     "max_tried_guidance": 10
@@ -172,7 +171,6 @@ evolve_check_convergence(run_id: str)
 ```json
 {
   "action": "continue",
-  "should_stop": false,
   "search_state": "exploring",
   "plateau": false
 }
@@ -190,9 +188,8 @@ budget_exhausted      # 达到硬预算，停止提交新 task
 
 - Plateau / WATCHING 不会停止任务。
 - 收敛检测进入 WATCHING 后，MCP 直接返回 `request_meta_guidance`。
-- 默认 `watch_tasks_before_guidance = 0`，因此本次配置会跳过第一层参数调节。
-- 如果后续把 `watch_tasks_before_guidance` 改成大于 0，WATCHING 等待期间仍会增强 parent / inspiration 选择参数。
-- `should_stop` 只为兼容旧调用方保留，等价于 `action == "budget_exhausted"`。
+- WATCHING 不会改变 parent / inspiration 选择参数。
+- 关闭 meta-guidance 后仍会保留 plateau diagnostics，但不会创建 guidance request。
 
 ### `evolve_get_meta_guidance_request`
 

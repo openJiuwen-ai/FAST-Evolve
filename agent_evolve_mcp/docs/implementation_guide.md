@@ -1,6 +1,6 @@
 # Agent Evolve MCP 实现讲解
 
-> 版本提示：这是一份较早的实现讲解，仍保留不少历史流程细节。当前开发请以仓库根目录 `agent_evolve_mcp/README.md` 和本目录 `minimal_context_interface.md` 为准；尤其是 meta-evolve 之后，`evolve_check_convergence` 的主语义已经从单一 `should_stop` 改为 `action`。
+> 版本提示：这是一份较早的实现讲解。当前开发请以仓库根目录 `agent_evolve_mcp/README.md` 和本目录 `minimal_context_interface.md` 为准；`evolve_check_convergence` 的主语义是 `action`。
 
 > 本文解释当前 `agent_evolve_mcp` 目录下这版 Evolution Controller MCP 的代码结构、运行流程、配置方式和接入边界。它面向后续要实现 `agent_evolve_plugin` 主循环、或要把 MCP 接到 Claude Code / Codex / opencode 等第三方 agent 的同事。
 
@@ -52,10 +52,10 @@
 | `evolve_select_parent` | `run_id`, `task_id` | `parent_id`, `artifact_ref`, `fitness` |
 | `evolve_select_inspirations` | `run_id`, `task_id` | 额外 inspirations 的 id/ref/fitness，不重复返回 parent |
 | `evolve_record_attempt` | `run_id`, `task_id`, `verification_result_ref` | `entered_success_db`, `success_record_id` |
-| `evolve_check_convergence` | `run_id` | `should_stop` |
+| `evolve_check_convergence` | `run_id` | `action` |
 | `evolve_finalize_run` | `run_id`, 可选 `stop_reason` | `report_ref`, `summary_ref` |
 
-`progress`、`parent_id`、`inspiration_ids`、`artifact_ref`、完整 `verification_result`、`strategy_signal` 等字段不再由 agent 在公开接口之间传来传去。
+`progress`、`parent_id`、`inspiration_ids`、`artifact_ref`、完整 `verification_result` 等字段不再由 agent 在公开接口之间传来传去。
 
 MCP 会自己维护本地 task context cache：
 
@@ -343,25 +343,11 @@ WATCHING
 STOPPED
 ```
 
-这是 MCP 内部状态。下一版公开 `evolve_check_convergence` 不再返回这些字符串，只返回 `should_stop`：
+这是 MCP 内部状态。公开 `evolve_check_convergence` 通过 `action` 返回主循环需要执行的动作：
 
 ```text
-EXPLORING / WATCHING / STOPPED
+continue / request_meta_guidance / budget_exhausted
 ```
-
-#### `StrategySignal`
-
-收敛检测器给选择器的策略信号。
-
-`WATCHING` 默认仍可通过它调整选择器参数：
-
-```python
-tau_multiplier = 1.5
-p_migrate_multiplier = 2.0
-T_insp_multiplier = 1.3
-```
-
-但如果 `watch_tasks_before_guidance = 0`，controller 会跳过第一层参数调节，直接请求 meta-guidance。
 
 #### `ParentSelectionConfig`
 
@@ -394,21 +380,23 @@ T_start
 T_end
 ```
 
-#### `ConvergenceConfig`
+#### `RunBudgetConfig`
 
-收敛检测参数。
-
-字段：
+硬预算参数：
 
 ```python
-enabled
-convergence_window
-perf_improvement_threshold
-diversity_change_threshold
-activity_threshold
-patience
 max_total_tasks
 max_time_seconds
+```
+
+#### `PlateauConfig`
+
+fitness plateau 检测参数：
+
+```python
+window
+improvement_threshold
+patience
 ```
 
 #### `SuccessRecord`
@@ -529,14 +517,13 @@ inspiration:
   T_start: 1.5
   T_end: 0.5
 
-convergence:
-  enabled: true
-  convergence_window: 5
-  perf_improvement_threshold: 0.0
-  diversity_change_threshold: 0.05
-  activity_threshold: 0.9
-  patience: 4
+budget:
   max_time_seconds: 1800
+
+plateau:
+  window: 5
+  improvement_threshold: 0.0
+  patience: 4
 ```
 
 #### 当前注意点
@@ -906,33 +893,22 @@ P(record) ∝ exp(fitness / T)
 T = anneal(T_start, T_end, progress)
 ```
 
-如果收敛检测器处于 `WATCHING`，会通过 `StrategySignal` 增加：
-
-```python
-p_migrate
-T
-```
-
-这样更容易跳出局部路径。
-
 ### 4.11 `convergence_detector.py`
 
 职责：
 
 ```text
-实现 Solver 3：多维收敛检测。
+根据 running-best fitness 判断搜索是否进入持续 plateau。
 ```
 
 当前检测顺序：
 
-1. 先检查硬预算；
-2. 成功记录太少时不做软收敛；
-3. 计算 fitness 停滞；
-4. 计算多样性趋势；
-5. 计算当前谱系活跃度；
-6. 输出 `EXPLORING` / `WATCHING` / `STOPPED`。
+1. 成功记录太少时保持 `EXPLORING`；
+2. 计算 running-best fitness 的窗口改善率；
+3. 连续 plateau 达到 patience 时进入 `WATCHING`；
+4. fitness 恢复改善时回到 `EXPLORING`。
 
-#### 硬预算
+硬预算不属于 plateau 检测。`budget_guard.py` 独立检查：
 
 如果：
 
@@ -940,7 +916,7 @@ T
 total_submitted >= max_total_tasks
 ```
 
-立刻 STOPPED。
+立即返回 `budget_exhausted`，并把内部搜索状态标记为 `STOPPED`。
 
 默认：
 
@@ -961,14 +937,14 @@ max_time_seconds
 如果成功数少于：
 
 ```python
-min_success = max(convergence_window, 5)
+min_success = max(window, 5)
 ```
 
 则保持 `EXPLORING`。
 
 这是防止过早收敛。
 
-#### S1：fitness 停滞
+#### fitness plateau
 
 构造 running best fitness history：
 
@@ -985,7 +961,7 @@ improvement = (new_best - old_best) / abs(old_best)
 如果：
 
 ```text
-improvement <= perf_improvement_threshold
+improvement <= improvement_threshold
 ```
 
 则认为 plateau。
@@ -993,50 +969,12 @@ improvement <= perf_improvement_threshold
 默认：
 
 ```text
-perf_improvement_threshold = 0.0
+improvement_threshold = 0.0
 ```
 
-即默认不启用模糊边界：任意正的 best fitness 改善都算进展，等值 running best 会累计 S1 plateau。对算子性能这类 verifier 有波动的任务，可以显式设置为 `0.01`，表示窗口内小于等于 1% 改善算停滞。
+即默认不启用模糊边界：任意正的 best fitness 改善都算进展，等值 running best 会累计 plateau。对算子性能这类 verifier 有波动的任务，可以显式设置为 `0.01`，表示窗口内小于等于 1% 改善算停滞。
 
-#### S2：多样性趋势
-
-计算每个 prefix 的 lineage diversity。
-
-然后看窗口内变化：
-
-```text
-diversity_change = current_diversity - old_diversity
-```
-
-如果下降超过阈值：
-
-```text
-s2_trend = declining
-```
-
-当前 MVP 中，S2 主要用于 diagnostics，不直接决定停止。
-
-#### S3：谱系活跃度
-
-当前用多样性指数近似：
-
-```text
-s3_activity = current_diversity
-```
-
-如果：
-
-```text
-s3_activity >= activity_threshold
-```
-
-说明谱系探索相对充分。
-
-默认：
-
-```text
-activity_threshold = 0.8
-```
+当前 lineage diversity 仍会作为只读上下文写入 diagnostics，供 dashboard、run summary 和 meta-guidance 参考；它不参与状态转移，也不再计算历史趋势或活跃度阈值。
 
 #### 状态转移
 
@@ -1049,10 +987,7 @@ activity_threshold = 0.8
 如果成功数不足：
   EXPLORING
 
-如果 plateau 且 plateau_count >= patience 且 activity >= activity_threshold：
-  STOPPED
-
-如果 plateau：
+如果 plateau 且 plateau_count >= patience，且最新成功不是 new best：
   WATCHING
 
 否则：
@@ -1067,29 +1002,7 @@ patience = 4
 
 #### WATCHING 的作用
 
-当前默认 `watch_tasks_before_guidance = 0`，因此 WATCHING 不做第一层参数调节。
-
-本次配置下进入 `WATCHING` 后，MCP 会直接请求 meta-guidance。选择器收到的信号保持中性：
-
-```python
-StrategySignal(
-  tau_multiplier=1.0,
-  p_migrate_multiplier=1.0,
-  T_insp_multiplier=1.0,
-  reason="watching_request_meta_guidance"
-)
-```
-
-如果后续把 `watch_tasks_before_guidance` 改成大于 0，则等待 meta-guidance 的这段 WATCHING 期间会恢复第一层参数调节：
-
-```python
-StrategySignal(
-  tau_multiplier=1.5,
-  p_migrate_multiplier=2.0,
-  T_insp_multiplier=1.3,
-  reason="watching_boost_exploration"
-)
-```
+进入 `WATCHING` 后，如果 meta-guidance 已开启，MCP 立即返回 `request_meta_guidance`。如果该功能关闭，MCP 仍保留 plateau 状态和 diagnostics，但继续正常调度。WATCHING 不修改父代或灵感选择参数，也不会停止 run。
 
 ### 4.12 `controller.py`
 
@@ -1115,7 +1028,8 @@ AttemptLog(run_id)
 LineageTree()
 LineageAwareParentSelector(...)
 LineageBoltzmannInspirationSelector(...)
-MultiDimensionalConvergenceDetector(...)
+RunBudgetGuard(...)
+FitnessPlateauDetector(...)
 ```
 
 公开方法：
@@ -1353,7 +1267,7 @@ evolve_check_convergence(
 
 ```json
 {
-  "should_stop": false
+  "action": "continue"
 }
 ```
 
@@ -1361,17 +1275,17 @@ WATCHING 示例：
 
 ```json
 {
-  "should_stop": false
+  "action": "request_meta_guidance"
 }
 ```
 
-`WATCHING` 不返回给主 agent。MCP 会把内部状态写入 run state，并在 convergence check 中请求 meta-guidance。若 `watch_tasks_before_guidance > 0`，等待期间的 `evolve_select_parent` / `evolve_select_inspirations` 会应用 WATCHING 探索增强。
+`WATCHING` 不返回给主 agent。MCP 会把内部状态写入 run state，并在 convergence check 中直接请求 meta-guidance。这个状态不会改变 `evolve_select_parent` / `evolve_select_inspirations` 的参数。
 
 STOPPED 示例：
 
 ```json
 {
-  "should_stop": true
+  "action": "budget_exhausted"
 }
 ```
 
@@ -1547,7 +1461,7 @@ evolve_check_convergence(
 ```
 
 ```text
-should_stop = false
+action = "continue" 或 "request_meta_guidance"
 ```
 
 主 agent 继续补位。MCP 内部可能已经进入 WATCHING，但不会把该状态返回给主 agent；convergence check 会在需要时返回 `request_meta_guidance`。
@@ -1555,7 +1469,7 @@ should_stop = false
 如果：
 
 ```text
-should_stop = true
+action = "budget_exhausted"
 ```
 
 主 agent 停止提交新 task，但不立刻结束 run。它需要等待已经启动的 running tasks 全部完成并完成 `evolve_record_attempt`，然后再调用一次 `evolve_check_convergence(run_id)` 刷新最终 `run_state`。
@@ -1716,29 +1630,9 @@ export AGENT_EVOLVE_CONTROLLER_DIR=/path/to/.agent_evolve/controller
 .agent_evolve/controller
 ```
 
-### 8.3 建议配置：收敛检测开关
+### 8.3 Meta-guidance 开关
 
-默认启用收敛检测。如果希望临时关闭 MCP stop 判断，可以在启动 Claude Code/MCP 前设置：
-
-PowerShell：
-
-```powershell
-$env:AGENT_EVOLVE_CONVERGENCE_ENABLED = "false"
-```
-
-bash：
-
-```bash
-export AGENT_EVOLVE_CONVERGENCE_ENABLED=false
-```
-
-关闭后，`evolve_check_convergence` 会跳过 plateau 软收敛早停。只要没有触发硬预算，它会返回：
-
-```json
-{"should_stop": false}
-```
-
-这个开关不会覆盖硬预算。即使关闭收敛检测，只要达到 `max_total_tasks` 或 `max_time_seconds`，MCP 仍然会返回 `should_stop=true`。也就是说，关闭后主循环的自动退出条件只剩硬预算，而不会因为 plateau 收敛早停。
+唯一与 plateau 后续动作有关的开关是 `AGENT_EVOLVE_META_EVOLVE_ENABLED`。设为 `0` 后，系统仍计算 plateau 状态和 diagnostics，但不会创建 meta-guidance request。父代选择、灵感选择和硬预算判断不受影响。
 
 ### 8.4 内部支持但 MCP 暂未公开的配置
 
@@ -1762,14 +1656,13 @@ inspiration:
   T_start: 1.5
   T_end: 0.5
 
-convergence:
-  enabled: true
-  convergence_window: 5
-  perf_improvement_threshold: 0.0
-  diversity_change_threshold: 0.05
-  activity_threshold: 0.9
-  patience: 4
+budget:
   max_time_seconds: 1800
+
+plateau:
+  window: 5
+  improvement_threshold: 0.0
+  patience: 4
 ```
 
 但当前 `public_tools.py` 没有传 `config_path`。
@@ -1931,9 +1824,9 @@ Boltzmann 采样初始温度。
 
 Boltzmann 采样后期温度。
 
-### 9.3 收敛检测参数
+### 9.3 Plateau 检测与硬预算参数
 
-#### `convergence_window`
+#### `window`
 
 默认：
 
@@ -1941,9 +1834,9 @@ Boltzmann 采样后期温度。
 5
 ```
 
-计算 fitness 改善和 diversity 变化的窗口大小。
+计算 running-best fitness 改善的窗口大小。
 
-#### `perf_improvement_threshold`
+#### `improvement_threshold`
 
 默认：
 
@@ -1951,39 +1844,17 @@ Boltzmann 采样后期温度。
 0.0
 ```
 
-默认不启用模糊边界：任意正的 best fitness 改善都算进展，等值 running best 会累计 S1 plateau。对算子性能这类 verifier 有波动的任务，可以显式设置为 `0.01`，表示窗口内小于等于 1% 改善算停滞。
-
-#### `diversity_change_threshold`
-
-默认：
-
-```text
-0.05
-```
-
-多样性变化超过 0.05 才认为明显上升或下降。
-
-当前只用于 diagnostics。
-
-#### `activity_threshold`
-
-默认：
-
-```text
-0.8
-```
-
-谱系多样性达到 0.8，认为探索相对充分。
+默认不启用模糊边界：任意正的 best fitness 改善都算进展，等值 running best 会累计 plateau。对算子性能这类 verifier 有波动的任务，可以显式设置为 `0.01`，表示窗口内小于等于 1% 改善算停滞。
 
 #### `patience`
 
 默认：
 
 ```text
-3
+4
 ```
 
-连续多少个 plateau window 后才允许 STOPPED。
+连续多少次 plateau 判断后进入 WATCHING。
 
 #### `max_total_tasks`
 
@@ -2026,8 +1897,8 @@ None
    4.6 evolve_record_attempt
 5. 主 agent:
    5.1 evolve_check_convergence
-   5.2 should_stop=false 则补位
-   5.3 should_stop=true 则停止提交新 task
+   5.2 action != "budget_exhausted" 则补位
+   5.3 action == "budget_exhausted" 则停止提交新 task
 6. 汇总 success_db.json、attempts.jsonl、verifier logs、artifacts
 ```
 
@@ -2096,7 +1967,8 @@ max_total_tasks: int
 max_time_seconds: float | null
 parent_selection: object
 inspiration: object
-convergence: object
+budget: object
+plateau: object
 ```
 
 ### 11.2 没有 run-level 元数据
@@ -2127,7 +1999,7 @@ evolve_get_diagnostics
 
 ### 11.4 没有 heartbeat
 
-当前默认 WATCHING 直接请求 meta-guidance；如果 `watch_tasks_before_guidance > 0`，等待期间仍会影响选择参数。
+WATCHING 会直接请求 meta-guidance，但不会影响父代或灵感选择参数。
 
 heartbeat / reflect / consolidate / pivot 应该由主循环或 skill 实现。
 

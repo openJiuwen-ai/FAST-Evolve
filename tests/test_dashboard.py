@@ -9,6 +9,7 @@ from urllib.parse import quote
 import pytest
 
 import agent_evolve_mcp.dashboard as dashboard_module
+import agent_evolve_mcp.public_tools as public_tools_module
 from agent_evolve_mcp.dashboard import DashboardServer, build_snapshot, list_runs
 
 RUN_ID = "signal_processing_20260715010101"
@@ -40,6 +41,7 @@ def _seed_run(tmp_path: Path, monkeypatch):
             "url": "http://127.0.0.1:4000",
             "max_total_tasks": 50,
             "task_description": "Improve the benchmark candidate.",
+            "features": {"meta_guidance": True, "notes": False},
             "started_at": "2026-07-15T01:00:00+00:00",
         },
     )
@@ -206,6 +208,7 @@ def test_build_snapshot_aggregates_live_run_state(tmp_path, monkeypatch):
     assert snapshot["agents"][0]["activity"] == "Applying meta-guidance"
     assert snapshot["notes"][0]["note_id"] == "note_positive_1"
     assert snapshot["guidance"][0]["guidance_id"] == "mg_0001"
+    assert snapshot["features"] == {"meta_guidance": True, "notes": False}
     assert any(item["kind"] == "agent" for item in snapshot["activity"])
     assert [node["id"] for node in snapshot["lineage"]["nodes"]] == [
         "task_001",
@@ -221,6 +224,40 @@ def test_build_snapshot_aggregates_live_run_state(tmp_path, monkeypatch):
         {"source": "task_001", "target": "task_003", "kind": "inspiration"}
     ]
     assert snapshot["lineage"]["nodes"][-1]["status"] == "running"
+
+
+def test_configure_run_passes_current_feature_flags_to_dashboard(tmp_path, monkeypatch):
+    run_id = "feature_flags_20260722010101"
+    captured = {}
+
+    class FakeDashboardServer:
+        url = "http://127.0.0.1:4567"
+        port = 4567
+
+    def fake_start_dashboard(*args, **kwargs):
+        captured["run_id"] = args[0]
+        captured["features"] = kwargs["feature_flags"]
+        return FakeDashboardServer()
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv(
+        "AGENT_EVOLVE_CONTROLLER_DIR", str(tmp_path / ".agent_evolve" / "controller")
+    )
+    monkeypatch.setenv("AGENT_EVOLVE_META_EVOLVE_ENABLED", "0")
+    monkeypatch.setenv("AGENT_EVOLVE_NOTES_ENABLED", "0")
+    monkeypatch.setattr(public_tools_module, "start_dashboard", fake_start_dashboard)
+    public_tools_module._controllers.pop(run_id, None)
+
+    try:
+        result = public_tools_module.evolve_configure_run(run_id, max_total_tasks=20)
+    finally:
+        public_tools_module._controllers.pop(run_id, None)
+
+    assert result["meta_evolve"]["enabled"] is False
+    assert captured == {
+        "run_id": run_id,
+        "features": {"meta_guidance": False, "notes": False},
+    }
 
 
 def test_list_runs_returns_flat_history_for_named_and_legacy_ids(tmp_path, monkeypatch):
@@ -320,16 +357,31 @@ def test_dashboard_includes_flat_run_history_selector():
     assert ".run-history-item.current" in stylesheet
 
 
+def test_dashboard_shows_feature_status_badges():
+    static_root = Path(__file__).parents[1] / "agent_evolve_mcp" / "dashboard_static"
+    html = (static_root / "index.html").read_text(encoding="utf-8")
+    javascript = (static_root / "app.js").read_text(encoding="utf-8")
+    stylesheet = (static_root / "styles.css").read_text(encoding="utf-8")
+
+    assert 'id="guidance-status"' in html
+    assert 'id="notes-status"' in html
+    assert "function renderFeatureStatus" in javascript
+    assert "features.meta_guidance" in javascript
+    assert "features.notes" in javascript
+    assert ".feature-status.enabled" in stylesheet
+    assert ".feature-status.disabled" in stylesheet
+
+
 def test_dashboard_uses_evotrias_branding():
     static_root = Path(__file__).parents[1] / "agent_evolve_mcp" / "dashboard_static"
     html = (static_root / "index.html").read_text(encoding="utf-8")
     stylesheet = (static_root / "styles.css").read_text(encoding="utf-8")
 
     assert "<strong>EvoTrias</strong>" in html
-    assert 'src="/assets/evotrias-logo-v2.png"' in html
+    assert 'src="/assets/evotrias-logo-v6.png"' in html
     assert "Run Observatory" not in html
     assert (static_root / "evotrias-logo.png").is_file()
-    assert (static_root / "evotrias-logo-v2.png").is_file()
+    assert (static_root / "evotrias-logo-v6.png").is_file()
     assert ".brand-logo" in stylesheet
 
 

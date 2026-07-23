@@ -79,8 +79,10 @@
     agentsList: $("agents-list"),
     activityList: $("activity-list"),
     guidanceCount: $("guidance-count"),
+    guidanceStatus: $("guidance-status"),
     guidanceList: $("guidance-list"),
     noteCounts: $("note-counts"),
+    notesStatus: $("notes-status"),
     notesList: $("notes-list"),
     footerTime: $("footer-time"),
     agentTemplate: $("agent-template"),
@@ -140,14 +142,17 @@
   }
 
   function render(snapshot) {
+    const features = snapshot.features || {};
     renderRun(snapshot);
     renderChart(snapshot.progress || []);
     renderLineage(snapshot.lineage || {});
     renderBest(snapshot.best);
     renderAgents(snapshot.agents || []);
     renderActivity(snapshot.activity || []);
-    renderGuidance(snapshot.guidance || []);
-    renderNotes(snapshot.notes || []);
+    renderFeatureStatus(elements.guidanceStatus, features.meta_guidance);
+    renderFeatureStatus(elements.notesStatus, features.notes);
+    renderGuidance(snapshot.guidance || [], features.meta_guidance);
+    renderNotes(snapshot.notes || [], features.notes);
   }
 
   function renderRun(snapshot) {
@@ -356,10 +361,13 @@
     }).join("");
   }
 
-  function renderGuidance(guidance) {
+  function renderGuidance(guidance, enabled) {
     elements.guidanceCount.textContent = guidance.length;
     if (!guidance.length) {
-      elements.guidanceList.innerHTML = '<div class="empty-panel">No meta-guidance generated yet. It will appear when the search needs a strategic intervention.</div>';
+      const message = enabled === false
+        ? "Meta-guidance is disabled for this run."
+        : "No meta-guidance generated yet. It will appear when the search needs a strategic intervention.";
+      elements.guidanceList.innerHTML = `<div class="empty-panel">${message}</div>`;
       return;
     }
     const visibleGuidance = guidance.slice(0, 18);
@@ -401,7 +409,7 @@
     }).join("");
   }
 
-  function renderNotes(notes) {
+  function renderNotes(notes, enabled) {
     const counts = { positive: 0, negative: 0, error: 0 };
     notes.forEach((note) => { if (counts[note.note_type] != null) counts[note.note_type] += 1; });
     elements.noteCounts.innerHTML = Object.entries(counts)
@@ -409,7 +417,10 @@
       .map(([type, count]) => `<span>${type[0].toUpperCase()} ${count}</span>`)
       .join("");
     if (!notes.length) {
-      elements.notesList.innerHTML = '<div class="empty-panel">No notes recorded yet. Distilled successes, regressions, and repairs will appear here.</div>';
+      const message = enabled === false
+        ? "Run-local Notes are disabled for this run."
+        : "No notes recorded yet. Distilled successes, regressions, and repairs will appear here.";
+      elements.notesList.innerHTML = `<div class="empty-panel">${message}</div>`;
       return;
     }
     const visibleNotes = notes.slice(0, 22);
@@ -1135,6 +1146,15 @@
 
   function humanizeState(value) {
     return prettyKey(value || "initializing").replace(/^./, (char) => char.toUpperCase());
+  }
+
+  function renderFeatureStatus(element, enabled) {
+    const known = typeof enabled === "boolean";
+    element.className = `feature-status ${known ? (enabled ? "enabled" : "disabled") : ""}`;
+    element.querySelector("span").textContent = known ? (enabled ? "Enabled" : "Disabled") : "Unknown";
+    element.title = known
+      ? `Feature is ${enabled ? "enabled" : "disabled"} for this run`
+      : "Feature status was not recorded for this run";
   }
 
   function statusHeadline(runState, completed) {

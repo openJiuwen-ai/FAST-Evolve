@@ -27,7 +27,6 @@ from agent_evolve_mcp.storage import (
 )
 from agent_evolve_mcp.success_db import SuccessDB
 
-
 REPORT_FILENAME = "run_summary.md"
 SUMMARY_FILENAME = "run_summary.json"
 
@@ -81,7 +80,9 @@ def _build_summary(
 ) -> Dict[str, Any]:
     best = max(records, key=lambda record: record.fitness) if records else None
     top_records = sorted(records, key=lambda record: record.fitness, reverse=True)[:5]
-    failed_attempts = [attempt for attempt in attempts if not bool(attempt.get("entered_success_db"))]
+    failed_attempts = [
+        attempt for attempt in attempts if not bool(attempt.get("entered_success_db"))
+    ]
     success_count = len(records)
     attempt_count = len(attempts)
 
@@ -110,7 +111,10 @@ def _build_summary(
         "fitness_progression": _fitness_progression(records),
         "lineage_statistics": _lineage_statistics(lineage_tree),
         "lineage_mermaid": _lineage_mermaid(records, lineage_tree, best.id if best else None),
-        "meta_evolve": _meta_evolve_summary(run_id),
+        "meta_evolve": _meta_evolve_summary(
+            run_id,
+            enabled=(run_state.diagnostics.get("meta_guidance") or {}).get("enabled"),
+        ),
         "attempts": [_attempt_summary(attempt) for attempt in attempts],
         "deterministic_observations": _deterministic_observations(records, lineage_tree, best),
     }
@@ -178,7 +182,7 @@ def _lineage_statistics(lineage_tree: LineageTree) -> List[Dict[str, Any]]:
     return stats
 
 
-def _meta_evolve_summary(run_id: str) -> Dict[str, Any]:
+def _meta_evolve_summary(run_id: str, *, enabled: Optional[bool] = None) -> Dict[str, Any]:
     state = read_json(
         meta_guidance_state_path(run_id),
         {
@@ -194,6 +198,7 @@ def _meta_evolve_summary(run_id: str) -> Dict[str, Any]:
     tried = list(state.get("tried_guidance") or [])
     assignments = dict(state.get("task_assignments") or {})
     return {
+        "enabled": enabled,
         "watching": state.get("watching"),
         "has_pending_request": state.get("pending_request") is not None,
         "active_guidance_count": len(active),
@@ -257,9 +262,11 @@ def _lineage_mermaid(
     best_id: Optional[str],
 ) -> str:
     if not records:
-        return "flowchart TB\n    empty[\"No successful records\"]\n"
+        return 'flowchart TB\n    empty["No successful records"]\n'
 
-    sorted_records = sorted(records, key=lambda record: (record.generation, record.created_at, record.id))
+    sorted_records = sorted(
+        records, key=lambda record: (record.generation, record.created_at, record.id)
+    )
     record_ids = {record.id for record in sorted_records}
     fitness_bucket = _fitness_buckets(sorted_records)
 
@@ -283,7 +290,7 @@ def _lineage_mermaid(
                 if stats is not None:
                     label_parts.append(f"lineage size: {stats.size}")
             label = "<br/>".join(_escape_mermaid_label(part) for part in label_parts)
-            lines.append(f"        {node_id}[\"{label}\"]")
+            lines.append(f'        {node_id}["{label}"]')
         lines.append("    end")
         lines.append("")
 
@@ -346,7 +353,7 @@ def _render_markdown(summary: Dict[str, Any]) -> str:
         f"| Best Task | {overview['best_task_id'] or ''} |",
         f"| Best Artifact | `{overview['best_artifact_ref'] or ''}` |",
         "",
-        "## Stop Reason Details",
+        "## Run Control Diagnostics",
         "",
     ]
     lines.extend(_diagnostics_table(summary["diagnostics"], summary["stop_reason"]))
@@ -384,23 +391,16 @@ def _render_markdown(summary: Dict[str, Any]) -> str:
 
 def _diagnostics_table(diagnostics: Dict[str, Any], stop_reason: str) -> List[str]:
     if not diagnostics:
-        return ["No convergence diagnostics were recorded."]
+        return ["No run-control diagnostics were recorded."]
     preferred = [
         "state",
         "stop_reason",
-        "convergence_enabled",
-        "convergence_disabled_reason",
         "plateau_count",
         "patience",
         "window",
-        "s1_fitness_improvement",
-        "s1_fitness_threshold",
-        "s1_plateau",
-        "s2_diversity_change",
-        "s2_diversity_threshold",
-        "s2_trend",
-        "s3_activity",
-        "s3_activity_threshold",
+        "fitness_improvement",
+        "fitness_improvement_threshold",
+        "plateau_detected",
         "current_best_fitness",
         "current_diversity",
         "total_success_tracked",
@@ -414,39 +414,14 @@ def _diagnostics_table(diagnostics: Dict[str, Any], stop_reason: str) -> List[st
             emitted.add(key)
     for key in sorted(set(diagnostics) - emitted):
         lines.append(f"| {key} | {_format_value(diagnostics[key])} |")
-    explanation = _convergence_explanation(diagnostics, stop_reason)
-    if explanation:
-        lines.extend(["", explanation])
     return lines
 
 
-def _convergence_explanation(diagnostics: Dict[str, Any], stop_reason: str) -> str:
-    """Return a concise deterministic explanation for convergence stops."""
-    diagnostic_reason = str(diagnostics.get("stop_reason") or "")
-    if stop_reason != "converged" and diagnostic_reason != "converged":
-        return ""
-
-    plateau_count = diagnostics.get("plateau_count")
-    patience = diagnostics.get("patience")
-    improvement = diagnostics.get("s1_fitness_improvement")
-    improvement_threshold = diagnostics.get("s1_fitness_threshold")
-    activity = diagnostics.get("s3_activity")
-    activity_threshold = diagnostics.get("s3_activity_threshold")
-
-    return (
-        "**Convergence explanation:** The run stopped because the convergence "
-        f"condition was satisfied: S1 fitness improvement was {_format_optional_float(improvement)}, "
-        f"which is below the plateau threshold {_format_optional_float(improvement_threshold)}; "
-        f"the plateau count was {_format_value(plateau_count)} against patience "
-        f"{_format_value(patience)}; and S3 activity was {_format_optional_float(activity)}, "
-        f"which is at or above the activity threshold {_format_optional_float(activity_threshold)}. "
-        "Together these signals indicate that recent successful attempts were no longer "
-        "improving the best fitness enough while the search activity condition remained active."
-    )
-
-
 def _top_results_table(records: List[Dict[str, Any]]) -> List[str]:
-    lines = ["| Rank | Task | Fitness | Generation | Parent | Artifact |", "|---:|---|---:|---:|---|---|"]
+    lines = [
+        "| Rank | Task | Fitness | Generation | Parent | Artifact |",
+        "|---:|---|---:|---:|---|---|",
+    ]
     if not records:
         lines.append("| - | - | - | - | - | - |")
         return lines
@@ -492,6 +467,7 @@ def _meta_evolve_table(meta: Dict[str, Any]) -> List[str]:
     lines = [
         "| Field | Value |",
         "|---|---|",
+        f"| enabled | {meta.get('enabled')} |",
         f"| has_pending_request | {meta.get('has_pending_request')} |",
         f"| active_guidance_count | {meta.get('active_guidance_count')} |",
         f"| tried_guidance_count | {meta.get('tried_guidance_count')} |",
@@ -500,7 +476,9 @@ def _meta_evolve_table(meta: Dict[str, Any]) -> List[str]:
         f"| new_best_from_guidance | {meta.get('new_best_from_guidance')} |",
     ]
     guidance = list(meta.get("guidance") or [])
-    lines.extend(["", "| Guidance | Uses | Status | Outcome | Anchor Parent |", "|---|---:|---|---|---|"])
+    lines.extend(
+        ["", "| Guidance | Uses | Status | Outcome | Anchor Parent |", "|---|---:|---|---|---|"]
+    )
     if not guidance:
         lines.append("| - | - | - | - | - |")
         return lines

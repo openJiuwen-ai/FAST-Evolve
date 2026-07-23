@@ -13,7 +13,7 @@ import random
 from typing import List, Optional, Set
 
 from agent_evolve_mcp.lineage_tree import LineageTree
-from agent_evolve_mcp.models import InspirationSelectionConfig, StrategySignal, SuccessRecord
+from agent_evolve_mcp.models import InspirationSelectionConfig, SuccessRecord
 from agent_evolve_mcp.success_db import SuccessDB
 
 
@@ -34,7 +34,6 @@ class LineageBoltzmannInspirationSelector:
         db: SuccessDB,
         progress: float,
         sample_num: Optional[int] = None,
-        signal: Optional[StrategySignal] = None,
     ) -> List[dict]:
         """Return inspiration dictionaries, always including the parent first."""
         parent_inspiration = parent.to_inspiration()
@@ -48,9 +47,6 @@ class LineageBoltzmannInspirationSelector:
 
         T = self._anneal(self.T_start, self.T_end, progress)
         p_migrate = self.p_migrate
-        if signal:
-            p_migrate = min(p_migrate * signal.p_migrate_multiplier, 0.8)
-            T *= signal.T_insp_multiplier
 
         # Local pool preserves lineage direction; foreign elites implement
         # controlled migration across branches.
@@ -154,16 +150,13 @@ class LineageBoltzmannInspirationSelector:
         max_fitness = max(fitnesses)
         fitness_range = max_fitness - min_fitness
         normalized_fitnesses = [
-            (fitness - min_fitness) / fitness_range
-            if fitness_range > 1e-9
-            else 0.0
+            (fitness - min_fitness) / fitness_range if fitness_range > 1e-9 else 0.0
             for fitness in fitnesses
         ]
         max_normalized_fitness = max(normalized_fitnesses)
         T = max(T, 1e-9)
         exp_values = [
-            math.exp((fitness - max_normalized_fitness) / T)
-            for fitness in normalized_fitnesses
+            math.exp((fitness - max_normalized_fitness) / T) for fitness in normalized_fitnesses
         ]
         total = sum(exp_values)
         if total < 1e-15:
