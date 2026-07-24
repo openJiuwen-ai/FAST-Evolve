@@ -109,7 +109,7 @@ def evolve_get_scheduler_state(run_id: str) -> Dict[str, Any]:
 
 @mcp.tool(run_in_thread=False)
 def evolve_select_parent(run_id: str, task_id: str) -> Dict[str, Any]:
-    """Select a parent for a task and return only its id/ref.
+    """Select a parent and return its id/ref, fitness, and evaluator metrics.
 
     The controller stores the parent choice in local task context so later tool
     calls do not need the agent to repeat ``parent_id``.
@@ -119,7 +119,7 @@ def evolve_select_parent(run_id: str, task_id: str) -> Dict[str, Any]:
 
 @mcp.tool(run_in_thread=False)
 def evolve_select_inspirations(run_id: str, task_id: str) -> Dict[str, Any]:
-    """Select extra inspiration refs for a task.
+    """Select extra inspiration refs with fitness and evaluator metrics.
 
     The parent is not repeated in this response.  The controller reads the
     task's cached parent choice from local task context.

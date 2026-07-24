@@ -1,11 +1,12 @@
+import argparse
+import hashlib
 import importlib.util
-import traceback
+import io
 import json
 import os
 import sys
-import argparse
-import io
 import time
+import traceback
 from contextlib import redirect_stdout
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -20,6 +21,62 @@ import networkx as nx
 
 
 BENCHMARK_DIR = Path(__file__).resolve().parents[1]
+
+
+def _simulation_metrics(simulator, total_cost, max_transfer_time):
+    """Return diagnostic cost and topology metrics without changing scoring."""
+    egress_cost = 0.0
+    unique_edge_cost = 0.0
+    partition_edge_count = 0
+    topology_edges = []
+
+    for source, destination, edge_data in simulator.g.edges(data=True):
+        partitions = sorted(str(partition) for partition in edge_data["partitions"])
+        edge_cost = float(edge_data["cost"])
+        partition_count = len(partitions)
+        egress_cost += partition_count * simulator.partition_data_vol * edge_cost
+        unique_edge_cost += edge_cost
+        partition_edge_count += partition_count
+        topology_edges.append(
+            {
+                "source": str(source),
+                "destination": str(destination),
+                "partitions": partitions,
+            }
+        )
+
+    topology_edges.sort(
+        key=lambda edge: (edge["source"], edge["destination"], edge["partitions"])
+    )
+    topology_hash = hashlib.sha256(
+        json.dumps(topology_edges, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
+    instance_cost = float(total_cost) - egress_cost
+    if abs(instance_cost) < 1e-12:
+        instance_cost = 0.0
+
+    return {
+        "total_cost": float(total_cost),
+        "egress_cost": egress_cost,
+        "instance_cost": instance_cost,
+        "max_transfer_time": float(max_transfer_time),
+        "node_count": simulator.g.number_of_nodes(),
+        "edge_count": simulator.g.number_of_edges(),
+        "partition_edge_count": partition_edge_count,
+        "unique_edge_cost": unique_edge_cost,
+        "topology_hash": topology_hash,
+    }
+
+
+def _combined_topology_hash(per_config):
+    """Return one stable fingerprint for all configuration topologies."""
+    topology_hashes = {
+        config_name: metrics["topology_hash"]
+        for config_name, metrics in sorted(per_config.items())
+    }
+    return hashlib.sha256(
+        json.dumps(topology_hashes, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    ).hexdigest()
 
 
 def validate_broadcast_topology(bc_t, source_node, terminal_nodes, num_partitions, G):
@@ -172,6 +229,9 @@ def evaluate(program_path):
         
         num_vms = 2
         total_cost = 0.0
+        total_egress_cost = 0.0
+        total_instance_cost = 0.0
+        per_config = {}
         successful_configs = 0
         failed_configs = 0
         
@@ -244,10 +304,19 @@ def evaluate(program_path):
                     # The legacy simulator prints every generated path edge;
                     # keep that diagnostic out of the task-executor context.
                     with redirect_stdout(io.StringIO()):
-                        _, cost = simulator.evaluate_path(str(outf), config)
+                        max_transfer_time, cost = simulator.evaluate_path(str(outf), config)
+
+                    config_metrics = _simulation_metrics(
+                        simulator,
+                        total_cost=cost,
+                        max_transfer_time=max_transfer_time,
+                    )
 
                     # Accumulate results.
                     total_cost += cost
+                    total_egress_cost += config_metrics["egress_cost"]
+                    total_instance_cost += config_metrics["instance_cost"]
+                    per_config[config_name] = config_metrics
                     successful_configs += 1
 
                     print(f"Config {config_name}: cost={cost:.2f}")
@@ -287,7 +356,11 @@ def evaluate(program_path):
             "successful_configs": successful_configs,
             "failed_configs": failed_configs,
             "cost_score": cost_score,
-            "success_rate": success_rate
+            "success_rate": success_rate,
+            "egress_cost": total_egress_cost,
+            "instance_cost": total_instance_cost,
+            "per_config": per_config,
+            "topology_hash": _combined_topology_hash(per_config),
         }
 
     except Exception as e:
@@ -308,7 +381,8 @@ def format_result(result, artifact_ref):
     metric_keys = [
         "validity", "eval_time", "combined_score", "runs_successfully",
         "total_cost", "avg_cost", "successful_configs", "failed_configs",
-        "cost_score", "success_rate",
+        "cost_score", "success_rate", "egress_cost", "instance_cost",
+        "per_config", "topology_hash",
     ]
     metrics = {key: result[key] for key in metric_keys if key in result and key != "combined_score"}
     profile = {key: result[key] for key in ("validity", "eval_time") if key in result}

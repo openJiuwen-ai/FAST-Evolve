@@ -22,7 +22,7 @@ evolve_finalize_run(run_id: str, stop_reason: str = "")
 
 Public responses are intentionally compact:
 
-- parent/inspiration calls return ids, `artifact_ref`, and compact `fitness`
+- parent/inspiration calls return ids, `artifact_ref`, compact `fitness`, and evaluator `metrics` for diagnostic comparison
 - scheduler calls persist task transitions and return only active state or a compact acknowledgement, avoiding full `scheduler_state.json` diffs in the host terminal
 - attempt recording returns `entered_success_db` and `success_record_id`
 - convergence returns `action`: `continue`, `request_meta_guidance`, or `budget_exhausted`

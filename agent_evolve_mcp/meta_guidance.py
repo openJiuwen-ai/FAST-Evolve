@@ -677,6 +677,7 @@ def _coerce_float(value: Any) -> Optional[float]:
 def _generation_instructions() -> List[str]:
     return [
         "Inspect current_best.artifact_excerpt when present; if it is empty, use current_best.artifact_ref as the candidate implementation path.",
+        "Inspect current_best.metrics and profile alongside fitness. Use metric components and scenario breakdowns as diagnostic evidence about where candidates differ or stagnate, without treating them as independent objectives unless the benchmark defines them that way.",
         "You may inspect verifier/evaluator source during meta-guidance generation, matching AdaEvolve's paradigm-generation setup. Use it only to understand scoring logic, constraints, and failure modes.",
         "Analyze the current best critically: identify what works, what likely traps the search, and whether the next guidance should refine, depart from, or replace that route.",
         "Use notes_summary and guidance_history as evidence. Do not repeat guidance whose prior outcome_summary shows no improvement unless the failure condition is materially changed.",

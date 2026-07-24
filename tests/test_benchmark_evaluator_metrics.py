@@ -1,5 +1,6 @@
 from importlib.util import module_from_spec, spec_from_file_location
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -55,3 +56,67 @@ def test_format_result_preserves_domain_metrics_and_lightweight_profile(skill_na
     }
     assert formatted["profile"] == {"validity": 1.0, "eval_time": 0.25}
     assert formatted["misc"] == {"run_id": "run_test"}
+
+
+def test_cloudcast_format_result_preserves_diagnostic_metrics():
+    evaluator = _load_evaluator("cloudcast")
+    domain_metrics = {
+        "total_cost": 10.5,
+        "egress_cost": 10.0,
+        "instance_cost": 0.5,
+        "per_config": {"example": {"total_cost": 10.5}},
+        "topology_hash": "abc123",
+    }
+
+    formatted = evaluator.format_result(
+        {
+            "combined_score": 0.5,
+            "validity": 1.0,
+            "eval_time": 0.25,
+            **domain_metrics,
+        },
+        "solution.py",
+    )
+
+    assert formatted["fitness"] == 0.5
+    assert formatted["metrics"] == {
+        "validity": 1.0,
+        "eval_time": 0.25,
+        **domain_metrics,
+    }
+    assert formatted["profile"] == {"validity": 1.0, "eval_time": 0.25}
+
+
+def test_cloudcast_simulation_metrics_are_deterministic_and_decomposed():
+    evaluator = _load_evaluator("cloudcast")
+    graph = evaluator.nx.DiGraph()
+    graph.add_edge("b", "c", cost=0.2, partitions={"1", "0"})
+    graph.add_edge("a", "b", cost=0.1, partitions={"0", "1", "2"})
+    simulator = SimpleNamespace(g=graph, partition_data_vol=10.0)
+
+    metrics = evaluator._simulation_metrics(
+        simulator,
+        total_cost=7.5,
+        max_transfer_time=3.25,
+    )
+
+    assert metrics["egress_cost"] == pytest.approx(7.0)
+    assert metrics["instance_cost"] == pytest.approx(0.5)
+    assert metrics["unique_edge_cost"] == pytest.approx(0.3)
+    assert metrics["node_count"] == 3
+    assert metrics["edge_count"] == 2
+    assert metrics["partition_edge_count"] == 5
+    assert metrics["max_transfer_time"] == pytest.approx(3.25)
+    assert len(metrics["topology_hash"]) == 64
+
+    reversed_graph = evaluator.nx.DiGraph()
+    reversed_graph.add_edge("a", "b", cost=0.1, partitions={"2", "1", "0"})
+    reversed_graph.add_edge("b", "c", cost=0.2, partitions={"0", "1"})
+    reversed_simulator = SimpleNamespace(g=reversed_graph, partition_data_vol=10.0)
+    reversed_metrics = evaluator._simulation_metrics(
+        reversed_simulator,
+        total_cost=7.5,
+        max_transfer_time=3.25,
+    )
+
+    assert reversed_metrics["topology_hash"] == metrics["topology_hash"]

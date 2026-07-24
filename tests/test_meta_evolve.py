@@ -170,6 +170,52 @@ def test_commit_guidance_uses_canonical_best_anchor(tmp_path, monkeypatch):
     assert parent["artifact_ref"] == "artifact_0.py"
 
 
+def test_parent_and_inspirations_expose_persisted_metrics(tmp_path, monkeypatch):
+    controller = _controller(tmp_path, monkeypatch)
+    controller.db.add(
+        SuccessRecord(
+            id="parent",
+            run_id=controller.run_id,
+            fitness=2.0,
+            artifact_ref="parent.py",
+            metrics={"total_cost": 10.0, "scenario": {"a": 4.0}},
+            created_at="2026-01-01T00:00:00+00:00",
+        )
+    )
+    controller.db.add(
+        SuccessRecord(
+            id="inspiration",
+            run_id=controller.run_id,
+            fitness=1.0,
+            parent_id="parent",
+            artifact_ref="inspiration.py",
+            metrics={"total_cost": 12.0},
+            created_at="2026-01-01T00:00:01+00:00",
+        )
+    )
+    controller._load_state()
+
+    monkeypatch.setattr(
+        controller.parent_selector,
+        "select",
+        lambda db, progress: db.get("parent"),
+    )
+    monkeypatch.setattr(
+        controller.inspiration_selector,
+        "select",
+        lambda parent, db, progress: [
+            {**parent.to_inspiration(), "is_parent": True},
+            {**db.get("inspiration").to_inspiration(), "is_parent": False},
+        ],
+    )
+
+    parent = controller.select_parent("task_metrics")
+    inspirations = controller.select_inspirations("task_metrics")
+
+    assert parent["metrics"] == {"total_cost": 10.0, "scenario": {"a": 4.0}}
+    assert inspirations["inspirations"][0]["metrics"] == {"total_cost": 12.0}
+
+
 def test_commit_guidance_accepts_json_string_and_rejects_bad_max_uses(tmp_path, monkeypatch):
     controller = _controller(tmp_path, monkeypatch)
     _add_successes(controller, fitness=1.0)
@@ -246,6 +292,7 @@ def test_meta_guidance_request_includes_current_best_artifact_excerpt(tmp_path, 
     assert "current-best-route" in request["current_best"]["artifact_excerpt"]
     assert request["current_best"]["artifact_excerpt_truncated"] is False
     assert any("critically" in item.lower() for item in request["generation_instructions"])
+    assert any("current_best.metrics" in item for item in request["generation_instructions"])
     assert any(
         "verifier/evaluator source" in item and "may inspect" in item
         for item in request["generation_instructions"]
