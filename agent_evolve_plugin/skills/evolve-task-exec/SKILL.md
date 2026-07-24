@@ -97,11 +97,10 @@ regroup, summarize, or reinterpret it yourself.
 Meta-guidance has higher strategy priority than parent/inspiration blending,
 but it never overrides verifier correctness or the benchmark output contract.
 The selected parent is the anchor parent for this guidance. Use it to preserve
-the interface, understand the current search state, and keep a fallback when
-useful. Do not assume the parent strategy is correct. If the guidance says to
-depart from or replace the current approach, implement the new strategy
-directly instead of forcing a superficial hybrid with the parent or
-inspirations.
+the interface and understand the current search state. Do not assume the parent
+strategy is correct. If the guidance says to depart from or replace the current
+approach, implement the new strategy directly instead of forcing a superficial
+hybrid with the parent or inspirations.
 
 If `available == false`, continue without a meta-guidance section.
 
@@ -200,6 +199,21 @@ Inspect parent and inspiration metrics alongside fitness to understand which
 components, scenarios, or behaviors differ. Metrics are diagnostic evidence,
 not separate optimization objectives unless the benchmark explicitly says so.
 
+**Core strategy execution integrity**:
+The artifact evaluated for this attempt must actually execute the core strategy
+claimed by the direction, active meta-guidance, or solution description. Do not
+silently return a parent, baseline, or alternate algorithm when that core
+strategy raises an exception, times out, is infeasible, returns no result, or
+otherwise fails. In particular, do not wrap the core strategy in a broad
+`except Exception` that returns a known-good candidate. Let unexpected core
+failures surface so a later attempt can debug them.
+
+Explicit input-dependent dispatch, portfolios, and selector algorithms remain
+allowed when the dispatch or selection policy is itself the advertised
+top-level strategy. Its branches and selection conditions must be clear in the
+artifact; do not describe an internal branch as validated merely because a
+different branch produced the evaluated result.
+
 **For attempt 1**:
 Based on:
 - Parent (if exists) - CURRENT-STATE REFERENCE; build upon it unless active meta-guidance says to depart or replace
@@ -221,9 +235,9 @@ positive and negative notes are run-local experience, not hard proof.
 
 If Step 2.6 returned a meta-guidance prompt, apply it as the required strategy
 for this task. The guidance may require a substantially different approach from
-the parent. In that case, use the parent as an interface reference and fallback,
-not as an implementation template, and do not force an incoherent hybrid with
-the parent or inspirations.
+the parent. In that case, use the parent as an interface reference, not as an
+implementation template or a silent runtime fallback, and do not force an
+incoherent hybrid with the parent or inspirations.
 
 If this is a root task and both `initial_program_reference` and `direction_hint`
 exist, the generated solution must visibly reflect both: preserve the benchmark
@@ -406,3 +420,4 @@ Do NOT report any other details - success or failure, both count as completed.
 16. **Use Initial Reference Only For Roots**: `initial_program.py` is a root-task baseline when no parent exists. Once parent selection returns a parent, evolve from the selected parent/inspirations instead.
 17. **Never Synthesize JSON With Bash**: If a missing `eval_result.json` must be created after verifier failure, use the Write tool only. Do not use Bash `cat`, heredoc, `echo`, `printf`, or Python one-liners to write JSON files.
 18. **Do Not Echo Exit Codes**: Run the verifier command exactly as specified by the benchmark skill. Do not append `; echo "EXIT_CODE=$?"` or any other shell trailer.
+19. **No Silent Core Fallback**: A solution must not hide failure of its claimed core strategy by returning a parent, baseline, or alternate result. Explicit dispatch is allowed only when the selector itself is the claimed strategy and the executed branch remains attributable.

@@ -298,6 +298,14 @@ def test_meta_guidance_request_includes_current_best_artifact_excerpt(tmp_path, 
         for item in request["generation_instructions"]
     )
     assert any(
+        "branch produced the evaluated result" in item
+        for item in request["generation_instructions"]
+    )
+    assert any(
+        "no_effect" in item and "does not by itself prove" in item
+        for item in request["generation_instructions"]
+    )
+    assert any(
         "may read verifier/evaluator source" in item.lower() for item in request["constraints"]
     )
 
@@ -624,10 +632,61 @@ def test_next_meta_request_includes_guidance_outcomes_and_notes(tmp_path, monkey
     assert second["action"] == "request_meta_guidance"
     history = second_request["guidance_history"]
     assert history[0]["idea"] == "Try bounded structural variation"
-    assert history[0]["outcome"] == "regression"
+    assert history[0]["outcome"] == "no_effect"
     assert history[0]["outcome_summary"]["best_delta_vs_anchor"] == 0.0
-    assert second_request["failed_guidance"][0]["outcome"] == "regression"
+    assert history[0]["outcome_summary"]["no_effect_uses"] == 1
+    assert second_request["failed_guidance"][0]["outcome"] == "no_effect"
     assert second_request["notes_summary"]["positive"][0]["note_id"] == "note_positive_1"
+
+
+def test_equal_fitness_with_changed_metrics_is_regression(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    controller = _controller(tmp_path, monkeypatch)
+    _add_successes(controller, fitness=1.0)
+    convergence = controller.check_convergence()
+    request = controller.get_meta_guidance_request(convergence["request_id"])
+    controller.commit_meta_guidance(
+        request["request_id"],
+        {
+            "guidance": [
+                {
+                    "idea": "Change the cost composition",
+                    "description": "Preserve fitness while changing component behavior.",
+                    "novelty_claim": "The component profile has not been explored.",
+                    "implementation_plan": ["Change one component"],
+                    "approach_type": "metric_profile",
+                    "max_uses": 1,
+                }
+            ]
+        },
+    )
+    controller.select_parent("task_402")
+    result_path = tmp_path / "same_fitness_changed_metrics.json"
+    result_path.write_text(
+        json.dumps(
+            {
+                "status": "success",
+                "artifact_ref": "runs/run_meta_test/tasks/task_402/final.py",
+                "fitness": 1.0,
+                "metrics": {"component_cost": 2.0},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    controller.record_attempt(
+        task_id="task_402",
+        verification_result_ref=str(result_path),
+        attempt_id="attempt_001",
+        max_attempts=1,
+    )
+    controller.meta_guidance.load()
+
+    tried = controller.meta_guidance.state["tried_guidance"][0]
+    assert tried["outcome"] == "regression"
+    assert tried["outcomes"][0]["metrics_changed"] is True
+    assert tried["outcomes"][0]["no_effect"] is False
+    assert tried["outcome_summary"]["no_effect_uses"] == 0
 
 
 def test_guidance_can_improve_its_anchor_without_creating_global_best(tmp_path, monkeypatch):

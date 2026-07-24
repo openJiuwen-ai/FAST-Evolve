@@ -8,6 +8,8 @@ returned by the controller.
 from __future__ import annotations
 
 import json
+import math
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -290,6 +292,8 @@ class MetaGuidanceManager:
         anchor_fitness: Optional[float],
         best_fitness_before: Optional[float],
         best_fitness_after: Optional[float],
+        metrics: Optional[Dict[str, Any]] = None,
+        anchor_metrics: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Record the outcome of an attempt that used guidance."""
         self.load()
@@ -316,6 +320,13 @@ class MetaGuidanceManager:
             else None
         )
         improved_anchor = bool(delta_vs_anchor is not None and delta_vs_anchor > 0)
+        metrics_changed = not _values_equivalent(metrics or {}, anchor_metrics or {})
+        no_effect = bool(
+            valid_result
+            and delta_vs_anchor is not None
+            and _numbers_equivalent(delta_vs_anchor, 0.0)
+            and not metrics_changed
+        )
         created_new_best = (
             valid_result
             and fitness is not None
@@ -339,6 +350,8 @@ class MetaGuidanceManager:
             "delta_vs_anchor": delta_vs_anchor,
             "relative_delta_vs_anchor": relative_delta_vs_anchor,
             "improved_anchor": improved_anchor,
+            "metrics_changed": metrics_changed,
+            "no_effect": no_effect,
             "best_fitness_before": best_fitness_before,
             "best_fitness_after": best_fitness_after,
             "created_new_best": created_new_best,
@@ -359,6 +372,8 @@ class MetaGuidanceManager:
                 "delta_vs_anchor": delta_vs_anchor,
                 "relative_delta_vs_anchor": relative_delta_vs_anchor,
                 "improved_anchor": improved_anchor,
+                "metrics_changed": metrics_changed,
+                "no_effect": no_effect,
                 "best_fitness_before": best_fitness_before,
                 "best_fitness_after": best_fitness_after,
                 "created_new_best": created_new_best,
@@ -455,7 +470,7 @@ class MetaGuidanceManager:
                 "outcome_summary": item.get("outcome_summary") or _guidance_outcome_summary(item),
             }
             for item in self.state.get("tried_guidance") or []
-            if item.get("outcome") in {"regression", "failed"}
+            if item.get("outcome") in {"no_effect", "regression", "failed"}
         ]
 
     def _guidance_history(self) -> List[Dict[str, Any]]:
@@ -593,7 +608,8 @@ def _render_guidance_prompt(guidance: Dict[str, Any]) -> str:
         f"**AVOID REPEATING:**\n{avoid or '- No specific failed route listed.'}\n\n"
         "**ANCHOR RULES:**\n"
         "This guidance is anchored on the selected parent.\n"
-        "Use the selected parent as an interface reference and fallback, not as proof that its strategy is correct.\n"
+        "Use the selected parent as an interface and current-state reference, not as proof that its strategy is correct.\n"
+        "Do not silently return the parent or another algorithm when the required strategy fails; the evaluated result must remain attributable to the claimed strategy.\n"
         "If the guidance says to depart from or replace the current approach, implement the new strategy directly.\n"
         "Do not force a superficial combination with inspirations if they conflict with the guidance.\n"
     )
@@ -633,6 +649,7 @@ def _guidance_outcome_summary(guidance: Dict[str, Any]) -> Dict[str, Any]:
         "total_uses": len(outcomes) or int(guidance.get("uses", 0) or 0),
         "valid_uses": valid_uses,
         "failed_uses": len(outcomes) - valid_uses,
+        "no_effect_uses": sum(1 for item in outcomes if _is_no_effect_guidance_outcome(item)),
         "improved_anchor_uses": sum(
             1
             for item in outcomes
@@ -654,7 +671,10 @@ def _classify_guidance_outcome(guidance: Dict[str, Any]) -> str:
         for item in outcomes
     ):
         return "improved_anchor"
-    if any(_is_valid_guidance_outcome(item) for item in outcomes):
+    valid_outcomes = [item for item in outcomes if _is_valid_guidance_outcome(item)]
+    if valid_outcomes and all(_is_no_effect_guidance_outcome(item) for item in valid_outcomes):
+        return "no_effect"
+    if valid_outcomes:
         return "regression"
     return "failed"
 
@@ -663,6 +683,39 @@ def _is_valid_guidance_outcome(outcome: Dict[str, Any]) -> bool:
     if "valid_result" in outcome:
         return bool(outcome.get("valid_result"))
     return bool(outcome.get("entered_success_db"))
+
+
+def _is_no_effect_guidance_outcome(outcome: Dict[str, Any]) -> bool:
+    return _is_valid_guidance_outcome(outcome) and bool(outcome.get("no_effect"))
+
+
+def _values_equivalent(left: Any, right: Any) -> bool:
+    if isinstance(left, Mapping) and isinstance(right, Mapping):
+        return set(left) == set(right) and all(
+            _values_equivalent(left[key], right[key]) for key in left
+        )
+    if (
+        isinstance(left, Sequence)
+        and not isinstance(left, (str, bytes, bytearray))
+        and isinstance(right, Sequence)
+        and not isinstance(right, (str, bytes, bytearray))
+    ):
+        return len(left) == len(right) and all(
+            _values_equivalent(left_value, right_value)
+            for left_value, right_value in zip(left, right)
+        )
+    if (
+        isinstance(left, (int, float))
+        and not isinstance(left, bool)
+        and isinstance(right, (int, float))
+        and not isinstance(right, bool)
+    ):
+        return _numbers_equivalent(float(left), float(right))
+    return left == right
+
+
+def _numbers_equivalent(left: float, right: float) -> bool:
+    return math.isclose(left, right, rel_tol=1e-12, abs_tol=1e-15)
 
 
 def _coerce_float(value: Any) -> Optional[float]:
@@ -680,8 +733,9 @@ def _generation_instructions() -> List[str]:
         "Inspect current_best.metrics and profile alongside fitness. Use metric components and scenario breakdowns as diagnostic evidence about where candidates differ or stagnate, without treating them as independent objectives unless the benchmark defines them that way.",
         "You may inspect verifier/evaluator source during meta-guidance generation, matching AdaEvolve's paradigm-generation setup. Use it only to understand scoring logic, constraints, and failure modes.",
         "Analyze the current best critically: identify what works, what likely traps the search, and whether the next guidance should refine, depart from, or replace that route.",
+        "Before crediting an internal algorithm, inspect the artifact control flow and available verification evidence to establish which primary, fallback, dispatch, or selector branch produced the evaluated result. Verifier success alone does not establish branch execution; if branch identity is unknown, treat the claimed strategy as unverified.",
         "Use notes_summary and guidance_history as evidence. Do not repeat guidance whose prior outcome_summary shows no improvement unless the failure condition is materially changed.",
-        "Interpret prior outcomes precisely: new_best beat the global best at completion, improved_anchor beat its assigned parent but not the then-current global best, regression produced a valid result without beating its assigned parent, and failed produced no valid result.",
+        "Interpret prior outcomes precisely: new_best beat the global best at completion, improved_anchor beat its assigned parent but not the then-current global best, no_effect produced a valid result indistinguishable from its assigned parent in fitness and evaluator metrics, regression produced a different valid result without beating its assigned parent, and failed produced no valid result. no_effect is observational and does not by itself prove that fallback occurred.",
         "Generate distinct guidance items with different approach_type values. Avoid minor parameter variants of the same algorithm family.",
         "Prefer concrete, implementable strategies. Each item should say how it relates to the current best and why it can escape or improve the observed plateau.",
     ]

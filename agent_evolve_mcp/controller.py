@@ -242,6 +242,7 @@ class EvolutionController:
 
         status = str(verification_result.get("status", "")).lower()
         fitness = _extract_fitness(verification_result)
+        verification_metrics = dict(verification_result.get("metrics") or {})
         best_before = _best_fitness(self.db)
         entered_success_db = False
         success_record_id = None
@@ -251,7 +252,7 @@ class EvolutionController:
             if self.db.get(success_record_id) is not None:
                 entered_success_db = True
             else:
-                metrics = dict(verification_result.get("metrics") or {})
+                metrics = verification_metrics
                 profile = dict(verification_result.get("profile") or {})
                 if not profile:
                     profile = metrics
@@ -326,6 +327,10 @@ class EvolutionController:
                 success_record_id=success_record_id if entered_success_db else None,
                 fitness=fitness,
                 anchor_fitness=anchor_record.fitness if anchor_record is not None else None,
+                metrics=verification_metrics,
+                anchor_metrics=(
+                    dict(anchor_record.metrics or {}) if anchor_record is not None else {}
+                ),
                 best_fitness_before=best_before,
                 best_fitness_after=best_after,
             )
