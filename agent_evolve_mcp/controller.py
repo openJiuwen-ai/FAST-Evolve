@@ -518,18 +518,24 @@ class EvolutionController:
         return max(self.task_contexts.count(), len(attempt_task_ids))
 
     def _parent_ref(self, parent_id: Optional[str]) -> Dict[str, Any]:
-        """Return the minimal public parent payload."""
+        """Return the compact public parent payload, including diagnostics."""
         if parent_id is None:
-            return {"parent_id": None, "artifact_ref": None, "fitness": None}
+            return {
+                "parent_id": None,
+                "artifact_ref": None,
+                "fitness": None,
+                "metrics": {},
+            }
         record = self.db.get(parent_id)
         return {
             "parent_id": parent_id,
             "artifact_ref": record.artifact_ref if record else None,
             "fitness": record.fitness if record else None,
+            "metrics": dict(record.metrics or {}) if record else {},
         }
 
     def _inspiration_refs(self, inspiration_ids: List[str]) -> Dict[str, Any]:
-        """Return minimal public inspiration payloads in cached order."""
+        """Return compact public inspiration payloads in cached order."""
         inspirations = []
         for inspiration_id in inspiration_ids:
             record = self.db.get(inspiration_id)
@@ -540,6 +546,7 @@ class EvolutionController:
                     "inspiration_id": inspiration_id,
                     "artifact_ref": record.artifact_ref,
                     "fitness": record.fitness,
+                    "metrics": dict(record.metrics or {}),
                 }
             )
         return {"inspirations": inspirations}

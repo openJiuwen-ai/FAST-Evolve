@@ -26,6 +26,7 @@ Store the result:
 - parent_id: May be null if no parent exists
 - artifact_ref: Path to parent artifact file (may be null)
 - fitness: Parent fitness score (may be null). Higher is better.
+- metrics: Parent evaluator diagnostics (may be empty).
 
 If parent exists, read the artifact file at `artifact_ref` to understand the parent solution.
 
@@ -54,6 +55,7 @@ Store the result as a list of inspirations, each with:
 - inspiration_id
 - artifact_ref
 - fitness: Inspiration fitness score. Higher is better.
+- metrics: Inspiration evaluator diagnostics (may be empty).
 
 Read each inspiration artifact file to understand their approaches.
 When comparing multiple inspirations, prefer higher-fitness artifacts and avoid
@@ -194,6 +196,9 @@ Fitness is the task-generic quality score and higher is always better. Use the
 parent as the primary reference, and use inspiration fitness to rank secondary
 references. Borrow more from higher-fitness inspirations; treat lower-fitness
 inspirations as optional contrastive examples rather than templates to copy.
+Inspect parent and inspiration metrics alongside fitness to understand which
+components, scenarios, or behaviors differ. Metrics are diagnostic evidence,
+not separate optimization objectives unless the benchmark explicitly says so.
 
 **For attempt 1**:
 Based on:

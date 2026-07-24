@@ -55,7 +55,8 @@ evolve_select_parent(run_id: str, task_id: str)
 {
   "parent_id": "task_003",
   "artifact_ref": "memory_hub/runs/run_001/tasks/task_003/final.patch",
-  "fitness": 0.9415
+  "fitness": 0.9415,
+  "metrics": {"loss": 0.0585}
 }
 ```
 
@@ -82,7 +83,8 @@ evolve_select_inspirations(run_id: str, task_id: str)
     {
       "inspiration_id": "task_002",
       "artifact_ref": "memory_hub/runs/run_001/tasks/task_002/final.patch",
-      "fitness": 0.9352
+      "fitness": 0.9352,
+      "metrics": {"loss": 0.0648}
     }
   ]
 }
@@ -92,7 +94,7 @@ evolve_select_inspirations(run_id: str, task_id: str)
 
 - 必须先调用 `evolve_select_parent`。
 - 返回值不重复包含 parent。
-- 只返回 `id/ref/fitness`，不返回 artifact 内容、metrics、profile、sketch。
+- 返回 `id/ref/fitness/metrics`，不返回 artifact 内容、profile、sketch。
 - 选中的 inspiration ids 写入 `task_contexts.json`，同一 task 重试时保持不变。
 
 ### `evolve_get_notes_prompt`
