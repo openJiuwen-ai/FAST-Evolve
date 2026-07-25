@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="assets/evotrias-banner.png" alt="EvoTrias" width="500">
+<img src="../assets/evotrias-banner.png" alt="EvoTrias" width="500">
 
-[English](README.md) | **中文**
+[English](../README.md) | **中文**
 
 </div>
 
@@ -162,4 +162,4 @@ runs/<run_id>/
 ```
 
 如需接入其他智能体宿主，请参考
-[JiuwenClaw 集成指南](docs/integration-jiuwenclaw.md)。
+[JiuwenClaw 集成指南](integration-jiuwenclaw.md)。

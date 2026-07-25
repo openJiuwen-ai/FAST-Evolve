@@ -2,7 +2,7 @@
 
 <img src="assets/evotrias-banner.png" alt="EvoTrias" width="500">
 
-**English** | [中文](README_CN.md)
+**English** | [中文](docs/README_CN.md)
 
 </div>
 
