@@ -262,18 +262,23 @@ def evaluate_stage2(program_path):
 
 
 def is_successful(result):
-    return not result.get("error") and not result.get("traceback")
+    return (
+        result.get("validity") == 1.0
+        and not result.get("error")
+        and not result.get("traceback")
+    )
 
 
 def format_result(result, artifact_ref):
-    metric_keys = ["makespan", "schedule", "validity", "combined_score"]
-    metrics = {key: result[key] for key in metric_keys if key in result and key != "combined_score"}
+    success = is_successful(result)
+    metric_keys = ["makespan", "schedule"]
+    metrics = {key: result[key] for key in metric_keys if key in result}
     profile = {key: result[key] for key in ("validity",) if key in result}
     misc = {key: value for key, value in result.items() if key not in {*metric_keys, "run_id", "task_id", "subagent_id", "mode", "timestamp"}}
     return {
-        "status": "success" if is_successful(result) else "failure",
+        "status": "success" if success else "failure",
         "artifact_ref": artifact_ref,
-        "fitness": float(result.get("combined_score", 0.0)),
+        "fitness": float(result.get("combined_score", 0.0)) if success else None,
         "metrics": metrics,
         "profile": profile,
         "misc": misc,
