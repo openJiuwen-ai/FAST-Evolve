@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "69",
+  "title": "Time limit per test: 10 seconds",
+  "problem_type": "interactive",
+  "time_limit_seconds": 10,
+  "memory_limit_mb": 256,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/69/task.yaml",
+  "statement_sha256": "4207d502e5969705003028006d18ce4c9223e6149ab1fc3622d8b64d8fe6929c",
+  "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
+}

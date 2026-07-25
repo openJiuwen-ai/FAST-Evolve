@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "252",
+  "title": "Hotel",
+  "problem_type": "interactive",
+  "time_limit_seconds": 10,
+  "memory_limit_mb": 256,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/252/task.yaml",
+  "statement_sha256": "a88411e6cb7ffdf6c66b19bce2121633967389a77a6f4902e5ed210ee0937be0",
+  "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
+}

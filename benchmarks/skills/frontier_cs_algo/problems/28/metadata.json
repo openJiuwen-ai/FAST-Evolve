@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "28",
+  "title": "Hacking the Project",
+  "problem_type": "interactive",
+  "time_limit_seconds": 1,
+  "memory_limit_mb": 512,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/28/task.yaml",
+  "statement_sha256": "fcbe26f9950f9fc2194e2fee1d6a443faece6580f7b39c7d41802e0d4e1f6f38",
+  "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
+}

@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "187",
+  "title": "Clique Cover Challenge",
+  "problem_type": "default",
+  "time_limit_seconds": 2,
+  "memory_limit_mb": 512,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/187/task.yaml",
+  "statement_sha256": "bb7351aa400d21c62ed642dbbf3c2bbef9c3056361cd48a27e4ff0f81488e1a0",
+  "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
+}

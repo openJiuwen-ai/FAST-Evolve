@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "63",
+  "title": "Space Thief",
+  "problem_type": "interactive",
+  "time_limit_seconds": 2,
+  "memory_limit_mb": 1024,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/63/task.yaml",
+  "statement_sha256": "2873063a9bf5b3c276527d253ac0507a803e2c3d46a3b1c39630aa52f6a38495",
+  "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
+}

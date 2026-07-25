@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "184",
+  "title": "Maximum Independent Set Challenge",
+  "problem_type": "default",
+  "time_limit_seconds": 2,
+  "memory_limit_mb": 512,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/184/task.yaml",
+  "statement_sha256": "f1eb7226f34a56ce8a494f6c4176e5e8bf5fcf3bed62bdd105db11e7c4ecd745",
+  "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
+}

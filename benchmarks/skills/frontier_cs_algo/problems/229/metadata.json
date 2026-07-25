@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "229",
+  "title": "Farmer John has found historical data from $n$ consecutive days. The temperature",
+  "problem_type": "default",
+  "time_limit_seconds": 2,
+  "memory_limit_mb": 512,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/229/task.yaml",
+  "statement_sha256": "4fc924f069c3bcd46498a1c585e2d4ca6a9a5c1f7181a2a187ef64a7ef64c525",
+  "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
+}

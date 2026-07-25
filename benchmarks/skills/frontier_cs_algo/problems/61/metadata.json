@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "61",
+  "title": "Let's Go! New Adventure",
+  "problem_type": "default",
+  "time_limit_seconds": 3,
+  "memory_limit_mb": 1024,
+  "test_case_count": 10,
+  "source_task": "examples/frontier_cs_algo/61/task.yaml",
+  "statement_sha256": "c90f64424db7f27e702ec8dae461e67cbd01f8f76e87b31919d682d40bbbd723",
+  "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
+}

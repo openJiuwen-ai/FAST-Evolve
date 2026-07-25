@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "138",
+  "title": "Problem C. Fabulous Fungus Frenzy",
+  "problem_type": "default",
+  "time_limit_seconds": 5,
+  "memory_limit_mb": 1024,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/138/task.yaml",
+  "statement_sha256": "6105b3526d5e8faf185dc4efbcc86ebe267f7bcaba7f9f95830775fc549d57b9",
+  "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
+}

@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "46",
+  "title": "Title: Job Shop Scheduling (JSPLIB-style) — Open Optimization Track",
+  "problem_type": "default",
+  "time_limit_seconds": 1,
+  "memory_limit_mb": 512,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/46/task.yaml",
+  "statement_sha256": "ca4a2befd893940ed67a9a4c8db98bece5c80d759a2849a09266740e4b55fa2f",
+  "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
+}

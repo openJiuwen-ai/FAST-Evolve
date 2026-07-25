@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "70",
+  "title": "Problem: Treasure Hunt",
+  "problem_type": "interactive",
+  "time_limit_seconds": 5,
+  "memory_limit_mb": 256,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/70/task.yaml",
+  "statement_sha256": "849805216e34c3b22f50a471b4995a353c8a9b0bfcafa3b37182ca0c2bce1b49",
+  "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
+}

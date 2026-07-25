@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "257",
+  "title": "Problem: Omkar and Modes",
+  "problem_type": "interactive",
+  "time_limit_seconds": 3,
+  "memory_limit_mb": 256,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/257/task.yaml",
+  "statement_sha256": "965aecec331edf5a90928aaebc581f24b3c848696368065e0ca51074b7a893bb",
+  "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
+}

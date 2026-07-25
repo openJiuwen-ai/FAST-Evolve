@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "209",
+  "title": "Hidden Weights",
+  "problem_type": "interactive",
+  "time_limit_seconds": 10,
+  "memory_limit_mb": 512,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/209/task.yaml",
+  "statement_sha256": "9f412c3448a15d54acac2e78aefd38f1ef345cd77cc676cfa802f4900eaef80d",
+  "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
+}

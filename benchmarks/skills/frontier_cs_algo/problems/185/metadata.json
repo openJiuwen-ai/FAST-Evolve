@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "185",
+  "title": "Maximum Clique Challenge",
+  "problem_type": "default",
+  "time_limit_seconds": 2,
+  "memory_limit_mb": 512,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/185/task.yaml",
+  "statement_sha256": "78165f23b661cf29bb615efe07b692df01421d237787c2175974a86365fe78c4",
+  "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
+}

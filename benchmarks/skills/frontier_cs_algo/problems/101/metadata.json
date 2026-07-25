@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "101",
+  "title": "Problem Name: Circuit",
+  "problem_type": "interactive",
+  "time_limit_seconds": 5,
+  "memory_limit_mb": 1024,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/101/task.yaml",
+  "statement_sha256": "897976086ef197400df141c7a7f409ad5dce6886e13b86e456abbd968f071046",
+  "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
+}

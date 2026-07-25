@@ -226,6 +226,18 @@ def test_build_snapshot_aggregates_live_run_state(tmp_path, monkeypatch):
     assert snapshot["lineage"]["nodes"][-1]["status"] == "running"
 
 
+def test_infer_activity_recognizes_cpp_candidate(tmp_path):
+    task_dir = tmp_path / "task_001"
+    attempt_dir = task_dir / "attempts" / "attempt_001"
+    attempt_dir.mkdir(parents=True)
+    (attempt_dir / "solution.cpp").write_text("int main() { return 0; }\n", encoding="utf-8")
+
+    activity, detail = dashboard_module._infer_activity(task_dir, {}, {}, {})
+
+    assert activity == "Verifying candidate"
+    assert "attempt_001" in detail
+
+
 def test_configure_run_passes_current_feature_flags_to_dashboard(tmp_path, monkeypatch):
     run_id = "feature_flags_20260722010101"
     captured = {}

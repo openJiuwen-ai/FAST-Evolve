@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "33",
+  "title": "Permutation (Modified Version)",
+  "problem_type": "default",
+  "time_limit_seconds": 5,
+  "memory_limit_mb": 1024,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/33/task.yaml",
+  "statement_sha256": "396fe974a5cf4b8b8b6edb7f30466e03e0a9b7ad03c1c3cbde0623eae978b79d",
+  "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
+}

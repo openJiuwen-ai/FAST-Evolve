@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "143",
+  "title": "Problem: Texas Hold’em Training (Terminal I/O Interactive)",
+  "problem_type": "interactive",
+  "time_limit_seconds": 100,
+  "memory_limit_mb": 512,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/143/task.yaml",
+  "statement_sha256": "99841a9042ee217376746e52e9de69e897e72f0a5da249703dbe62aaf3c91c37",
+  "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
+}

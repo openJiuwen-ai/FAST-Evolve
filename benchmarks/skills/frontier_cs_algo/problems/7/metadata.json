@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "7",
+  "title": "Build a Computer",
+  "problem_type": "default",
+  "time_limit_seconds": 1,
+  "memory_limit_mb": 1024,
+  "test_case_count": 1,
+  "source_task": "examples/frontier_cs_algo/7/task.yaml",
+  "statement_sha256": "2fa120dc1befba8ee7c14c6d992c42d068d0e3a51c9dba263c9702d76e2ba609",
+  "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
+}

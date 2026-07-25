@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "211",
+  "title": "Communication Robots",
+  "problem_type": "default",
+  "time_limit_seconds": 10,
+  "memory_limit_mb": 512,
+  "test_case_count": 4,
+  "source_task": "examples/frontier_cs_algo/211/task.yaml",
+  "statement_sha256": "855961ec28b4bfe81e1cc0c64725578abfc488eec66c9f9eb5da5ce9405f4660",
+  "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
+}

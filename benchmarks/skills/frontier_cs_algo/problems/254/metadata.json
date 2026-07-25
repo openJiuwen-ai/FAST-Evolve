@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "254",
+  "title": "Problem: Pepe Racing",
+  "problem_type": "interactive",
+  "time_limit_seconds": 5,
+  "memory_limit_mb": 256,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/254/task.yaml",
+  "statement_sha256": "358a3f3ea9254471c0e0e47ff924cefa7bb2992687fdff9497c11b0a4a36f427",
+  "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
+}

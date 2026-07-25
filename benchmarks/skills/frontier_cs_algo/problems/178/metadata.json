@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "178",
+  "title": "3-SAT",
+  "problem_type": "default",
+  "time_limit_seconds": 1,
+  "memory_limit_mb": 1024,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/178/task.yaml",
+  "statement_sha256": "cd55a2b94cc725f02a51f2e1afc4ed6a5bff5e4c5e74d26fa3e36d029493228e",
+  "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
+}

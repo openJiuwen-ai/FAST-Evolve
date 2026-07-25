@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "59",
+  "title": "Limited Shuffle Restoring",
+  "problem_type": "interactive",
+  "time_limit_seconds": 3,
+  "memory_limit_mb": 512,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/59/task.yaml",
+  "statement_sha256": "e6ee97fd9f358df204bc7c9a1a09832291456b817aced652677f059ef7b689b6",
+  "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
+}

@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "64",
+  "title": "Given (1 <= n <= 1e2) and (B = 1e15), n integers a_1 … a_n (0 <= a_i <= B) drawn",
+  "problem_type": "default",
+  "time_limit_seconds": 10,
+  "memory_limit_mb": 1024,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/64/task.yaml",
+  "statement_sha256": "6f784cb6fab432d4756d4a66469e839126ed9b6ab8d198bcfd4bf08c302ac30e",
+  "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
+}

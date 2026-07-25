@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "256",
+  "title": "Problem: Palindromic Paths",
+  "problem_type": "interactive",
+  "time_limit_seconds": 1,
+  "memory_limit_mb": 256,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/256/task.yaml",
+  "statement_sha256": "4c3022a6e921c92587ca929a3c4ec015cded667221ef0dd0296c8f8df9fa8389",
+  "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
+}

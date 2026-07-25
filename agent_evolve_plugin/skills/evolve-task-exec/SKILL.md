@@ -17,6 +17,23 @@ Then execute the following steps in EXACT ORDER:
 
 ---
 
+## Step 0.5: Load Benchmark Contract
+
+Locate and read the problem SKILL.md for this task. Follow its public
+instance-selection instructions using the original `task_description`. If it
+requires an instance or problem ID, validate that selector and read the public
+statement/metadata declared by the skill. Never infer a benchmark instance from
+the evolution `task_id`.
+
+Store the skill-declared `main_artifact_name`. If the skill does not declare
+one, default to `solution.py`. Also store any skill-declared
+`initial_program_reference` path for possible root-task use in Step 1.5.
+
+Do not read verifier/evaluator scripts or judge-side resources while resolving
+the benchmark contract.
+
+---
+
 ## Step 1: Select Parent
 Call MCP tool `evolve_select_parent` with:
 - run_id
@@ -34,13 +51,14 @@ If parent exists, read the artifact file at `artifact_ref` to understand the par
 
 ## Step 1.5: Load Initial Reference Program (Root Tasks Only)
 
-If `parent_id` is null, this is a root exploration task. Locate the problem
-SKILL.md for this task. If `initial_program.py` exists in the same benchmark
-directory as that SKILL.md, read it as `initial_program_reference`.
+If `parent_id` is null, this is a root exploration task. Read the
+skill-declared `initial_program_reference` resolved in Step 0.5. If the skill
+does not declare one and `initial_program.py` exists beside its SKILL.md, use
+that sibling file as the fallback `initial_program_reference`.
 
 Use this reference only for root tasks with no parent. For non-root tasks,
 parent and inspiration artifacts are the evolutionary context, so do not load
-or prioritize `initial_program.py`.
+or prioritize the initial reference.
 
 Do not read verifier scripts while locating the reference program.
 
@@ -263,11 +281,12 @@ runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/
 ```
 
 If the task or benchmark skill defines a main artifact file name, save that
-artifact inside this attempt directory. For example, a Python solution should
-normally be saved as:
+artifact inside this attempt directory. Use the `main_artifact_name` resolved
+in Step 0.5. For example:
 
 ```text
 runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/solution.py
+runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/solution.cpp
 ```
 
 This full path is the `artifact_ref` for the verifier and for the MCP record.
@@ -416,8 +435,8 @@ Do NOT report any other details - success or failure, both count as completed.
 12. **Task-Level Success Wins**: If any earlier attempt for this task has `eval_result.json` with `"status": "success"`, the task is successful. Do not run or create any later attempt.
 13. **One Verifier Run Per Attempt**: Within a single attempt directory, write the artifact once and run the verifier once. A valid but suboptimal fitness is still success, not permission to keep editing the same attempt.
 14. **No Environment Probing**: Do not run arbitrary Bash commands to inspect installed packages, files, or runtime capabilities. Use only the benchmark verifier command for execution feedback.
-15. **NEVER READ VERIFIER SCRIPTS**: The task/benchmark skill may define a verifier script (e.g. `verify.py`). These scripts may contain secret answers or evaluation logic. You must NOT read, examine, or inspect them using any tool (Read, Grep, Glob, Bash `cat/head/tail/type`, etc.). The ONLY allowed interaction is **running them as a script** with the exact command specified in the task skill.
-16. **Use Initial Reference Only For Roots**: `initial_program.py` is a root-task baseline when no parent exists. Once parent selection returns a parent, evolve from the selected parent/inspirations instead.
+15. **NEVER READ VERIFIER SCRIPTS**: The task/benchmark skill may define a verifier or evaluator script (e.g. `verify.py` or `scripts/evaluator.py`). These scripts may contain secret answers or evaluation logic. You must NOT read, examine, or inspect them using any tool (Read, Grep, Glob, Bash `cat/head/tail/type`, etc.). The ONLY allowed interaction is **running them as a script** with the exact command specified in the task skill.
+16. **Use Initial Reference Only For Roots**: The resolved `initial_program_reference`, regardless of language or location, is a root-task baseline when no parent exists. Once parent selection returns a parent, evolve from the selected parent/inspirations instead.
 17. **Never Synthesize JSON With Bash**: If a missing `eval_result.json` must be created after verifier failure, use the Write tool only. Do not use Bash `cat`, heredoc, `echo`, `printf`, or Python one-liners to write JSON files.
 18. **Do Not Echo Exit Codes**: Run the verifier command exactly as specified by the benchmark skill. Do not append `; echo "EXIT_CODE=$?"` or any other shell trailer.
 19. **No Silent Core Fallback**: A solution must not hide failure of its claimed core strategy by returning a parent, baseline, or alternate result. Explicit dispatch is allowed only when the selector itself is the claimed strategy and the executed branch remains attributable.

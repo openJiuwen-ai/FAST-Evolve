@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "10",
+  "title": "Problem: Tree distance",
+  "problem_type": "interactive",
+  "time_limit_seconds": 2,
+  "memory_limit_mb": 512,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/10/task.yaml",
+  "statement_sha256": "d438fde9179c8fc7a46344c15e04361e0ba54870627bdb21efb229cbe0864b7c",
+  "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
+}

@@ -692,9 +692,12 @@ def _infer_activity(
     )
     if attempt_dirs:
         newest = attempt_dirs[0]
-        if (newest / "solution.py").exists() and not (newest / "eval_result.json").exists():
+        candidate_exists = any(
+            (newest / filename).exists() for filename in ("solution.py", "solution.cpp")
+        )
+        if candidate_exists and not (newest / "eval_result.json").exists():
             return "Verifying candidate", f"{newest.name} is ready for evaluation."
-        if not (newest / "solution.py").exists():
+        if not candidate_exists:
             return "Generating candidate", f"Building {newest.name}."
     if guidance_assignment:
         guidance_id = guidance_assignment.get("guidance_id") or "meta-guidance"

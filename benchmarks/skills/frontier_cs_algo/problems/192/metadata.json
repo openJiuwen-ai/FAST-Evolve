@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "192",
+  "title": "Max-Cut",
+  "problem_type": "default",
+  "time_limit_seconds": 1,
+  "memory_limit_mb": 1024,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/192/task.yaml",
+  "statement_sha256": "a6c97d3243052ee8481201a5ccd5d71423be4fa589481c119fdb6adfbb130e19",
+  "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
+}

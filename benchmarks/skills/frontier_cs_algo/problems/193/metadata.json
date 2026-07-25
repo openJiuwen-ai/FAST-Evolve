@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "193",
+  "title": "Max-2-SAT",
+  "problem_type": "default",
+  "time_limit_seconds": 1,
+  "memory_limit_mb": 1024,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/193/task.yaml",
+  "statement_sha256": "24e954c801f1f8347680ba11bfd973434af9b3250e9abb3478268d468d4b343f",
+  "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
+}

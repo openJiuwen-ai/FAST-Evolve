@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "145",
+  "title": "Meituan Cup Warm-up Problem — Number Loop",
+  "problem_type": "default",
+  "time_limit_seconds": 3,
+  "memory_limit_mb": 1024,
+  "test_case_count": 2,
+  "source_task": "examples/frontier_cs_algo/145/task.yaml",
+  "statement_sha256": "35b1abea75c7e4f20da6edde20a6997b567f8164412a36519d4160b0cda26fb6",
+  "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
+}
