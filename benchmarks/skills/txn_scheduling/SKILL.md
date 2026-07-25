@@ -30,6 +30,14 @@ timeout, validates each returned schedule, and writes the standard result JSON.
 Its generated subprocess script uses escaped path literals so Windows paths are
 handled safely.
 
+## Time contract
+
+The three workload searches run serially in one candidate subprocess and share
+one total 600-second budget. This budget is an algorithmic resource: a candidate
+may allocate it dynamically and unevenly across workloads using their public
+features. The initial program exposes `remaining_time_seconds()`, which returns
+the safe remaining portion of that shared budget while the evaluator is running.
+
 ## Program interface
 
 The candidate must keep:

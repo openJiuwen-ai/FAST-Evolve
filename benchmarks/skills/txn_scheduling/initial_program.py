@@ -1,7 +1,21 @@
+import os
 import random
+import time
 
 from txn_simulator import Workload
 from workloads import WORKLOAD_1, WORKLOAD_2, WORKLOAD_3
+
+
+def remaining_time_seconds():
+    """Return the evaluator-provided safe remainder of the shared budget."""
+    deadline = os.environ.get("TXN_EVAL_DEADLINE_EPOCH")
+    if deadline is None:
+        return None
+    try:
+        return max(0.0, float(deadline) - time.time())
+    except ValueError:
+        return None
+
 
 # EVOLVE-BLOCK-START
 

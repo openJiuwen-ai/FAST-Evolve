@@ -13,6 +13,18 @@ import json
 import numpy as np
 
 
+SCHEDULING_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if SCHEDULING_DIR not in sys.path:
+    sys.path.insert(0, SCHEDULING_DIR)
+
+from txn_simulator import Workload
+from workloads import WORKLOAD_1, WORKLOAD_2, WORKLOAD_3
+
+
+DEFAULT_TIMEOUT_SECONDS = 600
+DEADLINE_SAFETY_MARGIN_SECONDS = 15.0
+
+
 class TimeoutError(Exception):
     pass
 
@@ -28,6 +40,23 @@ def validate_schedule(txn_seq):
             return False
 
     return True
+
+
+def _safe_deadline_epoch(timeout_seconds):
+    """Return the candidate-visible deadline with a bounded safety margin."""
+    margin = min(DEADLINE_SAFETY_MARGIN_SECONDS, max(0.0, timeout_seconds * 0.05))
+    return time.time() + max(0.0, timeout_seconds - margin)
+
+
+def _workload_makespans(schedule):
+    """Recompute authoritative per-workload makespans from returned schedules."""
+    workloads = (WORKLOAD_1, WORKLOAD_2, WORKLOAD_3)
+    if len(schedule) != len(workloads):
+        raise ValueError(f"Expected {len(workloads)} schedules, received {len(schedule)}")
+    return [
+        float(Workload(workload_data).get_opt_seq_cost(txn_seq))
+        for workload_data, txn_seq in zip(workloads, schedule)
+    ]
 
 
 def run_with_timeout(program_path, timeout_seconds=20):
@@ -109,10 +138,13 @@ except Exception as e:
 
     try:
         # Run the script with timeout
+        child_env = dict(os.environ)
+        child_env["TXN_EVAL_DEADLINE_EPOCH"] = str(_safe_deadline_epoch(timeout_seconds))
         process = subprocess.Popen(
             [sys.executable, temp_file_path],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
+            env=child_env,
         )
 
         try:
@@ -155,7 +187,7 @@ except Exception as e:
             os.unlink(results_path)
 
 
-def evaluate(program_path):
+def evaluate(program_path, timeout_seconds=DEFAULT_TIMEOUT_SECONDS):
     """
     Evaluate the program by running it once and checking the schedule
 
@@ -166,18 +198,15 @@ def evaluate(program_path):
         Dictionary of metrics
     """
 
+    start_time = time.perf_counter()
     try:
         # For constructor-based approaches, a single evaluation is sufficient
         # since the result is deterministic
-        start_time = time.time()
-
         # Use subprocess to run with timeout
-        makespan, schedule = run_with_timeout(
-            program_path, timeout_seconds=600  # Single timeout
+        _, schedule = run_with_timeout(
+            program_path, timeout_seconds=timeout_seconds
         )
-
-        end_time = time.time()
-        eval_time = end_time - start_time
+        eval_time = time.perf_counter() - start_time
 
         # Validate solution
         valid = True
@@ -189,9 +218,16 @@ def evaluate(program_path):
         # Validity score
         validity = 1.0 if valid else 0.0
 
+        workload_makespans = []
+        if valid:
+            workload_makespans = _workload_makespans(schedule)
+            makespan = sum(workload_makespans)
+        else:
+            makespan = 0.0
+
         # Combined score - higher is better, positive values that scale with makespan
         # Use reciprocal scaling: higher makespan = lower score, but always positive
-        combined_score = 1000 / (1 + makespan) * 1000 
+        combined_score = 1000 / (1 + makespan) * 1000 if valid else 0.0
 
         print(f"Evaluation: valid={valid}, makespan={makespan}, time={eval_time:.2f}s")
 
@@ -200,9 +236,27 @@ def evaluate(program_path):
             "schedule": float(len(schedule)),
             "validity": float(validity),
             "combined_score": float(combined_score),
+            "eval_time": float(eval_time),
+            **{
+                f"workload_{index}_makespan": workload_makespan
+                for index, workload_makespan in enumerate(workload_makespans, start=1)
+            },
         }
 
+    except TimeoutError as e:
+        eval_time = time.perf_counter() - start_time
+        print(f"Evaluation timed out: {str(e)}")
+        return {
+            "makespan": 0.0,
+            "schedule": 0.0,
+            "validity": 0.0,
+            "combined_score": 0.0,
+            "eval_time": float(eval_time),
+            "timeout": True,
+            "error": str(e),
+        }
     except Exception as e:
+        eval_time = time.perf_counter() - start_time
         print(f"Evaluation failed completely: {str(e)}")
         traceback.print_exc()
         return {
@@ -210,56 +264,10 @@ def evaluate(program_path):
             "schedule": 0.0,
             "validity": 0.0,
             "combined_score": 0.0,
+            "eval_time": float(eval_time),
+            "timeout": False,
+            "error": str(e),
         }
-
-# Stage-based evaluation for cascade evaluation
-def evaluate_stage1(program_path):
-    """
-    First stage evaluation - quick validation check
-    """
-    try:
-        # Use the simplified subprocess approach
-        try:
-            makespan, schedule = run_with_timeout(program_path, timeout_seconds=600)
-
-            valid = True
-            for s in schedule:
-                valid &= validate_schedule(s)
-                if not valid:
-                    break
-
-            # Simple combined score for stage 1 - positive values that scale with makespan
-            combined_score = 1000 / (1 + makespan) * 1000 if valid else 0.0
-
-            # Return evaluation metrics
-            return {
-                "validity": 1.0 if valid else 0.0,
-                "makespan": float(makespan),
-                "schedule": float(len(schedule)),
-                "combined_score": float(combined_score),
-            }
-
-        except TimeoutError as e:
-            print(f"Stage 1 evaluation timed out: {e}")
-            return {"validity": 0.0, "combined_score": 0.0, "error": "Timeout"}
-        except Exception as e:
-            print(f"Stage 1 evaluation failed: {e}")
-            print(traceback.format_exc())
-            return {"validity": 0.0, "combined_score": 0.0, "error": str(e)}
-
-    except Exception as e:
-        print(f"Stage 1 evaluation failed completely: {e}")
-        print(traceback.format_exc())
-        return {"validity": 0.0, "combined_score": 0.0, "error": str(e)}
-
-
-def evaluate_stage2(program_path):
-    """
-    Second stage evaluation - full evaluation
-    """
-    # Full evaluation as in the main evaluate function
-    return evaluate(program_path)
-
 
 def is_successful(result):
     return (
@@ -271,10 +279,30 @@ def is_successful(result):
 
 def format_result(result, artifact_ref):
     success = is_successful(result)
-    metric_keys = ["makespan", "schedule"]
+    metric_keys = [
+        "makespan",
+        "schedule",
+        "validity",
+        "eval_time",
+        "workload_1_makespan",
+        "workload_2_makespan",
+        "workload_3_makespan",
+    ]
     metrics = {key: result[key] for key in metric_keys if key in result}
-    profile = {key: result[key] for key in ("validity",) if key in result}
-    misc = {key: value for key, value in result.items() if key not in {*metric_keys, "run_id", "task_id", "subagent_id", "mode", "timestamp"}}
+    profile = {key: result[key] for key in ("validity", "eval_time") if key in result}
+    misc = {
+        key: value
+        for key, value in result.items()
+        if key not in {
+            *metric_keys,
+            "combined_score",
+            "run_id",
+            "task_id",
+            "subagent_id",
+            "mode",
+            "timestamp",
+        }
+    }
     return {
         "status": "success" if success else "failure",
         "artifact_ref": artifact_ref,
@@ -292,7 +320,7 @@ def main():
     parser.add_argument("--subagent-id", default="")
     parser.add_argument("--artifact-ref", required=True)
     parser.add_argument("--mode", default="full")
-    parser.add_argument("--timeout", type=int, default=600)
+    parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT_SECONDS)
     parser.add_argument("--out")
     args = parser.parse_args()
 
@@ -300,7 +328,7 @@ def main():
         print(f"Program file not found: {args.artifact_ref}")
         raise SystemExit(1)
 
-    result = evaluate(args.artifact_ref)
+    result = evaluate(args.artifact_ref, timeout_seconds=args.timeout)
     result.update({"run_id": args.run_id, "task_id": args.task_id, "subagent_id": args.subagent_id, "mode": args.mode, "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")})
     output_path = args.out or os.path.join(os.path.dirname(args.artifact_ref), "eval_result.json")
     os.makedirs(os.path.dirname(output_path) or ".", exist_ok=True)
