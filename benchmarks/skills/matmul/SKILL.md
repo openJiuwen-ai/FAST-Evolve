@@ -37,7 +37,7 @@ command above is the only execution command needed by task-executor.
 
 ## Task
 
-Focus on designing an explicit constructor rather than an iterative search algorithm.
+Design a constructor that returns a high-quality decomposition; choose the optimization strategy that best fits the tensor factorization problem.
 
 ## Program Interface
 

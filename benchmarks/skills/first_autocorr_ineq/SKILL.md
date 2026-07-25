@@ -48,7 +48,7 @@ Goal: Beat the current upper bound of 1.5052939684401607 discovered by step func
 
 ## Task
 
-Focus on designing an explicit constructor rather than an iterative search algorithm.
+Bounded computation and scientific-computing libraries such as NumPy/SciPy/jax/optax are allowed when they help.
 
 ## Program Interface
 
