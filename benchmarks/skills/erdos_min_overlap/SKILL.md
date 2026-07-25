@@ -71,7 +71,7 @@ Goal: Find a step function `h` that results in a C5 value lower than 0.380923035
 
 ## Task
 
-Focus on designing an explicit constructor rather than an iterative search algorithm.
+Bounded computation and scientific-computing libraries such as NumPy/SciPy/jax/optax are allowed when they help.
 
 ## Program Interface
 

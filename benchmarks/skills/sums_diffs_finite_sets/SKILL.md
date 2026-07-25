@@ -37,7 +37,7 @@ command above is the only execution command needed by task-executor.
 
 ## Task
 
-Focus on designing an explicit constructor rather than an iterative search algorithm.
+Bounded search and optimization algorithms are allowed when they help.
 
 ## Constraints
 
