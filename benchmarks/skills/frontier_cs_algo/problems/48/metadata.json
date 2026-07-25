@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "48",
+  "title": "Sphere Packing in a Cube (Optimization)",
+  "problem_type": "default",
+  "time_limit_seconds": 1,
+  "memory_limit_mb": 512,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/48/task.yaml",
+  "statement_sha256": "f1bf0a3ae24231b1d15f8a6a0d7961bf1ff097dafbffb591edd19e96ac4a2bc3",
+  "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
+}

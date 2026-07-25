@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "228",
+  "title": "You are given a 01-string (a string consisting only of characters '0' and '1').",
+  "problem_type": "default",
+  "time_limit_seconds": 1,
+  "memory_limit_mb": 512,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/228/task.yaml",
+  "statement_sha256": "376fbdd7b83257f2311a198bf1162a773fd621662cb8d978824bb39af4a26877",
+  "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
+}

@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "140",
+  "title": "Mineral Deposits (interactive)",
+  "problem_type": "interactive",
+  "time_limit_seconds": 1,
+  "memory_limit_mb": 256,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/140/task.yaml",
+  "statement_sha256": "4bdbe4bbf7c895d16c3394cb7e56833bf1da611f80a2fb2d0af7a6508aeebae6",
+  "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
+}

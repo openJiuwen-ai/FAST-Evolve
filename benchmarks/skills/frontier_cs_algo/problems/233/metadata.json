@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "233",
+  "title": "Snake",
+  "problem_type": "interactive",
+  "time_limit_seconds": 5,
+  "memory_limit_mb": 256,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/233/task.yaml",
+  "statement_sha256": "8bd43f432ca4f16cdfe68e981ef18de5fa9e5116eb6067c2052f38fcc20e95a3",
+  "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
+}

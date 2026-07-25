@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "5",
+  "title": "Problem: Hamiltonian Path Challenge",
+  "problem_type": "default",
+  "time_limit_seconds": 4,
+  "memory_limit_mb": 512,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/5/task.yaml",
+  "statement_sha256": "69d6e97e83dda594e3f0eb68f5082c09a62fe24481959dae33992c21bf728ce1",
+  "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
+}

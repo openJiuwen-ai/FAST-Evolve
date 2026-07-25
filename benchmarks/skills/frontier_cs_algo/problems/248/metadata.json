@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "248",
+  "title": "Drone Delivery",
+  "problem_type": "default",
+  "time_limit_seconds": 15,
+  "memory_limit_mb": 512,
+  "test_case_count": 4,
+  "source_task": "examples/frontier_cs_algo/248/task.yaml",
+  "statement_sha256": "3f9a636c776f20adff57fa918c0b8b14668edaf3c721a44592da154dfb9b3aaf",
+  "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
+}

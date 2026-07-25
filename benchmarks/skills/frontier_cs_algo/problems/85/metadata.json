@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "85",
+  "title": "Maze",
+  "problem_type": "interactive",
+  "time_limit_seconds": 2,
+  "memory_limit_mb": 512,
+  "test_case_count": 1,
+  "source_task": "examples/frontier_cs_algo/85/task.yaml",
+  "statement_sha256": "0dc5933df6b2a2df5dfc0ec770fe55bcd7583bdf25e79833c4dff729d12b9e43",
+  "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
+}

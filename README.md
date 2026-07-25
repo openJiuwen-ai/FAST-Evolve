@@ -91,7 +91,7 @@ python -m agent_evolve_mcp.dashboard circle_packing_20260710143000
 ```text
 agent_evolve_mcp/       Evolution Controller MCP and persistence layer
 agent_evolve_plugin/    Claude Code skills and task-executor agents
-benchmarks/             23 benchmark skills (math and ADRS), evaluators, and reference programs
+benchmarks/             24 benchmark skills (math, ADRS, and Frontier-CS), evaluators, and references
 tests/                  Controller and benchmark regression tests
 runs/                  Per-run candidate artifacts and final reports (gitignored)
 .agent_evolve/         Per-run controller state (gitignored)
@@ -100,7 +100,10 @@ runs/                  Per-run candidate artifacts and final reports (gitignored
 ## Setup ⚙️
 
 The math benchmarks require the `math` extra, and the ADRS benchmarks require
-the `adrs` extra. The `dev` extra provides pytest.
+the `adrs` extra. The Frontier-CS algorithmic evaluator is host-side and uses
+only the base environment, but it requires an already-running compatible judge
+service. See `benchmarks/skills/frontier_cs_algo/JUDGE.md`. The `dev` extra
+provides pytest.
 
 ```powershell
 pip install -r requirements.txt
@@ -126,6 +129,12 @@ Then submit a task such as:
 /agent_evolve_plugin:evolve run the circle_packing benchmark end to end.
 ```
 
+For one Frontier-CS algorithmic problem, include its numeric ID explicitly:
+
+```text
+/agent_evolve_plugin:evolve frontier_cs_algo problem_id=0
+```
+
 The orchestrator derives a safe task slug from the original request and creates
 a run ID such as `circle_packing_20260710143000`, with no `run_` prefix. The
 same ID names both `runs/<run_id>/` and `.agent_evolve/controller/<run_id>/`.
@@ -137,8 +146,8 @@ For each task, the executor:
 
 1. asks MCP for a parent, inspirations, run-local Notes, and any assigned
    meta-guidance;
-2. reads the selected artifacts and, for root tasks, the benchmark's
-   `initial_program.py` when present;
+2. reads the selected artifacts and, for root tasks, the benchmark-declared
+   initial reference program when present;
 3. generates one candidate per attempt and runs the benchmark-defined
    evaluator;
 4. records the evaluator result with MCP and lets MCP update the success pool,
@@ -214,7 +223,7 @@ runs/<run_id>/
   completed_tasks.jsonl
   scheduler_state.json
   dashboard.json
-  tasks/<task_id>/attempts/<attempt_id>/solution.py
+  tasks/<task_id>/attempts/<attempt_id>/solution.py  # or solution.cpp
   tasks/<task_id>/attempts/<attempt_id>/eval_result.json
   run_summary.md
   run_summary.json

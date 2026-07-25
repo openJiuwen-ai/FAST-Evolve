@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "89",
+  "title": "Problem: Tree Reconstruction via Steiner-Membership Queries",
+  "problem_type": "interactive",
+  "time_limit_seconds": 3,
+  "memory_limit_mb": 512,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/89/task.yaml",
+  "statement_sha256": "5d9a8c55c719cec0ab3a75b3f44ed9ef69623b7fef9b959da1c30fe0cec61867",
+  "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
+}

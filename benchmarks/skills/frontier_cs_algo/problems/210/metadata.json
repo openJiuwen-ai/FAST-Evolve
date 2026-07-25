@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "210",
+  "title": "Military Exercise: Fighter Scheduling and Base Strikes (Blue Side)",
+  "problem_type": "default",
+  "time_limit_seconds": 5,
+  "memory_limit_mb": 512,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/210/task.yaml",
+  "statement_sha256": "010df1e0c47cd2f068706db3e4139a273f5b0d816074f23cbb4cb34ea5299824",
+  "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
+}

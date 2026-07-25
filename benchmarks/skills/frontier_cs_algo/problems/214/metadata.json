@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "214",
+  "title": "Sequence Reversal (requese)",
+  "problem_type": "default",
+  "time_limit_seconds": 2,
+  "memory_limit_mb": 512,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/214/task.yaml",
+  "statement_sha256": "dc17f52c1e5bf4cb6d62847f2df5b21069e3e2b0f46f34ddfb94123761a7f2c0",
+  "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
+}

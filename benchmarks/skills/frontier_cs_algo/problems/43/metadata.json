@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "43",
+  "title": "Bigger Sokoban 40k",
+  "problem_type": "default",
+  "time_limit_seconds": 2,
+  "memory_limit_mb": 1024,
+  "test_case_count": 1,
+  "source_task": "examples/frontier_cs_algo/43/task.yaml",
+  "statement_sha256": "79f14fe8f639ff8cc1c1954c52c0831b442c4debe13ed4866d4841a95ed9fe51",
+  "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
+}

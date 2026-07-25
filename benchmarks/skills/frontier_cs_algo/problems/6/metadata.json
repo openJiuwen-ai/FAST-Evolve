@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "6",
+  "title": "worldmap",
+  "problem_type": "default",
+  "time_limit_seconds": 1,
+  "memory_limit_mb": 2048,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/6/task.yaml",
+  "statement_sha256": "9b9e6a48865dcbaf0a37a550e4130e4744a1b4e8b620591b36ee3a0d79651659",
+  "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
+}

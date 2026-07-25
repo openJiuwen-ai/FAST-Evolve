@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "111",
+  "title": "Problem: Distinct Pairwise XOR Set",
+  "problem_type": "default",
+  "time_limit_seconds": 1,
+  "memory_limit_mb": 128,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/111/task.yaml",
+  "statement_sha256": "bd13b2d8209bb8d6166fe7e05fa1b4c6e39af92860c399a2a13297142c4dc05d",
+  "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
+}

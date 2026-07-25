@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "225",
+  "title": "You are given a permutation $a_1, a_2, \\dots, a_n$ of numbers from $1$ to $n$.",
+  "problem_type": "default",
+  "time_limit_seconds": 4,
+  "memory_limit_mb": 512,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/225/task.yaml",
+  "statement_sha256": "dc4c894ab58c94fff1e60786c7c850b42ec5808231e8ed4bfc0fa1e429200645",
+  "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
+}

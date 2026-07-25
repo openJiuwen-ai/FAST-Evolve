@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "0",
+  "title": "Pack the Polyominoes (Reflections Allowed)",
+  "problem_type": "default",
+  "time_limit_seconds": 2,
+  "memory_limit_mb": 256,
+  "test_case_count": 70,
+  "source_task": "examples/frontier_cs_algo/0/task.yaml",
+  "statement_sha256": "dc36cc6b79692693d1f567f52eba7bdece97375a1e614f075dd2a9c2216e081b",
+  "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
+}

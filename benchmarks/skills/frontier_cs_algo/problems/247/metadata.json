@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "247",
+  "title": "Problem Statement",
+  "problem_type": "default",
+  "time_limit_seconds": 2,
+  "memory_limit_mb": 512,
+  "test_case_count": 5,
+  "source_task": "examples/frontier_cs_algo/247/task.yaml",
+  "statement_sha256": "9cb0f5d2f36f713109de6d741044044c4d782be65da12db3c88c3518ddb27121",
+  "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
+}

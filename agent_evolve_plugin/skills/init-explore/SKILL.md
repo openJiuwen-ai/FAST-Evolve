@@ -19,9 +19,19 @@ Then execute the following steps in EXACT ORDER:
 ## Step 1: Understand Task
 
 1. Locate and read the problem SKILL.md if it exists. The problem SKILL.md is typically found in the project root or in a benchmark directory.
-2. If the problem SKILL.md is in a benchmark directory and `initial_program.py` exists in the same directory, read `initial_program.py` as the initial reference program.
-3. Understand the verification method, what constitutes a successful solution, and the reference program's main algorithmic approach if one exists.
-4. Do not read verifier scripts (verify.py or similar) - only read the problem description SKILL.md and the sibling `initial_program.py` reference when it exists.
+2. Follow the problem SKILL.md's public instance-selection instructions using
+   the original `task_description`. If the skill requires an instance or problem
+   ID, validate it and read the public statement/metadata it declares. Never
+   infer a benchmark instance from an evolution `task_id`.
+3. Resolve the initial reference declared by the problem SKILL.md. It may be a
+   problem-specific path such as
+   `problems/<problem_id>/initial_program.cpp`. If the skill does not declare
+   one, fall back to a sibling `initial_program.py` when present. Read the
+   resolved file as `initial_program_reference`.
+4. Understand the verification method, what constitutes a successful solution, and the reference program's main algorithmic approach if one exists.
+5. Do not read verifier/evaluator scripts or judge-side resources. Only read
+   the problem SKILL.md and the public problem resources and initial reference
+   it explicitly declares.
 
 ---
 
@@ -52,7 +62,7 @@ Generate exactly `num_directions` different directions. Each direction must be:
 - Actionable, focusing on a specific approach
 - Feasible and meaningful for the given task
 
-If an `initial_program.py` reference exists, use it as important context for
+If an `initial_program_reference` exists, use it as important context for
 the task interface, baseline algorithm, and known feasible starting route.
 Directions may improve, specialize, simplify, or deliberately depart from that
 reference. Keep the set diverse; do not generate four directions that merely
@@ -128,4 +138,4 @@ runs/<run_id>/tasks/task_004/direction.txt: Mathematical formula-based direct ca
 4. **No Verifier Reading**: Do NOT read verifier scripts.
 5. **Problem-First Diversity**: Derive diversity axes from the problem's structure, not from generic coding style categories.
 6. **Pairwise Distinct**: Every direction must produce a fundamentally different solution; overlap in core strategy is unacceptable.
-7. **Reference-Aware Roots**: When `initial_program.py` exists, directions should be informed by it but may include both close improvements and substantially different alternatives.
+7. **Reference-Aware Roots**: When an `initial_program_reference` exists, directions should be informed by it but may include both close improvements and substantially different alternatives.

@@ -1,0 +1,13 @@
+{
+  "benchmark": "frontier_cs_algo",
+  "track": "algorithmic",
+  "problem_id": "207",
+  "title": "Efficient Sorting",
+  "problem_type": "default",
+  "time_limit_seconds": 10,
+  "memory_limit_mb": 256,
+  "test_case_count": 3,
+  "source_task": "examples/frontier_cs_algo/207/task.yaml",
+  "statement_sha256": "3cab8250c74bc5ef18fec950a6a3d5cf3a9dff4caa73f9d867100afeb02cf794",
+  "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
+}
