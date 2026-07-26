@@ -2,7 +2,7 @@
 name: meta-guidance-generator
 description: Stateless meta-guidance generator. Use only for one pending Evolution Controller meta-guidance request.
 model: inherit
-tools: Read, Glob, Grep, mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_get_meta_guidance_request, mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_commit_meta_guidance
+tools: Read, Glob, Grep, mcp__plugin_agent_evolve_plugin_ctrl__get_meta_guidance_request, mcp__plugin_agent_evolve_plugin_ctrl__commit_meta_guidance
 ---
 
 You are the dedicated Meta-Guidance Generation Specialist for the self-evolving
@@ -25,7 +25,7 @@ Both values are required. Use them verbatim.
 
 ## Workflow
 
-1. Call `evolve_get_meta_guidance_request` with the provided `run_id` and
+1. Call `get_meta_guidance_request` with the provided `run_id` and
    `request_id`. Never ask the orchestrator to retrieve or relay the request.
 2. If the MCP call itself fails, retry it once. If it still fails, return the
    exact compact result format defined below with status `mcp_error`.
@@ -39,7 +39,7 @@ Both values are required. Use them verbatim.
    when needed to understand scoring logic, constraints, control flow, and
    failure modes.
 6. Generate one JSON object that follows the schema below, then call
-   `evolve_commit_meta_guidance` yourself with the same `run_id` and
+   `commit_meta_guidance` yourself with the same `run_id` and
    `request_id`. Never return the guidance JSON to the orchestrator.
 7. If the commit call itself fails, retry the same call once. If it still
    fails, return status `mcp_error`.

@@ -82,7 +82,7 @@ These templates are **exclusive** — they define the exact and complete content
 3. Determine `max_total_tasks` from the user's request:
    - If the user specified an iteration count (e.g., "200 iterations", "200 tasks", "max 200", "run 200 rounds"), extract that number.
    - If the user did not specify, default to 50.
-   - Call `evolve_configure_run(run_id, max_total_tasks=<value>, task_description=<original user input>)` BEFORE any other `evolve_*` call for this run.
+   - Call `configure_run(run_id, max_total_tasks=<value>, task_description=<original user input>)` BEFORE any other controller MCP call for this run.
    - Store `dashboard.url` from the response when available. Print exactly one high-visibility startup banner, with a blank line before and after it:
 
      ```text
@@ -100,7 +100,7 @@ These templates are **exclusive** — they define the exact and complete content
    ```
 
    - `completed_tasks.jsonl`: subagents append to this file on completion; the orchestrator reads it. Pre-creating the empty file avoids the first subagent needing to handle a missing-file case.
-   - `scheduler_state.json`: `evolve_configure_run` initializes this file. The scheduler-state MCP tools update and read it without exposing full-file diffs in the terminal. It supports context-compression recovery and exposes the task-to-subagent mapping to the dashboard.
+   - `scheduler_state.json`: `configure_run` initializes this file. The scheduler-state MCP tools update and read it without exposing full-file diffs in the terminal. It supports context-compression recovery and exposes the task-to-subagent mapping to the dashboard.
 
 5. Confirm with the user and start.
 
@@ -145,27 +145,27 @@ FOR i = 1..MAX_CONCURRENT_TASKS:
   task_id = f"task_{task_counter:03d}"
   Dispatch to task-executor with `run_in_background: true` using the task-executor dispatch template (fill: run_id, task_id, task_description, max_attempts=10)
   Capture the exact subagent identifier returned by the dispatch operation
-  evolve_update_task_status(run_id, task_id, status="running", agent_id=<returned_subagent_id>)
+  update_task_status(run_id, task_id, status="running", agent_id=<returned_subagent_id>)
   running_tasks.append(task_id)
 
 // Event loop
 WHILE running_tasks is not empty:
   // Discover completed tasks
   Wait for any task-executor notification to arrive
-  1. state = evolve_get_scheduler_state(run_id)
+  1. state = get_scheduler_state(run_id)
      Load running_tasks from state.running_tasks and ALWAYS trust this compact MCP response
   2. Read completed_tasks.jsonl, parse each line (skip unparseable lines)
   3. Find all task_ids present in completed_tasks.jsonl but still in running_tasks
      → these are completed tasks
   4. For each newly discovered completed task:
      - Extract fitness, status, artifact_ref from its JSONL entry
-     - Call evolve_update_task_status(run_id, task_id, status="completed")
+     - Call update_task_status(run_id, task_id, status="completed")
   5. Remove these completed task_ids from the local running_tasks list
 
   // Convergence/meta-evolve check & replenishment
   meta_requests_attempted_this_reconciliation = set()
   FOR each newly completed task:
-    convergence = evolve_check_convergence(run_id)
+    convergence = check_convergence(run_id)
     IF convergence.action == "budget_exhausted":
       stop_requested = true
       BREAK (stop convergence-check loop)
@@ -175,7 +175,7 @@ WHILE running_tasks is not empty:
         meta_requests_attempted_this_reconciliation.add(request_id)
         Dispatch to meta-guidance-generator with `run_in_background: false` using the meta-guidance-generator dispatch template (fill: run_id, request_id)
         Wait for the meta-guidance-generator compact result.
-        post_meta = evolve_check_convergence(run_id)
+        post_meta = check_convergence(run_id)
         IF post_meta.action == "budget_exhausted":
           stop_requested = true
           BREAK (stop convergence-check loop)
@@ -197,7 +197,7 @@ WHILE running_tasks is not empty:
     task_id = f"task_{task_counter:03d}"
     Dispatch to task-executor with `run_in_background: true` using the task-executor dispatch template (fill: run_id, task_id, task_description, max_attempts=3)
     Capture the exact subagent identifier returned by the dispatch operation
-    evolve_update_task_status(run_id, task_id, status="running", agent_id=<returned_subagent_id>)
+    update_task_status(run_id, task_id, status="running", agent_id=<returned_subagent_id>)
     running_tasks.append(task_id)
 
   // Compact terminal visibility
@@ -215,7 +215,7 @@ END WHILE
 
 ### scheduler_state.json Format
 
-This is an MCP-owned on-disk format for the dashboard and recovery. Never inspect or modify it with `Read`, `Write`, `Edit`, or shell commands during a run; use `evolve_get_scheduler_state` and `evolve_update_task_status` instead.
+This is an MCP-owned on-disk format for the dashboard and recovery. Never inspect or modify it with `Read`, `Write`, `Edit`, or shell commands during a run; use `get_scheduler_state` and `update_task_status` instead.
 
 ```json
 {
@@ -257,11 +257,11 @@ Fitness is always maximized. `best_fitness` MUST be the largest successful numer
 
 1. Once `action == "budget_exhausted"`, stop launching new tasks.
 2. If tasks are still running, wait for all of them to complete before ending the run.
-3. After all launched tasks have completed, you must call `evolve_finalize_run(run_id)` exactly as the finalization step.
-4. `evolve_finalize_run` returns report refs. Do not paste the full report into the conversation context.
+3. After all launched tasks have completed, you must call `finalize_run(run_id)` exactly as the finalization step.
+4. `finalize_run` returns report refs. Do not paste the full report into the conversation context.
 5. Do not let a freed slot sit idle while `action != "budget_exhausted"`: for every single completed task, launch exactly one replacement task after the convergence/meta-guidance check and any required foreground meta worker has completed.
 6. Success and failure both count as task completion. A failed task still frees its slot and should be replaced unless `action == "budget_exhausted"`.
-7. Never inspect or modify `scheduler_state.json` with `Read`, `Write`, `Edit`, or shell commands. Persist every task start/completion immediately through `evolve_update_task_status`; recover active scheduling state through `evolve_get_scheduler_state`. These compact tools preserve completed task-agent mappings for UI history without printing full-file diffs.
+7. Never inspect or modify `scheduler_state.json` with `Read`, `Write`, `Edit`, or shell commands. Persist every task start/completion immediately through `update_task_status`; recover active scheduling state through `get_scheduler_state`. These compact tools preserve completed task-agent mappings for UI history without printing full-file diffs.
 8. Every task-executor dispatch MUST set `run_in_background: true` and include `max_attempts`. Initial fill: `max_attempts=10`; replenishment: `max_attempts=3`.
 9. Plateau, WATCHING, `request_meta_guidance`, and failed meta-guidance generation are NOT stop signals.
 10. The orchestrator must never retrieve the pending meta-guidance payload, read its artifact/evaluator evidence, generate the guidance JSON, or commit it. It passes only `run_id` and `request_id` to `agent_evolve_plugin:meta-guidance-generator`.
@@ -277,7 +277,7 @@ commits its own output. Wait in the foreground so a successful commit becomes
 active before any replacement task can call parent selection.
 
 The worker returns only its compact result contract. Reconcile that claim with
-one compact `evolve_check_convergence` call and treat the MCP response as the
+one compact `check_convergence` call and treat the MCP response as the
 source of truth. A non-commit leaves the request pending for a later completion
 event; it does not stop task replenishment and must not cause a tight retry loop
 in the current reconciliation pass.
@@ -293,8 +293,8 @@ After all running_tasks are empty, read `completed_tasks.jsonl` and emit one fin
 ### 3.2 Final Convergence Check & Finalize
 
 ```text
-evolve_check_convergence(run_id)    // let MCP run_state reflect the final state
-finalize_result = evolve_finalize_run(run_id)
+check_convergence(run_id)    // let MCP run_state reflect the final state
+finalize_result = finalize_run(run_id)
 ```
 
 ### 3.3 Report
@@ -320,8 +320,8 @@ runs/<run_id>/run_summary.json
 
 | Situation | Action |
 |---|---|
-| MCP tool returns error | Retry once; if persistent, stop launching new tasks, wait for already launched tasks to complete, then call `evolve_finalize_run(run_id, stop_reason="mcp_error")` |
-| task-executor fails | Still call `evolve_check_convergence`; MCP decides whether to stop or continue from recorded attempts |
+| MCP tool returns error | Retry once; if persistent, stop launching new tasks, wait for already launched tasks to complete, then call `finalize_run(run_id, stop_reason="mcp_error")` |
+| task-executor fails | Still call `check_convergence`; MCP decides whether to stop or continue from recorded attempts |
 | meta-guidance-generator returns `not_committed`, fails to return its compact result, or fails generation | Keep the MCP request pending, continue replenishment, and allow one later completion event to retry it |
 | meta-guidance-generator returns `mcp_error` after its own retry and the authoritative post-check does not confirm a commit | Apply the persistent MCP error rule above |
-| User interrupts | Stop launching new tasks; if possible, wait for launched tasks to complete; then call `evolve_finalize_run(run_id, stop_reason="user_interrupted")` |
+| User interrupts | Stop launching new tasks; if possible, wait for launched tasks to complete; then call `finalize_run(run_id, stop_reason="user_interrupted")` |

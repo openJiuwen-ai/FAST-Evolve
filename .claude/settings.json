@@ -2,7 +2,9 @@
   "permissions": {
     "allow": [
       "Skill(agent_evolve_plugin:evolve)",
+      "Skill(agent_evolve_plugin:init-explore)",
       "Skill(agent_evolve_plugin:evolve-task-exec)",
+      "Agent(init-explorer)",
       "Agent(task-executor)",
       "Agent(meta-guidance-generator)",
       "Write(/runs/**)",
@@ -12,19 +14,19 @@
       "Bash(printf *)",
       "Bash(date *)",
       "Bash(cd * && uv run python benchmarks/skills/*/scripts/evaluator.py *)",
-      "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_configure_run",
-      "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_update_task_status",
-      "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_get_scheduler_state",
-      "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_select_parent",
-      "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_select_inspirations",
-      "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_get_notes_prompt",
-      "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_get_meta_guidance_prompt",
-      "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_record_attempt",
-      "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_commit_generated_note",
-      "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_get_meta_guidance_request",
-      "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_commit_meta_guidance",
-      "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_check_convergence",
-      "mcp__plugin_agent_evolve_plugin_agent_evolve_mcp__evolve_finalize_run"
+      "mcp__plugin_agent_evolve_plugin_ctrl__configure_run",
+      "mcp__plugin_agent_evolve_plugin_ctrl__update_task_status",
+      "mcp__plugin_agent_evolve_plugin_ctrl__get_scheduler_state",
+      "mcp__plugin_agent_evolve_plugin_ctrl__select_parent",
+      "mcp__plugin_agent_evolve_plugin_ctrl__select_inspirations",
+      "mcp__plugin_agent_evolve_plugin_ctrl__get_notes_prompt",
+      "mcp__plugin_agent_evolve_plugin_ctrl__get_meta_guidance_prompt",
+      "mcp__plugin_agent_evolve_plugin_ctrl__record_attempt",
+      "mcp__plugin_agent_evolve_plugin_ctrl__commit_generated_note",
+      "mcp__plugin_agent_evolve_plugin_ctrl__get_meta_guidance_request",
+      "mcp__plugin_agent_evolve_plugin_ctrl__commit_meta_guidance",
+      "mcp__plugin_agent_evolve_plugin_ctrl__check_convergence",
+      "mcp__plugin_agent_evolve_plugin_ctrl__finalize_run"
     ]
   }
 }

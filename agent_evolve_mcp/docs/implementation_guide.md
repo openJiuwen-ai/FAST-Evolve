@@ -1,6 +1,6 @@
 # Agent Evolve MCP 实现讲解
 
-> 版本提示：这是一份较早的实现讲解。当前开发请以仓库根目录 `agent_evolve_mcp/README.md` 和本目录 `minimal_context_interface.md` 为准；`evolve_check_convergence` 的主语义是 `action`。
+> 版本提示：这是一份较早的实现讲解。当前开发请以仓库根目录 `agent_evolve_mcp/README.md` 和本目录 `minimal_context_interface.md` 为准；`check_convergence` 的主语义是 `action`。
 
 > 本文解释当前 `agent_evolve_mcp` 目录下这版 Evolution Controller MCP 的代码结构、运行流程、配置方式和接入边界。它面向后续要实现 `agent_evolve_plugin` 主循环、或要把 MCP 接到 Claude Code / Codex / opencode 等第三方 agent 的同事。
 
@@ -29,7 +29,7 @@
 - 不实现 heartbeat；
 - 不依赖原 AKG / `akg_agents` 代码。
 
-后续主循环应该放在 `agent_evolve_plugin` 中。主循环通过 MCP tools 调用这里的五个接口。
+后续主循环应该放在 `agent_evolve_plugin` 中。主循环通过 MCP tools 调用这里的控制接口。
 
 ---
 
@@ -45,15 +45,15 @@
 长内容统一用 ref 指代。
 ```
 
-这条原则直接影响五个公开 tool：
+下表列出五个核心数据与收敛 tool；当前完整接口以 `minimal_context_interface.md` 为准：
 
 | Tool | 最小输入 | 最小输出 |
 |------|----------|----------|
-| `evolve_select_parent` | `run_id`, `task_id` | `parent_id`, `artifact_ref`, `fitness` |
-| `evolve_select_inspirations` | `run_id`, `task_id` | 额外 inspirations 的 id/ref/fitness，不重复返回 parent |
-| `evolve_record_attempt` | `run_id`, `task_id`, `verification_result_ref` | `entered_success_db`, `success_record_id` |
-| `evolve_check_convergence` | `run_id` | `action` |
-| `evolve_finalize_run` | `run_id`, 可选 `stop_reason` | `report_ref`, `summary_ref` |
+| `select_parent` | `run_id`, `task_id` | `parent_id`, `artifact_ref`, `fitness` |
+| `select_inspirations` | `run_id`, `task_id` | 额外 inspirations 的 id/ref/fitness，不重复返回 parent |
+| `record_attempt` | `run_id`, `task_id`, `verification_result_ref` | `entered_success_db`, `success_record_id` |
+| `check_convergence` | `run_id` | `action` |
+| `finalize_run` | `run_id`, 可选 `stop_reason` | `report_ref`, `summary_ref` |
 
 `progress`、`parent_id`、`inspiration_ids`、`artifact_ref`、完整 `verification_result` 等字段不再由 agent 在公开接口之间传来传去。
 
@@ -296,14 +296,14 @@ import agent_evolve_mcp.mcp_server
 
 它不应该塞入复杂算法。
 
-当前公开五个 MCP tools：
+以下列出五个核心数据与收敛 MCP tools；完整注册表以 `agent_evolve_mcp/README.md` 为准：
 
 ```python
-evolve_select_parent(...)
-evolve_select_inspirations(...)
-evolve_record_attempt(...)
-evolve_check_convergence(...)
-evolve_finalize_run(...)
+select_parent(...)
+select_inspirations(...)
+record_attempt(...)
+check_convergence(...)
+finalize_run(...)
 ```
 
 内部有一个简单 cache：
@@ -343,7 +343,7 @@ WATCHING
 STOPPED
 ```
 
-这是 MCP 内部状态。公开 `evolve_check_convergence` 通过 `action` 返回主循环需要执行的动作：
+这是 MCP 内部状态。公开 `check_convergence` 通过 `action` 返回主循环需要执行的动作：
 
 ```text
 continue / request_meta_guidance / budget_exhausted
@@ -543,7 +543,7 @@ max_total_tasks = 100
 
 后续如果主循环需要每个 run 自定义预算，可以扩展：
 
-1. 增加 `evolve_configure_run`；
+1. 增加 `configure_run`；
 2. 或让 `EvolutionController(run_id, config=...)` 从某个 run config 文件加载。
 
 当前代码已经预留了内部加载能力，但公开 MCP schema 还没有开放这部分。
@@ -848,7 +848,7 @@ submitted_count / max_total_tasks
 [parent, inspiration_1, inspiration_2, ...]
 ```
 
-但公开 MCP tool 会过滤掉 parent，只把额外 inspiration 的 id/ref/fitness 返回给 agent，避免 `evolve_select_parent` 和 `evolve_select_inspirations` 重复占用上下文。
+但公开 MCP tool 会过滤掉 parent，只把额外 inspiration 的 id/ref/fitness 返回给 agent，避免 `select_parent` 和 `select_inspirations` 重复占用上下文。
 
 然后选若干 inspiration。
 
@@ -1012,7 +1012,7 @@ patience = 4
 内部总门面，串起所有模块。
 ```
 
-它不是 MCP tool，但 `public_tools.py` 的五个公开函数都会调用它。
+它不是 MCP tool，但 `public_tools.py` 的核心公开函数都会调用它。
 
 初始化：
 
@@ -1052,14 +1052,14 @@ self.lineage_tree.rebuild(self.db)
 
 ---
 
-## 5. 五个 MCP tools 的详细说明
+## 5. 五个核心 MCP tools 的详细说明
 
-### 5.1 `evolve_select_parent`
+### 5.1 `select_parent`
 
 签名：
 
 ```python
-evolve_select_parent(
+select_parent(
   run_id: str,
   task_id: str
 ) -> Dict[str, Any]
@@ -1099,12 +1099,12 @@ SuccessDB 非空时返回：
 (run_id, task_id) -> parent_id 会写入 task_contexts.json
 ```
 
-### 5.2 `evolve_select_inspirations`
+### 5.2 `select_inspirations`
 
 签名：
 
 ```python
-evolve_select_inspirations(
+select_inspirations(
   run_id: str,
   task_id: str
 ) -> Dict[str, Any]
@@ -1154,12 +1154,12 @@ sample_num 使用控制器配置，不需要 agent 传入。
 
 如果候选不够，实际数量可能更少。调用后，MCP 会把 inspiration_ids 写入 task_contexts.json，供后续 record_attempt 使用。
 
-### 5.3 `evolve_record_attempt`
+### 5.3 `record_attempt`
 
 签名：
 
 ```python
-evolve_record_attempt(
+record_attempt(
   run_id: str,
   task_id: str,
   verification_result_ref: str
@@ -1247,12 +1247,12 @@ attempt_id = result.get("attempt_id") or task_id or uuid4()
 
 MCP 会从 `task_contexts.json` 读取本 task 的 `parent_id` 和 `inspiration_ids`，并从 result JSON 读取 `artifact_ref`、`fitness`、`metrics`、`profile`、`log_ref` 等字段。agent 不需要在入库接口里复述这些内容。
 
-### 5.4 `evolve_check_convergence`
+### 5.4 `check_convergence`
 
 签名：
 
 ```python
-evolve_check_convergence(
+check_convergence(
   run_id: str
 ) -> Dict[str, Any]
 ```
@@ -1279,7 +1279,7 @@ WATCHING 示例：
 }
 ```
 
-`WATCHING` 不返回给主 agent。MCP 会把内部状态写入 run state，并在 convergence check 中直接请求 meta-guidance。这个状态不会改变 `evolve_select_parent` / `evolve_select_inspirations` 的参数。
+`WATCHING` 不返回给主 agent。MCP 会把内部状态写入 run state，并在 convergence check 中直接请求 meta-guidance。这个状态不会改变 `select_parent` / `select_inspirations` 的参数。
 
 STOPPED 示例：
 
@@ -1289,12 +1289,12 @@ STOPPED 示例：
 }
 ```
 
-### 5.5 `evolve_finalize_run`
+### 5.5 `finalize_run`
 
 签名：
 
 ```python
-evolve_finalize_run(
+finalize_run(
   run_id: str,
   stop_reason: str = "",
 ) -> Dict[str, Any]
@@ -1371,7 +1371,7 @@ MCP 只会在默认位置创建自己的 controller 状态：
 subagent 调用：
 
 ```python
-evolve_select_parent(
+select_parent(
   run_id="run_20260506_001",
   task_id="task_001"
 )
@@ -1394,7 +1394,7 @@ subagent 生成初始候选。
 如果有 parent，则调用：
 
 ```python
-evolve_select_inspirations(
+select_inspirations(
   run_id="run_20260506_001",
   task_id="task_001"
 )
@@ -1438,7 +1438,7 @@ verifier 输出：
 task 完成后，subagent 调用：
 
 ```python
-evolve_record_attempt(
+record_attempt(
   run_id="run_20260506_001",
   task_id="task_001",
   verification_result_ref="memory_hub/runs/run_20260506_001/tasks/task_001/verification/final.json"
@@ -1455,7 +1455,7 @@ MCP 做四件事：
 ### Step 6：主 agent 检查收敛
 
 ```python
-evolve_check_convergence(
+check_convergence(
   run_id="run_20260506_001"
 )
 ```
@@ -1472,12 +1472,12 @@ action = "continue" 或 "request_meta_guidance"
 action = "budget_exhausted"
 ```
 
-主 agent 停止提交新 task，但不立刻结束 run。它需要等待已经启动的 running tasks 全部完成并完成 `evolve_record_attempt`，然后再调用一次 `evolve_check_convergence(run_id)` 刷新最终 `run_state`。
+主 agent 停止提交新 task，但不立刻结束 run。它需要等待已经启动的 running tasks 全部完成并完成 `record_attempt`，然后再调用一次 `check_convergence(run_id)` 刷新最终 `run_state`。
 
 最后调用：
 
 ```python
-evolve_finalize_run(
+finalize_run(
   run_id="circle_packing_20260506143310"
 )
 ```
@@ -1528,7 +1528,7 @@ run_id = run_001
 }
 ```
 
-`inspiration_ids` 不包含 parent。`evolve_record_attempt` 会根据 `(run_id, task_id)` 读取这个文件，恢复完整谱系关系。
+`inspiration_ids` 不包含 parent。`record_attempt` 会根据 `(run_id, task_id)` 读取这个文件，恢复完整谱系关系。
 
 ### 7.2 `run_state.json`
 
@@ -1687,7 +1687,7 @@ controller = EvolutionController("run_001", config=config)
 未来如果要让第三方 agent 也能配置，建议加一个新 MCP tool：
 
 ```text
-evolve_configure_run
+configure_run
 ```
 
 ---
@@ -1876,7 +1876,7 @@ Boltzmann 采样后期温度。
 None
 ```
 
-如果配置了，MCP 可以根据 run state 中的开始时间计算 elapsed_seconds，并按时间预算停止。公开 `evolve_check_convergence` 不要求 agent 传时间。
+如果配置了，MCP 可以根据 run state 中的开始时间计算 elapsed_seconds，并按时间预算停止。公开 `check_convergence` 不要求 agent 传时间。
 
 ---
 
@@ -1889,14 +1889,14 @@ None
 2. 设置/确定 controller state dir
 3. 启动 rolling queue
 4. 每个 generator subagent:
-   4.1 evolve_select_parent
-   4.2 evolve_select_inspirations
+   4.1 select_parent
+   4.2 select_inspirations
    4.3 生成 artifact
    4.4 调 verifier CLI
    4.5 保存 verification_result_ref
-   4.6 evolve_record_attempt
+   4.6 record_attempt
 5. 主 agent:
-   5.1 evolve_check_convergence
+   5.1 check_convergence
    5.2 action != "budget_exhausted" 则补位
    5.3 action == "budget_exhausted" 则停止提交新 task
 6. 汇总 success_db.json、attempts.jsonl、verifier logs、artifacts
@@ -1956,7 +1956,7 @@ task_id 在同一个 run 内唯一
 建议后续加：
 
 ```text
-evolve_configure_run
+configure_run
 ```
 
 字段可包括：
@@ -1982,9 +1982,9 @@ MCP 不知道任务名称、目标、evaluator 信息。
 后续如要更完整审计，可加：
 
 ```text
-evolve_create_run
-evolve_get_run
-evolve_checkpoint_run
+create_run
+get_run
+checkpoint_run
 ```
 
 ### 11.3 没有 diagnostics tool
@@ -1994,7 +1994,7 @@ evolve_checkpoint_run
 如果想单独查看谱系树，可以加：
 
 ```text
-evolve_get_diagnostics
+get_diagnostics
 ```
 
 ### 11.4 没有 heartbeat
@@ -2045,7 +2045,8 @@ FastMCP
 python -m compileall agent_evolve_mcp
 ```
 
-也可以直接调用 tool 函数做最小本地验证：
+也可以直接调用 Python wrapper 做最小本地验证。为兼容既有 Python
+集成，wrapper 保留 `evolve_*` 名称；对应的 MCP 注册名不带该前缀：
 
 ```python
 from agent_evolve_mcp.public_tools import (
@@ -2094,7 +2095,7 @@ print(evolve_finalize_run(
 当前 `agent_evolve_mcp` 是一个通用 fitness 最大化的 Evolution Controller MCP：
 
 ```text
-public_tools.py 暴露五个 evolve_* MCP tools
+public_tools.py 暴露无冗余前缀的紧凑 MCP tools
 controller.py 串起 SuccessDB、LineageTree 和三求解器
 SuccessDB 保存成功经验
 AttemptLog 保存全部尝试
@@ -2103,4 +2104,4 @@ InspirationSelector 选灵感
 ConvergenceDetector 判断继续/观察/停止
 ```
 
-它已经从 AKG 场景迁移成了通用自进化底座组件，后续主循环只需要按协议调用这五个 MCP tools 即可。
+它已经从 AKG 场景迁移成了通用自进化底座组件，后续主循环只需要按协议调用对应 MCP tools 即可。

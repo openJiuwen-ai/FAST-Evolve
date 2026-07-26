@@ -7,17 +7,19 @@ The implementation follows a minimal-context contract: agents pass only stable i
 ## Tools
 
 ```python
-evolve_configure_run(run_id: str, max_total_tasks: int = 50, task_description: str = "")
-evolve_update_task_status(run_id: str, task_id: str, status: str, agent_id: str = "")
-evolve_get_scheduler_state(run_id: str)
-evolve_select_parent(run_id: str, task_id: str)
-evolve_select_inspirations(run_id: str, task_id: str)
-evolve_record_attempt(run_id: str, task_id: str, verification_result_ref: str)
-evolve_get_meta_guidance_request(run_id: str, request_id: str = "")
-evolve_commit_meta_guidance(run_id: str, request_id: str, guidance_json: Any)
-evolve_get_meta_guidance_prompt(run_id: str, task_id: str)
-evolve_check_convergence(run_id: str)
-evolve_finalize_run(run_id: str, stop_reason: str = "")
+configure_run(run_id: str, max_total_tasks: int = 50, task_description: str = "")
+update_task_status(run_id: str, task_id: str, status: str, agent_id: str = "")
+get_scheduler_state(run_id: str)
+select_parent(run_id: str, task_id: str)
+select_inspirations(run_id: str, task_id: str)
+record_attempt(run_id: str, task_id: str, verification_result_ref: str)
+get_notes_prompt(run_id: str, task_id: str)
+commit_generated_note(run_id: str, note_request_id: str, generated_note_json: Any)
+get_meta_guidance_request(run_id: str, request_id: str = "")
+commit_meta_guidance(run_id: str, request_id: str, guidance_json: Any)
+get_meta_guidance_prompt(run_id: str, task_id: str)
+check_convergence(run_id: str)
+finalize_run(run_id: str, stop_reason: str = "")
 ```
 
 Public responses are intentionally compact:
@@ -73,7 +75,7 @@ meta_evolve:
 `AGENT_EVOLVE_META_EVOLVE_ENABLED=0` disables meta-guidance request creation.
 
 Active meta-guidance is generated from the canonical best at request time, but
-each task binds it to the latest canonical best when `evolve_select_parent` is
+each task binds it to the latest canonical best when `select_parent` is
 called. This mirrors AdaEvolve-style paradigm use: the idea persists, while the
 parent baseline follows new bests.
 

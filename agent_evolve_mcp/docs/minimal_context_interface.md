@@ -12,17 +12,17 @@
 
 ## 2. 公开 Tools
 
-### `evolve_configure_run`
+### `configure_run`
 
 输入：
 
 ```python
-evolve_configure_run(run_id: str, max_total_tasks: int = 50, task_description: str = "")
+configure_run(run_id: str, max_total_tasks: int = 50, task_description: str = "")
 ```
 
 说明：
 
-- 必须在同一 run 的其他 `evolve_*` tool 之前调用。
+- 必须在同一 run 的其他 controller MCP tool 之前调用。
 - `task_description` 保存原始用户任务描述，供后续 meta-guidance request 使用。
 - 同一 `run_id` 重复配置会被忽略，并返回已锁定的配置。
 
@@ -41,12 +41,12 @@ evolve_configure_run(run_id: str, max_total_tasks: int = 50, task_description: s
 }
 ```
 
-### `evolve_select_parent`
+### `select_parent`
 
 输入：
 
 ```python
-evolve_select_parent(run_id: str, task_id: str)
+select_parent(run_id: str, task_id: str)
 ```
 
 输出：
@@ -67,12 +67,12 @@ evolve_select_parent(run_id: str, task_id: str)
 - 如果存在 active meta-guidance，MCP 会优先把该 guidance 绑定到本次调用时的 canonical best；否则走普通 parent selector。
 - SuccessDB 为空时返回 `parent_id: null`。
 
-### `evolve_select_inspirations`
+### `select_inspirations`
 
 输入：
 
 ```python
-evolve_select_inspirations(run_id: str, task_id: str)
+select_inspirations(run_id: str, task_id: str)
 ```
 
 输出：
@@ -92,17 +92,17 @@ evolve_select_inspirations(run_id: str, task_id: str)
 
 语义：
 
-- 必须先调用 `evolve_select_parent`。
+- 必须先调用 `select_parent`。
 - 返回值不重复包含 parent。
 - 返回 `id/ref/fitness/metrics`，不返回 artifact 内容、profile、sketch。
 - 选中的 inspiration ids 写入 `task_contexts.json`，同一 task 重试时保持不变。
 
-### `evolve_get_notes_prompt`
+### `get_notes_prompt`
 
 输入：
 
 ```python
-evolve_get_notes_prompt(run_id: str, task_id: str)
+get_notes_prompt(run_id: str, task_id: str)
 ```
 
 语义：
@@ -111,27 +111,27 @@ evolve_get_notes_prompt(run_id: str, task_id: str)
 - MCP 返回一个 ready-to-inject prompt section。
 - 关闭 Notes 时返回 `available: false` 和关闭原因。
 
-### `evolve_get_meta_guidance_prompt`
+### `get_meta_guidance_prompt`
 
 输入：
 
 ```python
-evolve_get_meta_guidance_prompt(run_id: str, task_id: str)
+get_meta_guidance_prompt(run_id: str, task_id: str)
 ```
 
 语义：
 
-- 必须在 `evolve_select_parent` 之后调用。
+- 必须在 `select_parent` 之后调用。
 - 如果该 task 被分配了 active guidance，MCP 返回 ready-to-inject meta-guidance prompt。
 - 如果没有 active guidance，返回 `available: false`。
 - task-executor 应把该 prompt 作为 required strategy 使用；如果它和 parent/inspiration 的常规方向冲突，以 meta-guidance 为更高优先级，但不能违反任务和 verifier 输出契约。
 
-### `evolve_record_attempt`
+### `record_attempt`
 
 输入：
 
 ```python
-evolve_record_attempt(
+record_attempt(
     run_id: str,
     task_id: str,
     verification_result_ref: str,
@@ -160,12 +160,12 @@ MCP 内部步骤：
 }
 ```
 
-### `evolve_check_convergence`
+### `check_convergence`
 
 输入：
 
 ```python
-evolve_check_convergence(run_id: str)
+check_convergence(run_id: str)
 ```
 
 输出示例：
@@ -193,12 +193,12 @@ budget_exhausted      # 达到硬预算，停止提交新 task
 - WATCHING 不会改变 parent / inspiration 选择参数。
 - 关闭 meta-guidance 后仍会保留 plateau diagnostics，但不会创建 guidance request。
 
-### `evolve_get_meta_guidance_request`
+### `get_meta_guidance_request`
 
 输入：
 
 ```python
-evolve_get_meta_guidance_request(run_id: str, request_id: str = "")
+get_meta_guidance_request(run_id: str, request_id: str = "")
 ```
 
 返回 pending request，供无状态的 `meta-guidance-generator` 生成结构化 guidance。主 agent 只传递 `run_id` 和 `request_id`，不读取该 payload。请求中包含：
@@ -210,12 +210,12 @@ evolve_get_meta_guidance_request(run_id: str, request_id: str = "")
 - failed guidance 摘要
 - safety constraints
 
-### `evolve_commit_meta_guidance`
+### `commit_meta_guidance`
 
 输入：
 
 ```python
-evolve_commit_meta_guidance(run_id: str, request_id: str, guidance_json: Any)
+commit_meta_guidance(run_id: str, request_id: str, guidance_json: Any)
 ```
 
 `guidance_json` 格式：
@@ -238,14 +238,14 @@ evolve_commit_meta_guidance(run_id: str, request_id: str, guidance_json: Any)
 }
 ```
 
-专职 worker 自己调用该工具；MCP 校验并激活 guidance。主 agent 在补位前通过紧凑的 convergence recheck 确认提交结果，不接收 guidance JSON。后续 `evolve_select_parent` 会把 active guidance 分配给 task，绑定当时最新的 canonical best，并消耗 use count。
+专职 worker 自己调用该工具；MCP 校验并激活 guidance。主 agent 在补位前通过紧凑的 convergence recheck 确认提交结果，不接收 guidance JSON。后续 `select_parent` 会把 active guidance 分配给 task，绑定当时最新的 canonical best，并消耗 use count。
 
-### `evolve_finalize_run`
+### `finalize_run`
 
 输入：
 
 ```python
-evolve_finalize_run(run_id: str, stop_reason: str = "")
+finalize_run(run_id: str, stop_reason: str = "")
 ```
 
 返回：
@@ -297,13 +297,13 @@ MCP 只返回 refs 和 ready-to-inject prompt section，不读取或拼接 artif
 
 task-executor 的顺序：
 
-1. 调 `evolve_select_parent`。
-2. 调 `evolve_select_inspirations`。
-3. 调 `evolve_get_notes_prompt`。
-4. 调 `evolve_get_meta_guidance_prompt`。
+1. 调 `select_parent`。
+2. 调 `select_inspirations`。
+3. 调 `get_notes_prompt`。
+4. 调 `get_meta_guidance_prompt`。
 5. 读取 refs 指向的本地 artifact。
 6. 生成候选并调用 verifier。
-7. 调 `evolve_record_attempt`。
+7. 调 `record_attempt`。
 
 Meta-guidance 与 parent/inspirations 的关系：
 

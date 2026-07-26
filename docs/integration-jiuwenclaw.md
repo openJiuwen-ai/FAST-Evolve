@@ -23,15 +23,15 @@ JiuwenClaw Agent
 cp -r evolve_agent/agent_evolve_mcp/ jiuwenclaw/agent_evolve_mcp/
 ```
 
-MCP 服务器是独立进程，通过 `python -m agent_evolve_mcp` 启动。包含 5 个工具：
+MCP 服务器是独立进程，通过 `python -m agent_evolve_mcp` 启动。公开 13 个紧凑工具，核心工具如下：
 
 | MCP Tool | 功能 |
 |----------|------|
-| `evolve_select_parent` | 为 task 选择父代（返回 id + artifact_ref） |
-| `evolve_select_inspirations` | 选择灵感参考（Boltzmann 采样 + 跨谱系迁移） |
-| `evolve_record_attempt` | 记录 task 的验证结果，成功的加入 SuccessDB |
-| `evolve_check_convergence` | fitness plateau 检测、meta-guidance 动作与硬预算停止信号 |
-| `evolve_finalize_run` | 生成确定性的 run summary 报告 |
+| `select_parent` | 为 task 选择父代（返回 id + artifact_ref） |
+| `select_inspirations` | 选择灵感参考（Boltzmann 采样 + 跨谱系迁移） |
+| `record_attempt` | 记录 task 的验证结果，成功的加入 SuccessDB |
+| `check_convergence` | fitness plateau 检测、meta-guidance 动作与硬预算停止信号 |
+| `finalize_run` | 生成确定性的 run summary 报告 |
 
 ### Step 2：更新 pyproject.toml
 
@@ -106,7 +106,7 @@ from agent_evolve_mcp import mcp
 for name in mcp._tool_manager._tools:
     print(f'  - {name}')
 "
-# 期望输出 5 个 evolve_* 工具
+# 期望输出 13 个无 `evolve_` 前缀的紧凑工具
 
 # 3. 重启 jiuwenclaw 并在 Web UI 中确认 skill 列表
 ```

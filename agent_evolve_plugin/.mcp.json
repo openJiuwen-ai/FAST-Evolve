@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "agent_evolve_mcp": {
+    "ctrl": {
       "command": "python",
       "args": ["-m", "agent_evolve_mcp"]
     }
