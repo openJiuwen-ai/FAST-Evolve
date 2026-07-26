@@ -27,6 +27,9 @@ Public responses are intentionally compact:
 - attempt recording returns `entered_success_db` and `success_record_id`
 - convergence returns `action`: `continue`, `request_meta_guidance`, or `budget_exhausted`
 - meta-guidance request/commit/prompt tools keep guidance state in MCP instead of task-executor memory
+- a stateless `meta-guidance-generator` receives only `run_id` and `request_id`,
+  fetches the pending request itself, commits its own JSON, and returns only a
+  compact result to the host orchestrator
 - finalization writes `runs/<run_id>/run_summary.md` and `runs/<run_id>/run_summary.json`, then returns only refs
 
 ## State

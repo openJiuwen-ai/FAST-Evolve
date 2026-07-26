@@ -7,7 +7,7 @@
 1. 非必要、非关键的信息不进入 MCP 输入输出。
 2. 长字段用 ref 指代，不传原文。
 3. Parent、inspirations、attempt、notes、meta-guidance 的状态都由 MCP 本地持久化。
-4. 主 agent 只处理调度和少量 LLM 生成任务；能交给 MCP 决定的状态流转都交给 MCP。
+4. 主 agent 只处理调度和紧凑 MCP 控制调用；meta-guidance 等内容生成由专职 subagent 在独立上下文中完成。
 5. Plateau 不会触发提前停止；只有 `action = "budget_exhausted"` 才表示停止补充新任务。
 
 ## 2. 公开 Tools
@@ -182,7 +182,7 @@ evolve_check_convergence(run_id: str)
 
 ```text
 continue              # 继续调度 task
-request_meta_guidance # plateau 持续足够久，需要主 agent 生成 meta-guidance
+request_meta_guidance # plateau 持续足够久，需要调度专职 worker 生成 meta-guidance
 budget_exhausted      # 达到硬预算，停止提交新 task
 ```
 
@@ -201,7 +201,7 @@ budget_exhausted      # 达到硬预算，停止提交新 task
 evolve_get_meta_guidance_request(run_id: str, request_id: str = "")
 ```
 
-返回 pending request，供主 agent 生成结构化 guidance。请求中包含：
+返回 pending request，供无状态的 `meta-guidance-generator` 生成结构化 guidance。主 agent 只传递 `run_id` 和 `request_id`，不读取该 payload。请求中包含：
 
 - 原始 `task_description`
 - canonical best 作为生成 guidance 的创建时 anchor parent
@@ -238,7 +238,7 @@ evolve_commit_meta_guidance(run_id: str, request_id: str, guidance_json: Any)
 }
 ```
 
-MCP 校验并激活 guidance；后续 `evolve_select_parent` 会把 active guidance 分配给 task，绑定当时最新的 canonical best，并消耗 use count。
+专职 worker 自己调用该工具；MCP 校验并激活 guidance。主 agent 在补位前通过紧凑的 convergence recheck 确认提交结果，不接收 guidance JSON。后续 `evolve_select_parent` 会把 active guidance 分配给 task，绑定当时最新的 canonical best，并消耗 use count。
 
 ### `evolve_finalize_run`
 

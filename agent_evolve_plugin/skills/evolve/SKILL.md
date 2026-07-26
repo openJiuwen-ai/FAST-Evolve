@@ -5,11 +5,16 @@ description: Triggered when the user asks to evolve, optimize, search, or iterat
 
 # Self-Evolution Master Skill
 
-You are now running the **self-evolution master skill**, the orchestrator. Your responsibilities are: initialize a run, maintain the task queue, react to MCP convergence/meta-evolve actions, stop replenishment only on hard budget/external stops, wait for already launched tasks to finish, and call Evolution Controller MCP to generate a deterministic run summary report.
+You are now running the **self-evolution master skill**, the orchestrator. Your responsibilities are: initialize a run, maintain the task queue, react to MCP convergence/meta-evolve actions, delegate requested meta-guidance generation, stop replenishment only on hard budget/external stops, wait for already launched tasks to finish, and call Evolution Controller MCP to generate a deterministic run summary report.
 
 ## Orchestrator Boundary Constraint
 
-The orchestrator only handles queue scheduling and MCP calls. It must not read project files, invoke other skills, or get involved in task content, except for the explicit meta-guidance generation step below. During meta-guidance generation only, the orchestrator may read the current-best candidate code and verifier/evaluator source to understand scoring logic, then must return to scheduling. All normal task domain logic is executed by subagent agents in their own isolated context — they are self-contained and know how to find and read all necessary context themselves.
+The orchestrator only handles queue scheduling, compact MCP control-plane calls,
+and exact-template agent dispatches. It must not read task-content project
+files, invoke task-content skills, retrieve a pending meta-guidance request,
+generate guidance, inspect the current-best candidate or verifier/evaluator, or
+commit guidance. Initial exploration, task execution, and meta-guidance
+generation are executed by dedicated agents in their own isolated contexts.
 
 ### Dispatch Template Constraint (ALL subagent dispatches)
 
@@ -28,6 +33,12 @@ run_id: <run_id>
 task_id: <task_id>
 task_description: <task_description>
 max_attempts: <max_attempts>
+```
+
+**Template for meta-guidance-generator dispatch:**
+```
+run_id: <run_id>
+request_id: <request_id>
 ```
 
 These templates are **exclusive** — they define the exact and complete content of the dispatch prompt. Any deviation is a constraint violation, including but not limited to:
@@ -51,7 +62,8 @@ These templates are **exclusive** — they define the exact and complete content
 
 | Component | Responsibility |
 |---|---|
-| This skill (orchestrator) | Initialize run, maintain task queue, handle MCP `action`, generate requested meta-guidance JSON, finalization |
+| This skill (orchestrator) | Initialize run, maintain task queue, route MCP `action`, dispatch meta-guidance requests by ID, finalization |
+| meta-guidance-generator agent | Fetch one pending request, inspect generation evidence, generate and commit guidance, return a compact result |
 | task-executor agent | Execute the full lifecycle of individual tasks |
 | Evolution Controller MCP | Parent/inspiration selection, attempt recording, scheduler-state persistence, convergence/meta-guidance state, run summary generation |
 
@@ -151,16 +163,29 @@ WHILE running_tasks is not empty:
   5. Remove these completed task_ids from the local running_tasks list
 
   // Convergence/meta-evolve check & replenishment
+  meta_requests_attempted_this_reconciliation = set()
   FOR each newly completed task:
     convergence = evolve_check_convergence(run_id)
     IF convergence.action == "budget_exhausted":
       stop_requested = true
       BREAK (stop convergence-check loop)
     IF convergence.action == "request_meta_guidance":
-      request = evolve_get_meta_guidance_request(run_id, request_id=convergence.request_id)
-      Generate concise structured guidance JSON from request only.
-      Call evolve_commit_meta_guidance(run_id, request.request_id, guidance_json)
-      Continue scheduling; do not stop.
+      request_id = convergence.request_id
+      IF request_id is not in meta_requests_attempted_this_reconciliation:
+        meta_requests_attempted_this_reconciliation.add(request_id)
+        Dispatch to meta-guidance-generator with `run_in_background: false` using the meta-guidance-generator dispatch template (fill: run_id, request_id)
+        Wait for the meta-guidance-generator compact result.
+        post_meta = evolve_check_convergence(run_id)
+        IF post_meta.action == "budget_exhausted":
+          stop_requested = true
+          BREAK (stop convergence-check loop)
+        Treat post_meta as authoritative: a successful commit is confirmed when post_meta.meta_guidance.has_pending_request == false and post_meta.meta_guidance.active_count > 0, even if the worker's compact result was lost or stale.
+        IF the worker result status is `mcp_error` and the authoritative postcondition does not confirm a commit:
+          stop_requested = true
+          Apply the persistent MCP error rule during finalization.
+          BREAK (stop convergence-check loop)
+        If the postcondition does not confirm a commit and the request remains pending, do not dispatch the same request_id again during this reconciliation pass.
+      Continue scheduling; meta-guidance generation failure alone is not a stop signal.
 
   IF stop_requested:
     // Stop launching new tasks, continue waiting for remaining running tasks' notifications
@@ -234,57 +259,28 @@ Fitness is always maximized. `best_fitness` MUST be the largest successful numer
 2. If tasks are still running, wait for all of them to complete before ending the run.
 3. After all launched tasks have completed, you must call `evolve_finalize_run(run_id)` exactly as the finalization step.
 4. `evolve_finalize_run` returns report refs. Do not paste the full report into the conversation context.
-5. Do not let a freed slot sit idle while `action != "budget_exhausted"`: for every single completed task, immediately launch exactly one replacement task after the convergence check.
+5. Do not let a freed slot sit idle while `action != "budget_exhausted"`: for every single completed task, launch exactly one replacement task after the convergence/meta-guidance check and any required foreground meta worker has completed.
 6. Success and failure both count as task completion. A failed task still frees its slot and should be replaced unless `action == "budget_exhausted"`.
 7. Never inspect or modify `scheduler_state.json` with `Read`, `Write`, `Edit`, or shell commands. Persist every task start/completion immediately through `evolve_update_task_status`; recover active scheduling state through `evolve_get_scheduler_state`. These compact tools preserve completed task-agent mappings for UI history without printing full-file diffs.
 8. Every task-executor dispatch MUST set `run_in_background: true` and include `max_attempts`. Initial fill: `max_attempts=10`; replenishment: `max_attempts=3`.
 9. Plateau, WATCHING, `request_meta_guidance`, and failed meta-guidance generation are NOT stop signals.
+10. The orchestrator must never retrieve the pending meta-guidance payload, read its artifact/evaluator evidence, generate the guidance JSON, or commit it. It passes only `run_id` and `request_id` to `agent_evolve_plugin:meta-guidance-generator`.
+11. Meta-guidance-generator dispatch is foreground and stateless. Never persist its agent identifier in scheduler state, never poll it, never run more than one for the same `request_id` in one reconciliation pass, and always perform the compact convergence recheck before replenishment. The MCP recheck is authoritative if it conflicts with or outlives the worker result.
+12. Never print or repeat the meta worker's request payload or guidance. Its compact result is the only worker content allowed in orchestrator context.
 
-### Meta-Guidance Generation
+### Meta-Guidance Worker Dispatch
 
-When MCP returns `action == "request_meta_guidance"`, generate exactly one JSON object in this shape and submit it with `evolve_commit_meta_guidance`:
+When MCP returns `action == "request_meta_guidance"`, invoke
+`agent_evolve_plugin:meta-guidance-generator` with the exact dispatch template.
+Pass only the two identifiers; the worker retrieves the persisted request and
+commits its own output. Wait in the foreground so a successful commit becomes
+active before any replacement task can call parent selection.
 
-```json
-{
-  "guidance": [
-    {
-      "idea": "Short tactic title",
-      "description": "What to try and why",
-      "target_metric": "fitness",
-      "novelty_claim": "Why this differs from current lineages",
-      "current_best_assessment": "What works in current_best, what may be trapping the search, and whether this guidance refines, departs from, or replaces that route",
-      "relationship_to_current_best": "refine|depart|replace",
-      "implementation_plan": ["Concrete step 1", "Concrete step 2"],
-      "cautions": ["Risk or constraint"],
-      "approach_type": "algorithm family or technique",
-      "avoid_repeating": ["Failed or overused route"],
-      "max_uses": 2
-    }
-  ]
-}
-```
-
-Use the MCP request payload, the original task description already in context,
-and the current-best candidate implementation referenced by
-`request.current_best.artifact_ref` or embedded in
-`request.current_best.artifact_excerpt`. This candidate code is allowed context.
-You may also read verifier/evaluator source during this meta-guidance
-generation step, aligned with AdaEvolve's paradigm-generation setup. Use it only
-to understand scoring logic, constraints, and failure modes. Do not modify
-verifier/evaluator source, bypass the evaluator, or hard-code evaluator-specific
-shortcuts into the guidance.
-
-Before writing the JSON, follow `request.generation_instructions` if present.
-In particular, critically assess the current best instead of assuming it is the
-right route. It may be a local optimum or wrong search family. Use
-`notes_summary` and `guidance_history` to avoid repeating strategies whose prior
-outcomes showed no improvement.
-
-Generate 1 to 3 guidance items. If generating multiple items, every
-`approach_type` MUST be different; duplicate approach types will be rejected by
-MCP. Prefer 3 distinct strategy families when the plateau evidence supports
-multiple plausible escapes. Do not add prose outside the JSON object. Keep each
-item concrete enough for task-executor to implement.
+The worker returns only its compact result contract. Reconcile that claim with
+one compact `evolve_check_convergence` call and treat the MCP response as the
+source of truth. A non-commit leaves the request pending for a later completion
+event; it does not stop task replenishment and must not cause a tight retry loop
+in the current reconciliation pass.
 
 ---
 
@@ -326,4 +322,6 @@ runs/<run_id>/run_summary.json
 |---|---|
 | MCP tool returns error | Retry once; if persistent, stop launching new tasks, wait for already launched tasks to complete, then call `evolve_finalize_run(run_id, stop_reason="mcp_error")` |
 | task-executor fails | Still call `evolve_check_convergence`; MCP decides whether to stop or continue from recorded attempts |
+| meta-guidance-generator returns `not_committed`, fails to return its compact result, or fails generation | Keep the MCP request pending, continue replenishment, and allow one later completion event to retry it |
+| meta-guidance-generator returns `mcp_error` after its own retry and the authoritative post-check does not confirm a commit | Apply the persistent MCP error rule above |
 | User interrupts | Stop launching new tasks; if possible, wait for launched tasks to complete; then call `evolve_finalize_run(run_id, stop_reason="user_interrupted")` |

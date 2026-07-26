@@ -4,6 +4,7 @@
       "Skill(agent_evolve_plugin:evolve)",
       "Skill(agent_evolve_plugin:evolve-task-exec)",
       "Agent(task-executor)",
+      "Agent(meta-guidance-generator)",
       "Write(/runs/**)",
       "Edit(/runs/**)",
       "Bash(mkdir *)",
