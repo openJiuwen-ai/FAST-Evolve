@@ -11,6 +11,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 SKILL_DIR = REPO_ROOT / "benchmarks" / "skills" / "frontier_cs_algo"
 MANIFEST_PATH = SKILL_DIR / "suite_manifest.json"
 EVALUATOR_PATH = SKILL_DIR / "scripts" / "evaluator.py"
+GITATTRIBUTES_PATH = REPO_ROOT / ".gitattributes"
 
 
 def _load_evaluator():
@@ -59,6 +60,23 @@ def test_frontier_cs_algo_manifest_contains_172_coral_problem_packs():
         type_counts[problem["problem_type"]] += 1
 
     assert type_counts == {"default": 98, "interactive": 74}
+
+
+def test_frontier_cs_public_resources_disable_git_eol_conversion():
+    attributes = {
+        line.strip()
+        for line in GITATTRIBUTES_PATH.read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+
+    assert (
+        "/benchmarks/skills/frontier_cs_algo/problems/*/statement.txt -text"
+        in attributes
+    )
+    assert (
+        "/benchmarks/skills/frontier_cs_algo/problems/*/initial_program.cpp -text"
+        in attributes
+    )
 
 
 def test_normalize_problem_id_uses_manifest_not_a_contiguous_range():
