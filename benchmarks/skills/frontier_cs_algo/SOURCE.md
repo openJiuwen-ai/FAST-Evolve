@@ -17,3 +17,7 @@ this benchmark uses one shared AgentEvolve evaluator.
 The source files are copied byte-for-byte. This preserves the exact public
 task material in the referenced CORAL checkout, including any source-side text
 encoding artifacts.
+
+The repository `.gitattributes` marks `statement.txt` and
+`initial_program.cpp` as `-text` so Git does not rewrite their original line
+endings during checkout or commit.

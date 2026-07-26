@@ -1,0 +1,3 @@
+# Frontier-CS public resources are provenance-checked byte-for-byte.
+/benchmarks/skills/frontier_cs_algo/problems/*/statement.txt -text
+/benchmarks/skills/frontier_cs_algo/problems/*/initial_program.cpp -text
