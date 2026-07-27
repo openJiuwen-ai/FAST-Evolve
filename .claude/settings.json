@@ -2,7 +2,6 @@
   "permissions": {
     "allow": [
       "Skill(agent_evolve_plugin:evolve)",
-      "Skill(agent_evolve_plugin:init-explore)",
       "Skill(agent_evolve_plugin:evolve-task-exec)",
       "Agent(init-explorer)",
       "Agent(task-executor)",
