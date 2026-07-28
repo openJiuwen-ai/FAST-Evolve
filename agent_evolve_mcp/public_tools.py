@@ -175,7 +175,7 @@ def evolve_get_meta_guidance_request(
     run_id: str,
     request_id: str = "",
 ) -> Dict[str, Any]:
-    """Return a pending meta-guidance request for the host agent."""
+    """Return a pending meta-guidance request for the dedicated worker."""
     return _controller(run_id).get_meta_guidance_request(request_id=request_id)
 
 

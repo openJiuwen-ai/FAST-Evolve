@@ -455,7 +455,7 @@ class EvolutionController:
         return self.meta_guidance.get_request(request_id or None)
 
     def commit_meta_guidance(self, request_id: str, guidance_json: Any) -> Dict[str, Any]:
-        """Validate and activate host-generated meta-guidance."""
+        """Validate and activate worker-generated meta-guidance."""
         return self.meta_guidance.commit_guidance(request_id, guidance_json)
 
     def get_meta_guidance_prompt(self, task_id: str) -> Dict[str, Any]:

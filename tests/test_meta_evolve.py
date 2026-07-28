@@ -464,6 +464,67 @@ def test_pending_request_is_re_emitted_until_committed(tmp_path, monkeypatch):
     assert second["request_id"] == first["request_id"]
 
 
+def test_convergence_returns_compact_meta_worker_dispatch_envelope(tmp_path, monkeypatch):
+    controller = _controller(tmp_path, monkeypatch)
+    _add_successes(controller, fitness=1.0)
+
+    result = controller.check_convergence()
+
+    assert result["action"] == "request_meta_guidance"
+    assert result["request_id"].startswith("mgr_")
+    assert result["meta_guidance"]["has_pending_request"] is True
+    assert "task_description" not in result
+    assert "current_best" not in result
+    assert "artifact_excerpt" not in json.dumps(result)
+
+
+def test_meta_commit_has_compact_postcondition_before_replenishment(tmp_path, monkeypatch):
+    controller = _controller(tmp_path, monkeypatch)
+    _add_successes(controller, fitness=1.0)
+    convergence = controller.check_convergence()
+
+    commit = controller.commit_meta_guidance(
+        convergence["request_id"],
+        {
+            "guidance": [
+                {
+                    "idea": "Change the representation",
+                    "description": "Try a structurally different representation.",
+                    "novelty_claim": "Existing lineages share one representation.",
+                    "implementation_plan": ["Build the representation", "Preserve output"],
+                    "approach_type": "representation",
+                    "max_uses": 2,
+                }
+            ]
+        },
+    )
+    post_meta = controller.check_convergence()
+
+    assert commit["committed"] is True
+    assert post_meta["action"] == "continue"
+    assert post_meta["meta_guidance"]["has_pending_request"] is False
+    assert post_meta["meta_guidance"]["active_count"] == 1
+    assert "request_id" not in post_meta
+
+
+def test_rejected_meta_commit_remains_pending_for_later_event(tmp_path, monkeypatch):
+    controller = _controller(tmp_path, monkeypatch)
+    _add_successes(controller, fitness=1.0)
+    convergence = controller.check_convergence()
+
+    rejected = controller.commit_meta_guidance(
+        convergence["request_id"],
+        {"guidance": []},
+    )
+    post_meta = controller.check_convergence()
+
+    assert rejected == {"committed": False, "reason": "empty_guidance"}
+    assert post_meta["action"] == "request_meta_guidance"
+    assert post_meta["request_id"] == convergence["request_id"]
+    assert post_meta["meta_guidance"]["has_pending_request"] is True
+    assert post_meta["meta_guidance"]["active_count"] == 0
+
+
 def test_pending_request_is_cleared_after_new_best(tmp_path, monkeypatch):
     controller = _controller(tmp_path, monkeypatch)
     _add_successes(controller, fitness=1.0)

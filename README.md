@@ -30,10 +30,11 @@ and keeps searching from the strongest results.
 
 ```text
 Host coding agent
-  └─ initializes the run and schedules tasks
+  └─ initializes the run, schedules tasks, and delegates meta requests by ID
        ↓
 Evolution Controller MCP
-  └─ manages selection, lineage, Notes, convergence, and meta-guidance
+  ├─ manages selection, lineage, Notes, convergence, and meta-guidance state
+  └─ exposes pending requests to a stateless meta-guidance-generator agent
        ↓
 Task-executor agents
   └─ generate candidates and invoke the benchmark verifier

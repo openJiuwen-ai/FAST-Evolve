@@ -23,10 +23,11 @@ EvoTrias 将编码智能体、基准评估器和持久化搜索状态组织在�
 
 ```text
 宿主编码智能体
-  └─ 初始化运行并调度任务
+  └─ 初始化运行、调度任务，并仅按 ID 委派元指导请求
        ↓
 Evolution Controller MCP
-  └─ 管理选择、谱系、Notes、收敛状态和元指导
+  ├─ 管理选择、谱系、Notes、收敛状态和元指导状态
+  └─ 向无状态的 meta-guidance-generator 智能体提供 pending request
        ↓
 任务执行智能体
   └─ 生成候选方案并调用基准验证器
