@@ -67,7 +67,7 @@ class SuccessDB:
         """Add a new success record.
 
         Returns ``False`` when a record with the same id already exists.  This
-        gives ``evolve_record_attempt`` a simple idempotency guard.
+        gives ``record_attempt`` a simple idempotency guard.
         """
         if record.id in self._records:
             return False

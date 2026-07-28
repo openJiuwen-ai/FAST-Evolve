@@ -127,7 +127,7 @@ class EvolutionController:
         context = self.task_contexts.get(task_id)
         if context is None or not context.parent_selected:
             raise ValueError(
-                "Call evolve_select_parent before evolve_select_inspirations for this task."
+                "Call select_parent before select_inspirations for this task."
             )
 
         if context.inspirations_selected:
@@ -177,9 +177,9 @@ class EvolutionController:
         self._load_state()
         context = self.task_contexts.get(task_id)
         if context is None or not context.parent_selected:
-            raise ValueError("Call evolve_select_parent before evolve_get_notes_prompt.")
+            raise ValueError("Call select_parent before get_notes_prompt.")
         if not context.inspirations_selected:
-            raise ValueError("Call evolve_select_inspirations before evolve_get_notes_prompt.")
+            raise ValueError("Call select_inspirations before get_notes_prompt.")
         return self.notes.get_prompt(
             task_id=task_id,
             parent_id=context.parent_id,
@@ -463,7 +463,7 @@ class EvolutionController:
         self._load_state()
         context = self.task_contexts.get(task_id)
         if context is None or not context.parent_selected:
-            raise ValueError("Call evolve_select_parent before evolve_get_meta_guidance_prompt.")
+            raise ValueError("Call select_parent before get_meta_guidance_prompt.")
         return self.meta_guidance.prompt_for_task(task_id)
 
     def finalize_run(self, stop_reason: Optional[str] = None) -> Dict[str, Any]:

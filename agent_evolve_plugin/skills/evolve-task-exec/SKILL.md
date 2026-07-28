@@ -35,7 +35,7 @@ the benchmark contract.
 ---
 
 ## Step 1: Select Parent
-Call MCP tool `evolve_select_parent` with:
+Call MCP tool `select_parent` with:
 - run_id
 - task_id
 
@@ -65,7 +65,7 @@ Do not read verifier scripts while locating the reference program.
 ---
 
 ## Step 2: Select Inspirations
-Call MCP tool `evolve_select_inspirations` with:
+Call MCP tool `select_inspirations` with:
 - run_id
 - task_id
 
@@ -88,7 +88,7 @@ Run-local Notes are enabled by default. The run owner may disable them for the
 whole MCP process by setting environment variable
 `AGENT_EVOLVE_NOTES_ENABLED=0` before starting the run.
 
-Call MCP tool `evolve_get_notes_prompt` with:
+Call MCP tool `get_notes_prompt` with:
 - run_id
 - task_id
 
@@ -104,7 +104,7 @@ not try to generate or commit notes manually.
 
 ## Step 2.6: Load Meta-Guidance
 
-Call MCP tool `evolve_get_meta_guidance_prompt` with:
+Call MCP tool `get_meta_guidance_prompt` with:
 - run_id
 - task_id
 
@@ -308,7 +308,7 @@ extra ad-hoc scripts. Do not append shell trailers such as
 If a dependency is unavailable or a command is denied, use the verifier
 result/error from the normal verifier command and continue the attempt workflow.
 
-In the success/failure branch below, call `evolve_record_attempt` exactly once
+In the success/failure branch below, call `record_attempt` exactly once
 for that attempt. Use:
 - run_id
 - task_id
@@ -319,7 +319,7 @@ for that attempt. Use:
 
 ### 3.5 Required Notes Commit
 
-After every `evolve_record_attempt` call, inspect its returned `note_requests`.
+After every `record_attempt` call, inspect its returned `note_requests`.
 When run-local Notes are disabled, this list should be empty and no commit call
 is needed.
 
@@ -332,7 +332,7 @@ continuing to the next attempt, Step 4, Step 5, or the final response:
 3. Keep it concise. The JSON must contain only the conclusion, actionable
    guidance, and very short factual evidence.
 4. Do not include reasoning process, step-by-step analysis, or chain-of-thought.
-5. Call `evolve_commit_generated_note` with `run_id`, `note_request_id`, and the
+5. Call `commit_generated_note` with `run_id`, `note_request_id`, and the
    generated JSON object.
 6. Confirm the MCP result has `committed == true`.
 
@@ -343,7 +343,7 @@ successfully or returned a non-retryable MCP error.
   - Read the verification result JSON path from stdout
   - If stdout does not contain a path but the standard file exists, use:
     `runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/eval_result.json`
-  - Call `evolve_record_attempt` for this attempt and complete Step 3.5 for
+  - Call `record_attempt` for this attempt and complete Step 3.5 for
     any returned `note_requests`.
   - Set `attempt_succeeded = true`
   - Set `final_verification_result_ref` to the verification result JSON path
@@ -365,7 +365,7 @@ successfully or returned a non-retryable MCP error.
     to `null`, and `error` to the captured verifier stdout/stderr summary.
     Do not use `cat`, heredoc, `echo`, Python one-liners, or any Bash command
     to synthesize this JSON file.
-  - Call `evolve_record_attempt` for this attempt and complete Step 3.5 for
+  - Call `record_attempt` for this attempt and complete Step 3.5 for
     any returned `note_requests`.
   - If attempt_index < MAX_ATTEMPTS: increment attempt_index and continue to next attempt
   - If attempt_index == MAX_ATTEMPTS: proceed to Step 4
@@ -375,7 +375,7 @@ successfully or returned a non-retryable MCP error.
 ## Step 4: Finalize Attempt Loop
 
 Every executed attempt has already been recorded immediately after its verifier
-run. Do not call `evolve_record_attempt` again in this step.
+run. Do not call `record_attempt` again in this step.
 
 If any attempt succeeded, use that successful attempt's
 `final_verification_result_ref` and `final_artifact_ref` for the completion
@@ -426,8 +426,8 @@ Do NOT report any other details - success or failure, both count as completed.
 3. **Remember IDs**: Always use the correct task_id, run_id, attempt_id in paths and tool calls.
 4. **Stop on Success**: If verifier passes on any attempt, do NOT make more attempts - record and exit immediately.
 5. **Read Artifacts**: Always read parent and inspiration files before generating.
-6. **Record Every Attempt**: Always call `evolve_record_attempt` immediately after each verifier run, regardless of success or failure. The backend handles note request generation automatically.
-7. **Commit Returned Notes**: If `evolve_record_attempt` returns any `note_requests`, you MUST call `evolve_commit_generated_note` for each one and confirm `committed == true` before moving to the next attempt, Step 4, Step 5, or the final response.
+6. **Record Every Attempt**: Always call `record_attempt` immediately after each verifier run, regardless of success or failure. The backend handles note request generation automatically.
+7. **Commit Returned Notes**: If `record_attempt` returns any `note_requests`, you MUST call `commit_generated_note` for each one and confirm `committed == true` before moving to the next attempt, Step 4, Step 5, or the final response.
 8. **Append Completion Record**: Always append a JSONL line to `runs/<run_id>/completed_tasks.jsonl` after the attempt loop has finished and all executed attempts have been recorded. Use Bash (not PowerShell) with `printf >>`.
 9. **Clear Output**: At the end, only report "A task completed." - nothing else.
 10. **Same Parent/Inspirations**: Parent and inspirations are selected ONCE at the beginning - they NEVER change between attempts.

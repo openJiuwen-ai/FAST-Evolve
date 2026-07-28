@@ -2,9 +2,10 @@
 
 This module is the only layer that should expose FastMCP tools.  Each function
 keeps the public schema small and delegates immediately to the internal
-controller.  The separation is intentional: callers see only the compact
-``evolve_*`` operations, while algorithms and persistence remain ordinary
-Python modules.
+controller. The separation is intentional: MCP callers see compact operations,
+while algorithms and persistence remain ordinary Python modules. Python wrapper
+names retain their ``evolve_*`` prefix for direct-import compatibility; explicit
+MCP registration names omit that redundant prefix.
 """
 
 from __future__ import annotations
@@ -39,7 +40,7 @@ def _controller(run_id: str) -> EvolutionController:
     return controller
 
 
-@mcp.tool(run_in_thread=False)
+@mcp.tool(name="configure_run", run_in_thread=False)
 def evolve_configure_run(
     run_id: str,
     max_total_tasks: int = 50,
@@ -47,7 +48,7 @@ def evolve_configure_run(
 ) -> Dict[str, Any]:
     """Configure evolution run parameters before starting tasks.
 
-    Must be called BEFORE any other evolve_* tool for the same run_id.
+    Must be called BEFORE any other controller tool for the same run_id.
     Subsequent calls for the same run_id are ignored (the configuration
     is locked after the first call).
     """
@@ -85,7 +86,7 @@ def evolve_configure_run(
     }
 
 
-@mcp.tool(run_in_thread=False)
+@mcp.tool(name="update_task_status", run_in_thread=False)
 def evolve_update_task_status(
     run_id: str,
     task_id: str,
@@ -101,13 +102,13 @@ def evolve_update_task_status(
     )
 
 
-@mcp.tool(run_in_thread=False)
+@mcp.tool(name="get_scheduler_state", run_in_thread=False)
 def evolve_get_scheduler_state(run_id: str) -> Dict[str, Any]:
     """Return only active tasks and agents for scheduling recovery."""
     return get_scheduler_state(run_id)
 
 
-@mcp.tool(run_in_thread=False)
+@mcp.tool(name="select_parent", run_in_thread=False)
 def evolve_select_parent(run_id: str, task_id: str) -> Dict[str, Any]:
     """Select a parent and return its id/ref, fitness, and evaluator metrics.
 
@@ -117,7 +118,7 @@ def evolve_select_parent(run_id: str, task_id: str) -> Dict[str, Any]:
     return _controller(run_id).select_parent(task_id=task_id)
 
 
-@mcp.tool(run_in_thread=False)
+@mcp.tool(name="select_inspirations", run_in_thread=False)
 def evolve_select_inspirations(run_id: str, task_id: str) -> Dict[str, Any]:
     """Select extra inspiration refs with fitness and evaluator metrics.
 
@@ -127,7 +128,7 @@ def evolve_select_inspirations(run_id: str, task_id: str) -> Dict[str, Any]:
     return _controller(run_id).select_inspirations(task_id=task_id)
 
 
-@mcp.tool(run_in_thread=False)
+@mcp.tool(name="record_attempt", run_in_thread=False)
 def evolve_record_attempt(
     run_id: str,
     task_id: str,
@@ -151,13 +152,13 @@ def evolve_record_attempt(
     )
 
 
-@mcp.tool(run_in_thread=False)
+@mcp.tool(name="get_notes_prompt", run_in_thread=False)
 def evolve_get_notes_prompt(run_id: str, task_id: str) -> Dict[str, Any]:
     """Return run-local Notes as a ready-to-inject prompt section."""
     return _controller(run_id).get_notes_prompt(task_id=task_id)
 
 
-@mcp.tool(run_in_thread=False)
+@mcp.tool(name="commit_generated_note", run_in_thread=False)
 def evolve_commit_generated_note(
     run_id: str,
     note_request_id: str,
@@ -170,7 +171,7 @@ def evolve_commit_generated_note(
     )
 
 
-@mcp.tool(run_in_thread=False)
+@mcp.tool(name="get_meta_guidance_request", run_in_thread=False)
 def evolve_get_meta_guidance_request(
     run_id: str,
     request_id: str = "",
@@ -179,7 +180,7 @@ def evolve_get_meta_guidance_request(
     return _controller(run_id).get_meta_guidance_request(request_id=request_id)
 
 
-@mcp.tool(run_in_thread=False)
+@mcp.tool(name="commit_meta_guidance", run_in_thread=False)
 def evolve_commit_meta_guidance(
     run_id: str,
     request_id: str,
@@ -192,19 +193,19 @@ def evolve_commit_meta_guidance(
     )
 
 
-@mcp.tool(run_in_thread=False)
+@mcp.tool(name="get_meta_guidance_prompt", run_in_thread=False)
 def evolve_get_meta_guidance_prompt(run_id: str, task_id: str) -> Dict[str, Any]:
     """Return a ready-to-inject meta-guidance prompt section for a task."""
     return _controller(run_id).get_meta_guidance_prompt(task_id=task_id)
 
 
-@mcp.tool(run_in_thread=False)
+@mcp.tool(name="check_convergence", run_in_thread=False)
 def evolve_check_convergence(run_id: str) -> Dict[str, Any]:
     """Return the next scheduler action from convergence/meta-evolve state."""
     return _controller(run_id).check_convergence()
 
 
-@mcp.tool(run_in_thread=False)
+@mcp.tool(name="finalize_run", run_in_thread=False)
 def evolve_finalize_run(run_id: str, stop_reason: str = "") -> Dict[str, Any]:
     """Write deterministic run summary artifacts and return only refs.
 

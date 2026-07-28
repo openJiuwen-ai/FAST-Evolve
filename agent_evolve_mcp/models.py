@@ -164,7 +164,7 @@ class SuccessRecord:
         }
 
     def to_summary(self) -> Dict[str, Any]:
-        """Return the parent summary shape used by ``evolve_select_parent``."""
+        """Return the parent summary shape used by ``select_parent``."""
         return {
             "id": self.id,
             "fitness": self.fitness,
