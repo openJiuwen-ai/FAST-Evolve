@@ -14,11 +14,23 @@ and exact-template agent dispatches. It must not read task-content project
 files, invoke task-content skills, retrieve a pending meta-guidance request,
 generate guidance, inspect the current-best candidate or verifier/evaluator, or
 commit guidance. Initial exploration, task execution, and meta-guidance
-generation are executed by dedicated agents in their own isolated contexts.
+generation are executed by dedicated agents with separate conversation contexts
+but one shared main-repository working directory.
 
 ### Dispatch Template Constraint (ALL subagent dispatches)
 
 The dispatch prompt MUST be produced by filling in the appropriate template below — **no other text is allowed**. Do not add, remove, or rearrange lines. Do not insert explanatory prose before, after, or between the parameter lines. Each `<placeholder>` is replaced with its actual value; everything else stays literal.
+
+### Main-Repository Dispatch Constraint (ALL subagent dispatches)
+
+Every dispatch to `agent_evolve_plugin:init-explorer`,
+`agent_evolve_plugin:task-executor`, or
+`agent_evolve_plugin:meta-guidance-generator` MUST run in the main repository
+working directory. The `Agent` input MUST NOT contain an `isolation` field:
+omit it entirely, rather than setting `"worktree"`, `"remote"`, or any other
+isolation mode. All persistent artifacts,
+including `runs/<run_id>/...`, MUST be read from and written to the main
+repository, never to `.claude/worktrees/...`.
 
 **Template for init-explorer dispatch:**
 ```

@@ -27,5 +27,18 @@
       "mcp__plugin_agent_evolve_plugin_ctrl__check_convergence",
       "mcp__plugin_agent_evolve_plugin_ctrl__finalize_run"
     ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/enforce-shared-evolve-agents.mjs"
+          }
+        ]
+      }
+    ]
   }
 }

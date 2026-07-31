@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 from pathlib import Path
+import subprocess
 
 import yaml
 from fastmcp import Client
@@ -20,6 +21,9 @@ META_AGENT = PLUGIN_ROOT / "agents" / "meta-guidance-generator.md"
 PLUGIN_MANIFEST = PLUGIN_ROOT / ".claude-plugin" / "plugin.json"
 MCP_CONFIG = PLUGIN_ROOT / ".mcp.json"
 PROJECT_SETTINGS = REPO_ROOT / ".claude" / "settings.json"
+SHARED_WORKSPACE_HOOK = (
+    REPO_ROOT / ".claude" / "hooks" / "enforce-shared-evolve-agents.mjs"
+)
 
 PUBLIC_TOOL_NAMES = {
     "configure_run",
@@ -265,6 +269,80 @@ def test_orchestrator_passes_only_ids_and_never_handles_guidance_payload():
     assert "commit_meta_guidance" not in master
     assert "current_best_assessment" not in master
     assert "passes only `run_id` and `request_id`" in master
+
+
+def test_orchestrator_forbids_worktree_isolation_for_persistent_workers():
+    master = MASTER_SKILL.read_text(encoding="utf-8")
+
+    for agent_name in (
+        "agent_evolve_plugin:init-explorer",
+        "agent_evolve_plugin:task-executor",
+        "agent_evolve_plugin:meta-guidance-generator",
+    ):
+        assert agent_name in master
+    assert "MUST NOT contain an `isolation` field" in master
+    assert 'setting `"worktree"`, `"remote"`, or any other' in master
+    assert "never to `.claude/worktrees/...`" in master
+
+
+def test_shared_workspace_hook_strips_isolation_for_persistent_workers():
+    settings = _settings()
+    pre_tool_use_hooks = settings["hooks"]["PreToolUse"]
+
+    assert pre_tool_use_hooks == [
+        {
+            "matcher": "Agent",
+            "hooks": [
+                {
+                    "type": "command",
+                    "command": "node .claude/hooks/enforce-shared-evolve-agents.mjs",
+                }
+            ],
+        }
+    ]
+
+    payload = {
+        "tool_name": "Agent",
+        "tool_input": {
+            "description": "Generate directions",
+            "isolation": "worktree",
+            "model": "sonnet",
+            "prompt": "run_id: example",
+            "subagent_type": "agent_evolve_plugin:init-explorer",
+        },
+    }
+
+    result = subprocess.run(
+        ["node", str(SHARED_WORKSPACE_HOOK)],
+        input=json.dumps(payload),
+        capture_output=True,
+        check=True,
+        text=True,
+    )
+    output = json.loads(result.stdout)
+
+    assert "isolation" not in output["hookSpecificOutput"]["updatedInput"]
+    assert output["hookSpecificOutput"]["updatedInput"]["prompt"] == "run_id: example"
+
+
+def test_shared_workspace_hook_leaves_other_agents_unchanged():
+    payload = {
+        "tool_name": "Agent",
+        "tool_input": {
+            "isolation": "worktree",
+            "subagent_type": "Explore",
+        },
+    }
+
+    result = subprocess.run(
+        ["node", str(SHARED_WORKSPACE_HOOK)],
+        input=json.dumps(payload),
+        capture_output=True,
+        check=True,
+        text=True,
+    )
+
+    assert result.stdout == ""
 
 
 def test_orchestrator_mentions_only_orchestration_mcp_tools():
