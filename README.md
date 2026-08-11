@@ -137,6 +137,15 @@ $env:AGENT_EVOLVE_CONTROLLER_DIR = "D:\evotrias-state"
 
 Hard task and time budgets remain active independently of plateau detection.
 
+For remote access, set these before starting EvoTrias:
+
+```bash
+export AGENT_EVOLVE_UI_HOST=0.0.0.0
+export AGENT_EVOLVE_UI_PUBLIC_HOST="<HOST_OR_IP>"
+```
+
+Use the URL printed by EvoTrias. Leave these variables unset for local-only access.
+
 ## Run Artifacts
 
 EvoTrias separates user-facing run outputs from controller-owned state:

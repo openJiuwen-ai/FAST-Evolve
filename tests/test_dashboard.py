@@ -339,6 +339,50 @@ def test_dashboard_uses_next_port_and_serves_snapshot(tmp_path, monkeypatch):
         blocker.close()
 
 
+def test_dashboard_uses_remote_bind_and_public_hosts_from_environment(tmp_path, monkeypatch):
+    monkeypatch.setenv("AGENT_EVOLVE_UI_HOST", "0.0.0.0")
+    monkeypatch.setenv("AGENT_EVOLVE_UI_PUBLIC_HOST", "gpu.example.test")
+
+    server = dashboard_module.start_dashboard(
+        RUN_ID,
+        workspace_root=tmp_path,
+        preferred_port=0,
+    )
+    assert server is not None
+    key = (str(tmp_path.resolve()), RUN_ID)
+    try:
+        assert server.host == "0.0.0.0"
+        assert server.public_host == "gpu.example.test"
+        assert server.url == f"http://gpu.example.test:{server.port}"
+        with urllib.request.urlopen(
+            f"http://127.0.0.1:{server.port}/api/health", timeout=3
+        ) as response:
+            assert json.loads(response.read()) == {"status": "ok", "run_id": RUN_ID}
+    finally:
+        server.stop()
+        dashboard_module._servers.pop(key, None)
+
+
+def test_dashboard_keeps_loopback_default_when_remote_hosts_are_unset(tmp_path, monkeypatch):
+    monkeypatch.delenv("AGENT_EVOLVE_UI_HOST", raising=False)
+    monkeypatch.delenv("AGENT_EVOLVE_UI_PUBLIC_HOST", raising=False)
+
+    server = dashboard_module.start_dashboard(
+        RUN_ID,
+        workspace_root=tmp_path,
+        preferred_port=0,
+    )
+    assert server is not None
+    key = (str(tmp_path.resolve()), RUN_ID)
+    try:
+        assert server.host == dashboard_module.DEFAULT_DASHBOARD_HOST
+        assert server.public_host == dashboard_module.DEFAULT_DASHBOARD_HOST
+        assert server.url == f"http://127.0.0.1:{server.port}"
+    finally:
+        server.stop()
+        dashboard_module._servers.pop(key, None)
+
+
 def test_dashboard_includes_robust_chart_scale_controls():
     static_root = Path(__file__).parents[1] / "agent_evolve_mcp" / "dashboard_static"
     html = (static_root / "index.html").read_text(encoding="utf-8")

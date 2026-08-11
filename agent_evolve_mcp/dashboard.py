@@ -26,6 +26,8 @@ DEFAULT_DASHBOARD_HOST = "127.0.0.1"
 DEFAULT_DASHBOARD_PORT = 4000
 DASHBOARD_PORT_SEARCH_LIMIT = 100
 UI_ENABLED_ENV = "AGENT_EVOLVE_UI_ENABLED"
+UI_HOST_ENV = "AGENT_EVOLVE_UI_HOST"
+UI_PUBLIC_HOST_ENV = "AGENT_EVOLVE_UI_PUBLIC_HOST"
 FALSE_ENV_VALUES = {"0", "false", "off", "no", "disabled"}
 
 
@@ -38,11 +40,13 @@ class DashboardServer:
         run_id: str,
         workspace_root: Path,
         host: str = DEFAULT_DASHBOARD_HOST,
+        public_host: Optional[str] = None,
         preferred_port: int = DEFAULT_DASHBOARD_PORT,
     ) -> None:
         self.run_id = run_id
         self.workspace_root = Path(workspace_root).resolve()
         self.host = host
+        self.public_host = public_host or host
         self._httpd = _bind_server(
             run_id=run_id,
             workspace_root=self.workspace_root,
@@ -50,7 +54,7 @@ class DashboardServer:
             preferred_port=preferred_port,
         )
         self.port = int(self._httpd.server_address[1])
-        self.url = f"http://{host}:{self.port}"
+        self.url = f"http://{_format_url_host(self.public_host)}:{self.port}"
         self._thread = threading.Thread(
             target=self._httpd.serve_forever,
             name=f"agent-evolve-ui-{run_id}",
@@ -86,6 +90,8 @@ def start_dashboard(
     run_id: str,
     *,
     workspace_root: Optional[Path] = None,
+    host: Optional[str] = None,
+    public_host: Optional[str] = None,
     preferred_port: int = DEFAULT_DASHBOARD_PORT,
     max_total_tasks: Optional[int] = None,
     task_description: str = "",
@@ -101,6 +107,8 @@ def start_dashboard(
         return None
 
     root = Path(workspace_root or Path.cwd()).resolve()
+    bind_host = _configured_host(host, UI_HOST_ENV, DEFAULT_DASHBOARD_HOST)
+    advertised_host = _configured_host(public_host, UI_PUBLIC_HOST_ENV, bind_host)
     key = (str(root), run_id)
     with _servers_lock:
         existing = _servers.get(key)
@@ -109,6 +117,8 @@ def start_dashboard(
         server = DashboardServer(
             run_id=run_id,
             workspace_root=root,
+            host=bind_host,
+            public_host=advertised_host,
             preferred_port=preferred_port,
         ).start()
         _servers[key] = server
@@ -993,6 +1003,18 @@ def _safe_name(value: str) -> str:
     return safe or "default"
 
 
+def _configured_host(value: Optional[str], env_name: str, default: str) -> str:
+    configured = value if value is not None else os.environ.get(env_name)
+    return str(configured or default).strip() or default
+
+
+def _format_url_host(host: str) -> str:
+    """Format an IPv6 host for a URL while leaving names and IPv4 unchanged."""
+    if ":" in host and not host.startswith("["):
+        return f"[{host}]"
+    return host
+
+
 def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
@@ -1007,12 +1029,24 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(description="Serve an EvoTrias run dashboard.")
     parser.add_argument("run_id", help="Run id under runs/ and controller state.")
+    parser.add_argument(
+        "--host",
+        default=None,
+        help=f"Bind address (default: ${UI_HOST_ENV} or {DEFAULT_DASHBOARD_HOST}).",
+    )
+    parser.add_argument(
+        "--public-host",
+        default=None,
+        help=f"Public URL host (default: ${UI_PUBLIC_HOST_ENV} or bind address).",
+    )
     parser.add_argument("--port", type=int, default=DEFAULT_DASHBOARD_PORT)
     parser.add_argument("--workspace", type=Path, default=Path.cwd())
     args = parser.parse_args()
     server = start_dashboard(
         args.run_id,
         workspace_root=args.workspace,
+        host=args.host,
+        public_host=args.public_host,
         preferred_port=args.port,
     )
     if server is None:
