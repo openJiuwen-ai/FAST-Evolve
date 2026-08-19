@@ -69,7 +69,6 @@ meta_evolve:
   enabled: true
   guidance_num_to_generate: 3
   guidance_max_uses: 2
-  max_tried_guidance: 10
 ```
 
 `AGENT_EVOLVE_META_EVOLVE_ENABLED=0` disables meta-guidance request creation.
@@ -78,6 +77,9 @@ Active meta-guidance is generated from the canonical best at request time, but
 each task binds it to the latest canonical best when `select_parent` is
 called. This mirrors AdaEvolve-style paradigm use: the idea persists, while the
 parent baseline follows new bests.
+
+Exhausted meta-guidance is retained in full for the lifetime of the run; it is
+never truncated from the persisted history.
 
 The MCP owns `success_db.json`, `attempts.jsonl`, `task_contexts.json`, `run_state.json`, `notes.json`, and the `meta_guidance/` state files. Artifact files, verifier logs, and run workspaces are owned by the caller/plugin and are referenced by path-like refs.
 

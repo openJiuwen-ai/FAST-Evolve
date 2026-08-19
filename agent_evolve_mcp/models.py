@@ -82,7 +82,6 @@ class MetaEvolveConfig:
     enabled: bool = True
     guidance_num_to_generate: int = 3
     guidance_max_uses: int = 2
-    max_tried_guidance: int = 10
 
 
 @dataclass
