@@ -271,6 +271,14 @@ def test_orchestrator_passes_only_ids_and_never_handles_guidance_payload():
     assert "passes only `run_id` and `request_id`" in master
 
 
+def test_orchestrator_uses_aligned_evotrias_dashboard_banner():
+    master = MASTER_SKILL.read_text(encoding="utf-8")
+
+    assert "┌─ 🦖 EvoTrias UI" in master
+    assert "└─ 🖥️  <dashboard.url>" in master
+    assert "🚀 AGENT EVOLVE UI" not in master
+
+
 def test_orchestrator_forbids_worktree_isolation_for_persistent_workers():
     master = MASTER_SKILL.read_text(encoding="utf-8")
 
