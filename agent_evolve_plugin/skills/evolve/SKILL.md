@@ -98,10 +98,8 @@ These templates are **exclusive** — they define the exact and complete content
    - Store `dashboard.url` from the response when available. Print exactly one high-visibility startup banner, with a blank line before and after it:
 
      ```text
-     ╭────────────────────────────────────────────────────────────╮
-     │ 🚀 AGENT EVOLVE UI                                        │
-     │ 🖥️  <dashboard.url>                                        │
-     ╰────────────────────────────────────────────────────────────╯
+     ┌─ 🦖 EvoTrias UI
+     └─ 🖥️  <dashboard.url>
      ```
 
      Do not emit raw ANSI color codes because renderer support varies. The banner is printed only once, so its visibility does not create recurring context cost. If the dashboard did not start, print one short warning and continue; UI availability is never a reason to stop evolution.
