@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 from agent_evolve_mcp.controller import EvolutionController
+from agent_evolve_mcp.meta_guidance import MetaGuidanceManager
 from agent_evolve_mcp.storage import attempts_log_path, notes_path, read_jsonl
 from agent_evolve_mcp.models import (
     EvolutionControllerConfig,
@@ -34,7 +35,6 @@ def _controller(
             enabled=meta_enabled,
             guidance_num_to_generate=3,
             guidance_max_uses=2,
-            max_tried_guidance=10,
         ),
     )
     controller = EvolutionController("run_meta_test", config=config)
@@ -54,6 +54,39 @@ def _add_successes(controller: EvolutionController, *, fitness=1.0, count=5):
             )
         )
     controller._load_state()
+
+
+def test_exhausted_guidance_history_is_never_truncated(tmp_path, monkeypatch):
+    monkeypatch.setenv("AGENT_EVOLVE_CONTROLLER_DIR", str(tmp_path / "controller"))
+    manager = MetaGuidanceManager("run_guidance_history", MetaEvolveConfig())
+
+    for index in range(1, 12):
+        guidance_id = f"mg_{index:04d}"
+        manager.state["active_guidance"] = [
+            {
+                "guidance_id": guidance_id,
+                "idea": f"idea {index}",
+                "description": f"description {index}",
+                "implementation_plan": [f"step {index}"],
+                "anchor_parent_id": "success_0000",
+                "uses": 1,
+                "max_uses": 1,
+                "outcomes": [],
+            }
+        ]
+        manager._archive_exhausted_if_ready(guidance_id)
+
+    manager.save()
+    manager.load()
+
+    tried = manager.state["tried_guidance"]
+    assert len(tried) == 11
+    assert [item["guidance_id"] for item in tried] == [
+        f"mg_{index:04d}" for index in range(1, 12)
+    ]
+    assert tried[0]["idea"] == "idea 1"
+    assert tried[0]["description"] == "description 1"
+    assert tried[0]["implementation_plan"] == ["step 1"]
 
 
 def test_plateau_requests_guidance_without_stop(tmp_path, monkeypatch):

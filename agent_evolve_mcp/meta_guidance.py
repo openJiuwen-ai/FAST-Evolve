@@ -103,8 +103,10 @@ class MetaGuidanceManager:
         if anchor is None:
             return None
 
+        request_number = int(self.state["next_request_index"])
+        self.state["next_request_index"] = request_number + 1
         request = {
-            "request_id": self._next_id("mgr", self._request_count() + 1),
+            "request_id": self._next_id("mgr", request_number),
             "state": "pending",
             "created_at": utc_now_iso(),
             "created_at_task_count": int(task_count),
@@ -171,7 +173,7 @@ class MetaGuidanceManager:
         active = list(self.state.get("active_guidance") or [])
         created: List[Dict[str, Any]] = []
         seen_approach_types = set()
-        start_index = self._guidance_count() + 1
+        start_index = int(self.state["next_guidance_index"])
         for offset, item in enumerate(raw_guidance):
             validated = _validate_guidance_item(item)
             if isinstance(validated, str):
@@ -206,6 +208,7 @@ class MetaGuidanceManager:
             created.append(guidance)
 
         self.state["active_guidance"] = active
+        self.state["next_guidance_index"] = start_index + len(created)
         self.state["pending_request"] = None
         self.save()
         return {
@@ -422,7 +425,7 @@ class MetaGuidanceManager:
         ]
         tried = list(self.state.get("tried_guidance") or [])
         tried.append(archived)
-        self.state["tried_guidance"] = tried[-self.config.max_tried_guidance :]
+        self.state["tried_guidance"] = tried
 
     def _active_by_id(self, guidance_id: str) -> Optional[Dict[str, Any]]:
         for item in self.state.get("active_guidance") or []:
@@ -474,7 +477,7 @@ class MetaGuidanceManager:
         ]
 
     def _guidance_history(self) -> List[Dict[str, Any]]:
-        """Return bounded prior guidance with deterministic outcome summaries."""
+        """Return prior guidance with deterministic outcome summaries."""
         return [
             {
                 "guidance_id": item.get("guidance_id"),
@@ -497,20 +500,6 @@ class MetaGuidanceManager:
             return 0
         return max(int(task_count) - int(started), 0)
 
-    def _request_count(self) -> int:
-        active = self.state.get("active_guidance") or []
-        tried = self.state.get("tried_guidance") or []
-        pending = 1 if self.state.get("pending_request") else 0
-        request_ids = {
-            item.get("request_id") for item in [*active, *tried] if item.get("request_id")
-        }
-        return len(request_ids) + pending
-
-    def _guidance_count(self) -> int:
-        return len(self.state.get("active_guidance") or []) + len(
-            self.state.get("tried_guidance") or []
-        )
-
     @staticmethod
     def _next_id(prefix: str, number: int) -> str:
         return f"{prefix}_{number:04d}"
@@ -523,6 +512,8 @@ class MetaGuidanceManager:
             "active_guidance": [],
             "tried_guidance": [],
             "task_assignments": {},
+            "next_guidance_index": 1,
+            "next_request_index": 1,
         }
 
 

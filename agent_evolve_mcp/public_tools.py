@@ -221,7 +221,6 @@ def _meta_evolve_config_ref(config: Any) -> Dict[str, Any]:
         "enabled": config.meta_evolve.enabled,
         "guidance_num_to_generate": config.meta_evolve.guidance_num_to_generate,
         "guidance_max_uses": config.meta_evolve.guidance_max_uses,
-        "max_tried_guidance": config.meta_evolve.max_tried_guidance,
     }
 
 

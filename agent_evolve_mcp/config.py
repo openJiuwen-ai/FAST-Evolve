@@ -92,9 +92,6 @@ def load_evolution_controller_config(
                 meta.get("guidance_num_to_generate", meta_defaults.guidance_num_to_generate)
             ),
             guidance_max_uses=int(meta.get("guidance_max_uses", meta_defaults.guidance_max_uses)),
-            max_tried_guidance=int(
-                meta.get("max_tried_guidance", meta_defaults.max_tried_guidance)
-            ),
         ),
     )
 

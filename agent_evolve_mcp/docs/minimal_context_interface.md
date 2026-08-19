@@ -35,8 +35,7 @@ configure_run(run_id: str, max_total_tasks: int = 50, task_description: str = ""
   "meta_evolve": {
     "enabled": true,
     "guidance_num_to_generate": 3,
-    "guidance_max_uses": 2,
-    "max_tried_guidance": 10
+    "guidance_max_uses": 2
   }
 }
 ```
