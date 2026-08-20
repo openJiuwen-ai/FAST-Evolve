@@ -9,6 +9,7 @@ from agent_evolve_mcp.models import (
     MetaEvolveConfig,
     PlateauConfig,
     RunBudgetConfig,
+    SchedulerConfig,
     SuccessRecord,
 )
 
@@ -36,6 +37,10 @@ def _controller(
             guidance_max_uses=2,
             max_tried_guidance=10,
         ),
+        # These tests model an established run in its evolution phase; a zero
+        # root number means the root phase is already over, so select_parent
+        # is never root-gated.
+        scheduler=SchedulerConfig(lineage_root_number=0),
     )
     controller = EvolutionController("run_meta_test", config=config)
     controller.configure_run("optimize the test task")

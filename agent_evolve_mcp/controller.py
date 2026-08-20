@@ -103,6 +103,17 @@ class EvolutionController:
             return self._parent_ref(context.parent_id)
 
         context = self.task_contexts.ensure(task_id)
+        if self._in_root_phase():
+            # Only root tasks run before all roots have finished (evolution
+            # tasks are minted strictly after that), so this task is a root:
+            # it explores its own direction from scratch. Return no parent
+            # (select_inspirations then returns none) even when early roots
+            # already populated SuccessDB, and skip meta-guidance.
+            context.parent_id = None
+            context.parent_selected = True
+            self.task_contexts.put(context)
+            return self._parent_ref(None)
+
         current_best = self.db.get_canonical_best_record()
         guidance = (
             self.meta_guidance.assign_for_task(
@@ -482,15 +493,11 @@ class EvolutionController:
         if action == "continue":
             root_number = self.config.scheduler.lineage_root_number
             max_total = self.config.budget.max_total_tasks
-            pool = scheduler.pool_snapshot(self.run_id)
-            roots_finished = (
-                len(pool["completed"]) + len(pool["failed"]) >= root_number
-            )
-            # Until root_number tasks have finished, minting stays capped at
-            # root_number: that both limits the root phase to one task per
-            # direction and makes top_up_tasks return [] during the root
-            # barrier (all roots minted, some still in flight).
-            mint_cap = max_total if roots_finished else min(root_number, max_total)
+            # During the root phase minting stays capped at root_number: that
+            # both limits the phase to one task per direction and makes
+            # top_up_tasks return [] during the root barrier (all roots
+            # minted, some still in flight).
+            mint_cap = min(root_number, max_total) if self._in_root_phase() else max_total
             newly_created = scheduler.top_up_tasks(self.run_id, concurrency, mint_cap)
             tasks_to_create = len(newly_created)
 
@@ -577,6 +584,17 @@ class EvolutionController:
             diagnostics=run_state.diagnostics,
         )
         self.lineage_tree.rebuild(self.db)
+
+    def _in_root_phase(self) -> bool:
+        """True until all ``lineage_root_number`` roots have finished.
+
+        Completed and failed pool tasks both count as finished. The count is
+        monotonic and evolution tasks are only minted after it reaches the
+        root number, so this flips exactly once per run.
+        """
+        pool = scheduler.pool_snapshot(self.run_id)
+        finished = len(pool["completed"]) + len(pool["failed"])
+        return finished < self.config.scheduler.lineage_root_number
 
     def _progress(self) -> float:
         """Compute search progress internally from registered tasks."""

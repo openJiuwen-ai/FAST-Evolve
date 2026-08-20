@@ -12,6 +12,7 @@ import pytest
 
 from agent_evolve_mcp import public_tools as public_tools_module
 from agent_evolve_mcp.controller import EvolutionController
+from agent_evolve_mcp.models import SuccessRecord
 from agent_evolve_mcp.state_store import RunStateStore
 from evotrias import scheduler as sched
 
@@ -31,11 +32,17 @@ def run_env(tmp_path, monkeypatch):
     public_tools_module._controllers.pop(RUN_ID, None)
 
 
-def _finish_one_task(run_id: str, agent_id: str, *, fitness=1.0) -> str:
-    """Walk one pool task through allocate -> queue -> start -> complete."""
+def _start_one_task(run_id: str, agent_id: str) -> str:
+    """Walk one pool task through allocate -> queue -> start."""
     task_id = sched.allocate_task(run_id)
     sched.queue_task(run_id, task_id, agent_id)
     sched.start_task(run_id, agent_id)
+    return task_id
+
+
+def _finish_one_task(run_id: str, agent_id: str, *, fitness=1.0) -> str:
+    """Walk one pool task through allocate -> queue -> start -> complete."""
+    task_id = _start_one_task(run_id, agent_id)
     sched.complete_task(run_id, task_id, fitness)
     return task_id
 
@@ -160,6 +167,47 @@ def test_check_convergence_rejects_non_positive_concurrency(run_env):
         public_tools_module.evolve_check_convergence(RUN_ID, concurrency=0)
     with pytest.raises(ValueError, match="concurrency must be a positive integer"):
         public_tools_module.evolve_check_convergence(RUN_ID, concurrency=-2)
+
+
+def test_root_tasks_get_no_parent_even_after_early_root_success(run_env):
+    # max_concurrent_tasks=2, lineage_root_number=3: task_003 is minted after
+    # task_001 already succeeded, yet it is still a root — no parent, no
+    # inspirations, regardless of SuccessDB content.
+    public_tools_module.evolve_configure_run(
+        RUN_ID, max_total_tasks=30, lineage_root_number=3, max_concurrent_tasks=2
+    )
+    controller = public_tools_module._controllers[RUN_ID]
+
+    assert public_tools_module.evolve_check_convergence(RUN_ID, concurrency=2)[
+        "tasks_to_create"
+    ] == 2
+    task_1 = _start_one_task(RUN_ID, "agent_0")
+    task_2 = _start_one_task(RUN_ID, "agent_1")
+    controller.db.add(
+        SuccessRecord(id=task_1, run_id=RUN_ID, fitness=1.0, artifact_ref="a.py")
+    )
+    sched.complete_task(RUN_ID, task_1, fitness=1.0)
+
+    assert public_tools_module.evolve_check_convergence(RUN_ID, concurrency=2)[
+        "tasks_to_create"
+    ] == 1
+    task_3 = _start_one_task(RUN_ID, "agent_2")
+
+    root_parent = public_tools_module.evolve_select_parent(RUN_ID, task_3)
+    assert root_parent["parent_id"] is None
+    assert public_tools_module.evolve_select_inspirations(RUN_ID, task_3) == {
+        "inspirations": []
+    }
+
+    sched.complete_task(RUN_ID, task_2, fitness=0.5)
+    sched.complete_task(RUN_ID, task_3, fitness=0.7)
+    assert public_tools_module.evolve_check_convergence(RUN_ID, concurrency=2)[
+        "tasks_to_create"
+    ] == 2
+    task_4 = _start_one_task(RUN_ID, "agent_3")
+
+    # Evolution tasks select parents normally once every root has finished.
+    assert public_tools_module.evolve_select_parent(RUN_ID, task_4)["parent_id"] == task_1
 
 
 def test_restarted_controller_recovers_recorded_config(run_env):

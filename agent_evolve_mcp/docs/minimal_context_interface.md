@@ -74,6 +74,7 @@ select_parent(run_id: str, task_id: str)
 
 - 第一次调用时 MCP 选择并缓存 parent。
 - 重复调用同一个 `task_id` 时直接返回缓存结果，不重复采样。
+- **根阶段**（谱系根任务尚未全部结束）：一律返回 `parent_id: null`，且不绑定 meta-guidance——根任务只从自己的 direction 出发，即使 SuccessDB 已有先完成的根任务。随后 `select_inspirations` 也返回空列表。
 - 如果存在 active meta-guidance，MCP 会优先把该 guidance 绑定到本次调用时的 canonical best；否则走普通 parent selector。
 - SuccessDB 为空时返回 `parent_id: null`。
 
