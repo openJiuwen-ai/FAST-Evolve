@@ -46,11 +46,13 @@ def _seed_run(tmp_path: Path, monkeypatch):
         },
     )
     _write_json(
-        public / "scheduler_state.json",
+        tmp_path / ".evotrias" / "state" / "runs" / RUN_ID / "task_pool.json",
         {
             "run_id": RUN_ID,
-            "running_tasks": ["task_003"],
-            "task_agents": {"task_003": {"agent_id": "agent-live-3", "status": "running"}},
+            "pending": [],
+            "running": {"task_003": "agent-live-3"},
+            "completed": {},
+            "failed": {},
         },
     )
     completed = [
@@ -154,8 +156,8 @@ def _seed_history_run(tmp_path: Path):
         },
     )
     _write_json(
-        public / "scheduler_state.json",
-        {"run_id": run_id, "running_tasks": [], "task_agents": {}},
+        tmp_path / ".evotrias" / "state" / "runs" / run_id / "task_pool.json",
+        {"run_id": run_id, "pending": [], "running": {}, "completed": {}, "failed": {}},
     )
     _write_jsonl(
         public / "completed_tasks.jsonl",
@@ -236,6 +238,41 @@ def test_infer_activity_recognizes_cpp_candidate(tmp_path):
 
     assert activity == "Verifying candidate"
     assert "attempt_001" in detail
+
+
+def test_recent_activity_links_to_evotrias_state_machine(tmp_path, monkeypatch):
+    """§5.4: Recent activity shows completed(fitness) / failed(reason) sourced
+    from .evotrias/state/runs/<run_id>/task_pool.json, not just the legacy
+    success log."""
+    _seed_run(tmp_path, monkeypatch)
+
+    # Seed the evotrias task pool with a completed task (fitness) and a failed
+    # task (reason). The dashboard must surface both in Recent activity.
+    pool_path = tmp_path / ".evotrias" / "state" / "runs" / RUN_ID / "task_pool.json"
+    _write_json(
+        pool_path,
+        {
+            "run_id": RUN_ID,
+            "pending": [],
+            "running": {},
+            "completed": {"task_004": {"fitness": 0.91}},
+            "failed": {"task_005": {"reason": "candidate did not compile"}},
+        },
+    )
+
+    snapshot = build_snapshot(RUN_ID, tmp_path)
+    activity = snapshot["activity"]
+    titles = {item["title"] for item in activity}
+
+    assert "task_004 completed" in titles
+    completed_row = next(item for item in activity if item["title"] == "task_004 completed")
+    assert completed_row["status"] == "success"
+    assert "0.91" in completed_row["detail"]
+
+    assert "task_005 failed" in titles
+    failed_row = next(item for item in activity if item["title"] == "task_005 failed")
+    assert failed_row["status"] == "failed"
+    assert "did not compile" in failed_row["detail"]
 
 
 def test_configure_run_passes_current_feature_flags_to_dashboard(tmp_path, monkeypatch):

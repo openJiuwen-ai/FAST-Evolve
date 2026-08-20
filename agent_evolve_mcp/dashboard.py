@@ -133,9 +133,14 @@ def build_snapshot(run_id: str, workspace_root: Path) -> Dict[str, Any]:
     state_root = _controller_run_dir(workspace_root, safe_run_id)
 
     run_state = _read_json(state_root / "run_state.json", {})
-    scheduler = _read_json(public_run_dir / "scheduler_state.json", {})
     manifest = _read_json(public_run_dir / "dashboard.json", {})
     completed = _read_jsonl(public_run_dir / "completed_tasks.jsonl")
+    # Task scheduling state (running/completed/failed and task→agent mapping)
+    # comes from the evotrias task pool.
+    task_pool = _read_json(
+        workspace_root / ".evotrias" / "state" / "runs" / safe_run_id / "task_pool.json",
+        {},
+    )
     attempts = _read_jsonl(state_root / "attempts.jsonl")
     notes_collection = _read_json(state_root / "notes.json", {})
     notes_events = _read_jsonl(state_root / "notes_events.jsonl")
@@ -145,12 +150,13 @@ def build_snapshot(run_id: str, workspace_root: Path) -> Dict[str, Any]:
     attempt_index = _attempt_index(attempts)
     progress = _build_progress(completed, attempt_index)
     best = _best_record(progress, attempt_index)
-    running_tasks = [str(item) for item in scheduler.get("running_tasks") or []]
+    running_map = task_pool.get("running") or {}
+    running_tasks = [str(item) for item in running_map]
     task_contexts = _read_json(state_root / "task_contexts.json", {})
     agents = _build_agents(
         public_run_dir=public_run_dir,
         running_tasks=running_tasks,
-        task_agents=scheduler.get("task_agents") or {},
+        task_agents=running_map,
         attempts=attempts,
         task_contexts=task_contexts,
         meta_assignments=meta_state.get("task_assignments") or {},
@@ -178,6 +184,7 @@ def build_snapshot(run_id: str, workspace_root: Path) -> Dict[str, Any]:
         meta_uses=meta_uses,
         guidance=guidance,
         agents=agents,
+        task_pool=task_pool,
     )
 
     diagnostics = dict(run_state.get("diagnostics") or {})
@@ -255,7 +262,10 @@ def list_runs(current_run_id: str, workspace_root: Path) -> Dict[str, Any]:
         run_id = run_dir.name
         state_root = _controller_run_dir(workspace_root, run_id)
         manifest = _read_json(run_dir / "dashboard.json", {})
-        scheduler = _read_json(run_dir / "scheduler_state.json", {})
+        task_pool = _read_json(
+            workspace_root / ".evotrias" / "state" / "runs" / run_id / "task_pool.json",
+            {},
+        )
         run_state = _read_json(state_root / "run_state.json", {})
         completed = _read_jsonl(run_dir / "completed_tasks.jsonl")
         attempts = _read_jsonl(state_root / "attempts.jsonl")
@@ -289,7 +299,9 @@ def list_runs(current_run_id: str, workspace_root: Path) -> Dict[str, Any]:
                 "label": name_match.group("label") if name_match else run_id,
                 "timestamp": name_match.group("timestamp") if name_match else None,
                 "status": (
-                    "running" if scheduler.get("running_tasks") and recently_updated else "stopped"
+                    "running"
+                    if (task_pool.get("running") or {}) and recently_updated
+                    else "stopped"
                 ),
                 "completed_tasks": len(completed),
                 "attempts": len(attempts),
@@ -751,6 +763,7 @@ def _build_activity(
     meta_uses: List[Dict[str, Any]],
     guidance: List[Dict[str, Any]],
     agents: List[Dict[str, Any]],
+    task_pool: Dict[str, Any] | None = None,
 ) -> List[Dict[str, Any]]:
     events: List[Dict[str, Any]] = []
     for agent in agents:
@@ -763,7 +776,40 @@ def _build_activity(
                 "live": True,
             }
         )
+    # State-machine outcomes from the evotrias task pool.
+    pool = task_pool or {}
+    pool_completed = pool.get("completed") or {}
+    pool_failed = pool.get("failed") or {}
+    for task_id, payload in pool_completed.items():
+        fitness = _finite_float((payload or {}).get("fitness"))
+        attempt = attempt_index.get(str(task_id)) or {}
+        events.append(
+            {
+                "kind": "task",
+                "title": f"{task_id} completed",
+                "detail": f"Fitness {_format_fitness(fitness)}",
+                "timestamp": attempt.get("created_at"),
+                "status": "success",
+            }
+        )
+    for task_id, payload in pool_failed.items():
+        reason = str((payload or {}).get("reason") or "")
+        attempt = attempt_index.get(str(task_id)) or {}
+        events.append(
+            {
+                "kind": "task",
+                "title": f"{task_id} failed",
+                "detail": reason or "Task failed without a recorded reason.",
+                "timestamp": attempt.get("created_at"),
+                "status": "failed",
+            }
+        )
+    # Legacy source: completed_tasks.jsonl, deduped against the pool above.
+    covered = set(pool_completed) | set(pool_failed)
     for row in completed[-30:]:
+        task_id = str(row.get("task_id") or "")
+        if task_id in covered:
+            continue
         attempt = attempt_index.get(str(row.get("artifact_ref") or "")) or {}
         fitness = _finite_float(row.get("fitness"))
         events.append(

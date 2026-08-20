@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
+from evotrias import scheduler
+
 from agent_evolve_mcp.budget_guard import RunBudgetGuard
 from agent_evolve_mcp.config import load_evolution_controller_config
 from agent_evolve_mcp.convergence_detector import FitnessPlateauDetector
@@ -363,7 +365,10 @@ class EvolutionController:
             }
         return self.notes.commit_generated_note(note_request_id, generated_note_json)
 
-    def check_convergence(self) -> Dict[str, Any]:
+    def check_convergence(
+        self,
+        concurrency: int,
+    ) -> Dict[str, Any]:
         """Return the next scheduler action from convergence/meta-evolve state."""
         self._load_state()
         run_state = self.run_state_store.load()
@@ -425,6 +430,13 @@ class EvolutionController:
         else:
             self.meta_guidance.reset_watching()
 
+        tasks_to_create = 0
+        if action == "continue":
+            newly_created = scheduler.top_up_tasks(
+                self.run_id, concurrency, self.config.budget.max_total_tasks
+            )
+            tasks_to_create = len(newly_created)
+
         meta_stats = self.meta_guidance.stats()
         diagnostics["meta_guidance"] = meta_stats
         self.run_state_store.save(
@@ -440,6 +452,7 @@ class EvolutionController:
         )
         response: Dict[str, Any] = {
             "action": action,
+            "tasks_to_create": tasks_to_create,
             "search_state": self.plateau_detector.state.value,
             "plateau": self.plateau_detector.state == SearchState.WATCHING,
             "stop_reason": reason,

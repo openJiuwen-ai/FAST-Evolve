@@ -144,7 +144,6 @@ EvoTrias separates user-facing run outputs from controller-owned state:
 ```text
 runs/<run_id>/
   completed_tasks.jsonl
-  scheduler_state.json
   dashboard.json
   tasks/<task_id>/attempts/<attempt_id>/solution.py  # or solution.cpp
   tasks/<task_id>/attempts/<attempt_id>/eval_result.json

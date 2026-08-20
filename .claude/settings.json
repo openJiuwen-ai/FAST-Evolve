@@ -14,8 +14,6 @@
       "Bash(date *)",
       "Bash(cd * && uv run python benchmarks/skills/*/scripts/evaluator.py *)",
       "mcp__plugin_agent_evolve_plugin_ctrl__configure_run",
-      "mcp__plugin_agent_evolve_plugin_ctrl__update_task_status",
-      "mcp__plugin_agent_evolve_plugin_ctrl__get_scheduler_state",
       "mcp__plugin_agent_evolve_plugin_ctrl__select_parent",
       "mcp__plugin_agent_evolve_plugin_ctrl__select_inspirations",
       "mcp__plugin_agent_evolve_plugin_ctrl__get_notes_prompt",

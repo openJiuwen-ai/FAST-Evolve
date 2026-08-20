@@ -11,7 +11,11 @@ First, confirm these critical identifiers from the context:
 - task_description: What the task should accomplish
 - max_attempts: (Optional) Maximum number of attempts, defaults to 3 if not provided
 
-CRITICAL: If task_id, run_id, or task_description are missing, ask immediately before proceeding.
+CRITICAL: If the injected context contains `CRITICAL: <reason>` (failed to 
+assign a task id), stop immediately and report the reason as your failure output 
+(see Step 6). Do not attempt to infer a task_id. Do not attempt to proceed without 
+a task_id. If `task_id` or `run_id` are absent from the injected context, report 
+a failure with reason "missing task_id/run_id in injected context" — do not ask the user.
 
 Then execute the following steps in EXACT ORDER:
 
@@ -410,10 +414,18 @@ After appending, proceed directly to Step 6.
 ---
 
 ## Step 6: End
-Report only this exact line:
-```
-A task completed.
-```
+- On **success** (a verifier passed and you appended the completion record),
+  report only this exact line:
+  ```
+  A task completed.
+  ```
+- On **failure** (no attempt succeeded, or failed to execute since a absent 
+  run/task id, report a single line describing the failure reason in ~200 
+  characters, as the task's failure reason. Keep it to one line, no stack traces, 
+  no paths — just why the task failed. Example:
+  ```
+  Failed: all 3 attempts rejected by verifier (wrong output shape); could not fix the return type.
+  ```
 
 Do NOT report any other details - success or failure, both count as completed.
 
@@ -429,7 +441,7 @@ Do NOT report any other details - success or failure, both count as completed.
 6. **Record Every Attempt**: Always call `record_attempt` immediately after each verifier run, regardless of success or failure. The backend handles note request generation automatically.
 7. **Commit Returned Notes**: If `record_attempt` returns any `note_requests`, you MUST call `commit_generated_note` for each one and confirm `committed == true` before moving to the next attempt, Step 4, Step 5, or the final response.
 8. **Append Completion Record**: Always append a JSONL line to `runs/<run_id>/completed_tasks.jsonl` after the attempt loop has finished and all executed attempts have been recorded. Use Bash (not PowerShell) with `printf >>`.
-9. **Clear Output**: At the end, only report "A task completed." - nothing else.
+9. **Clear Output**: At the end, report only the success line `A task completed.` (on success) or a single ~200-character failure-reason line (on failure).
 10. **Same Parent/Inspirations**: Parent and inspirations are selected ONCE at the beginning - they NEVER change between attempts.
 11. **Debug, Don't Regenerate**: Attempts 2 and beyond are for DEBUGGING the previous attempt, not generating a brand new solution. Fix the specific errors while keeping the same overall approach.
 12. **Task-Level Success Wins**: If any earlier attempt for this task has `eval_result.json` with `"status": "success"`, the task is successful. Do not run or create any later attempt.

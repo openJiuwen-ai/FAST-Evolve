@@ -17,11 +17,6 @@ from agent_evolve_mcp.controller import EvolutionController
 from agent_evolve_mcp.dashboard import start_dashboard
 from agent_evolve_mcp.mcp_server import mcp
 from agent_evolve_mcp.notes import notes_enabled
-from agent_evolve_mcp.scheduler_state import (
-    get_scheduler_state,
-    initialize_scheduler_state,
-    update_task_status,
-)
 
 _controllers: Dict[str, EvolutionController] = {}
 
@@ -52,7 +47,6 @@ def evolve_configure_run(
     Subsequent calls for the same run_id are ignored (the configuration
     is locked after the first call).
     """
-    initialize_scheduler_state(run_id)
     if run_id in _controllers:
         config = _controllers[run_id].config
         return {
@@ -84,28 +78,6 @@ def evolve_configure_run(
             notes_feature_enabled=notes_enabled(),
         ),
     }
-
-
-@mcp.tool(name="update_task_status", run_in_thread=False)
-def evolve_update_task_status(
-    run_id: str,
-    task_id: str,
-    status: str,
-    agent_id: str = "",
-) -> Dict[str, Any]:
-    """Persist one scheduler task transition without exposing the state-file diff."""
-    return update_task_status(
-        run_id=run_id,
-        task_id=task_id,
-        status=status,
-        agent_id=agent_id,
-    )
-
-
-@mcp.tool(name="get_scheduler_state", run_in_thread=False)
-def evolve_get_scheduler_state(run_id: str) -> Dict[str, Any]:
-    """Return only active tasks and agents for scheduling recovery."""
-    return get_scheduler_state(run_id)
 
 
 @mcp.tool(name="select_parent", run_in_thread=False)
@@ -200,9 +172,12 @@ def evolve_get_meta_guidance_prompt(run_id: str, task_id: str) -> Dict[str, Any]
 
 
 @mcp.tool(name="check_convergence", run_in_thread=False)
-def evolve_check_convergence(run_id: str) -> Dict[str, Any]:
+def evolve_check_convergence(
+    run_id: str,
+    concurrency: int,
+) -> Dict[str, Any]:
     """Return the next scheduler action from convergence/meta-evolve state."""
-    return _controller(run_id).check_convergence()
+    return _controller(run_id).check_convergence(concurrency=concurrency)
 
 
 @mcp.tool(name="finalize_run", run_in_thread=False)

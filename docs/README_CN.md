@@ -133,7 +133,6 @@ EvoTrias 将面向用户的运行输出与控制器内部状态分开保存：
 ```text
 runs/<run_id>/
   completed_tasks.jsonl
-  scheduler_state.json
   dashboard.json
   tasks/<task_id>/attempts/<attempt_id>/solution.py  # 或 solution.cpp
   tasks/<task_id>/attempts/<attempt_id>/eval_result.json

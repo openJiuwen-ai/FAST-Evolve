@@ -8,8 +8,6 @@ The implementation follows a minimal-context contract: agents pass only stable i
 
 ```python
 configure_run(run_id: str, max_total_tasks: int = 50, task_description: str = "")
-update_task_status(run_id: str, task_id: str, status: str, agent_id: str = "")
-get_scheduler_state(run_id: str)
 select_parent(run_id: str, task_id: str)
 select_inspirations(run_id: str, task_id: str)
 record_attempt(run_id: str, task_id: str, verification_result_ref: str)
@@ -25,7 +23,6 @@ finalize_run(run_id: str, stop_reason: str = "")
 Public responses are intentionally compact:
 
 - parent/inspiration calls return ids, `artifact_ref`, compact `fitness`, and evaluator `metrics` for diagnostic comparison
-- scheduler calls persist task transitions and return only active state or a compact acknowledgement, avoiding full `scheduler_state.json` diffs in the host terminal
 - attempt recording returns `entered_success_db` and `success_record_id`
 - convergence returns `action`: `continue`, `request_meta_guidance`, or `budget_exhausted`
 - meta-guidance request/commit/prompt tools keep guidance state in MCP instead of task-executor memory

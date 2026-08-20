@@ -41,8 +41,6 @@ num_directions: <num_directions>
 
 **Template for task-executor dispatch:**
 ```
-run_id: <run_id>
-task_id: <task_id>
 task_description: <task_description>
 max_attempts: <max_attempts>
 ```
@@ -112,7 +110,6 @@ These templates are **exclusive** — they define the exact and complete content
    ```
 
    - `completed_tasks.jsonl`: subagents append to this file on completion; the orchestrator reads it. Pre-creating the empty file avoids the first subagent needing to handle a missing-file case.
-   - `scheduler_state.json`: `configure_run` initializes this file. The scheduler-state MCP tools update and read it without exposing full-file diffs in the terminal. It supports context-compression recovery and exposes the task-to-subagent mapping to the dashboard.
 
 5. Confirm with the user and start.
 
@@ -140,80 +137,47 @@ All `runs/` paths below are relative to the project root (cwd).
 ```
 runs/<run_id>/
 ├── completed_tasks.jsonl          ← subagents append, orchestrator(you) reads
-├── scheduler_state.json           ← MCP-owned persistence; dashboard reads
 ```
 
 ### Scheduling Pseudocode
 
 ```text
 MAX_CONCURRENT_TASKS = 4
-task_counter = 0
-running_tasks = []
-stop_requested = false
+first_batch = true
+just_after_meta = false
 
-// Initial fill
-FOR i = 1..MAX_CONCURRENT_TASKS:
-  task_counter += 1
-  task_id = f"task_{task_counter:03d}"
-  Dispatch to task-executor with `run_in_background: true` using the task-executor dispatch template (fill: run_id, task_id, task_description, max_attempts=10)
-  Capture the exact subagent identifier returned by the dispatch operation
-  update_task_status(run_id, task_id, status="running", agent_id=<returned_subagent_id>)
-  running_tasks.append(task_id)
-
-// Event loop
-WHILE running_tasks is not empty:
-  // Discover completed tasks
-  Wait for any task-executor notification to arrive
-  1. state = get_scheduler_state(run_id)
-     Load running_tasks from state.running_tasks and ALWAYS trust this compact MCP response
-  2. Read completed_tasks.jsonl, parse each line (skip unparseable lines)
-  3. Find all task_ids present in completed_tasks.jsonl but still in running_tasks
-     → these are completed tasks
-  4. For each newly discovered completed task:
-     - Extract fitness, status, artifact_ref from its JSONL entry
-     - Call update_task_status(run_id, task_id, status="completed")
-  5. Remove these completed task_ids from the local running_tasks list
+WHILE true:
+  // Wait-gate: every check_convergence call (except the first and the one
+  // right after a meta-guidance commit) must be preceded by at least one
+  // task-executor finishing. Without this gate the loop would hammer the
+  // MCP in a tight cycle. The two exceptions: first_batch and just_after_meta.
+  IF not first_batch and not just_after_meta:
+    wait for at least one task-executor to finish
+  just_after_meta = false
 
   // Convergence/meta-evolve check & replenishment
-  meta_requests_attempted_this_reconciliation = set()
-  FOR each newly completed task:
-    convergence = check_convergence(run_id)
-    IF convergence.action == "budget_exhausted":
-      stop_requested = true
-      BREAK (stop convergence-check loop)
-    IF convergence.action == "request_meta_guidance":
-      request_id = convergence.request_id
-      IF request_id is not in meta_requests_attempted_this_reconciliation:
-        meta_requests_attempted_this_reconciliation.add(request_id)
-        Dispatch to meta-guidance-generator with `run_in_background: false` using the meta-guidance-generator dispatch template (fill: run_id, request_id)
-        Wait for the meta-guidance-generator compact result.
-        post_meta = check_convergence(run_id)
-        IF post_meta.action == "budget_exhausted":
-          stop_requested = true
-          BREAK (stop convergence-check loop)
-        Treat post_meta as authoritative: a successful commit is confirmed when post_meta.meta_guidance.has_pending_request == false and post_meta.meta_guidance.active_count > 0, even if the worker's compact result was lost or stale.
-        IF the worker result status is `mcp_error` and the authoritative postcondition does not confirm a commit:
-          stop_requested = true
-          Apply the persistent MCP error rule during finalization.
-          BREAK (stop convergence-check loop)
-        If the postcondition does not confirm a commit and the request remains pending, do not dispatch the same request_id again during this reconciliation pass.
-      Continue scheduling; meta-guidance generation failure alone is not a stop signal.
+  c = check_convergence(run_id, concurrency=MAX_CONCURRENT_TASKS)
 
-  IF stop_requested:
-    // Stop launching new tasks, continue waiting for remaining running tasks' notifications
-    CONTINUE (back to WHILE, wait for all tasks to complete)
+  IF c.action == "budget_exhausted":
+    BREAK WHILE LOOP
 
-  // Replenish: each completed task frees one slot, immediately fill it
-  FOR each newly completed task (when stop_requested == false):
-    task_counter += 1
-    task_id = f"task_{task_counter:03d}"
-    Dispatch to task-executor with `run_in_background: true` using the task-executor dispatch template (fill: run_id, task_id, task_description, max_attempts=3)
-    Capture the exact subagent identifier returned by the dispatch operation
-    update_task_status(run_id, task_id, status="running", agent_id=<returned_subagent_id>)
-    running_tasks.append(task_id)
+  IF c.action == "request_meta_guidance":
+    request_id = c.request_id
+    Dispatch to meta-guidance-generator with `run_in_background: false` using the meta-guidance-generator dispatch template (fill: run_id, request_id)
+    Wait for the meta-guidance-generator compact result.
+
+    just_after_meta = true
+    CONTINUE   // re-check convergence; the second check sees active guidance and goes to continue
+
+  // action == "continue"
+  max_attempts = 10 if first_batch else 3
+  REPEAT c.tasks_to_create TIMES:
+    Dispatch to task-executor with `run_in_background: true` using the task-executor dispatch template (fill: task_description, max_attempts=max_attempts).
+  END REPEAT
+  first_batch = false
 
   // Compact terminal visibility
-  Emit at most one compact progress line after reconciliation and replenishment, and only when:
+  Emit at most one compact progress line, and only when:
     - completed task count reaches a multiple of 5, OR
     - a new global best appears, OR
     - meta-guidance is requested/committed, OR
@@ -222,22 +186,7 @@ WHILE running_tasks is not empty:
 
 END WHILE
 
-// After all launched tasks finish, do finalization (see Step 3)
-```
-
-### scheduler_state.json Format
-
-This is an MCP-owned on-disk format for the dashboard and recovery. Never inspect or modify it with `Read`, `Write`, `Edit`, or shell commands during a run; use `get_scheduler_state` and `update_task_status` instead.
-
-```json
-{
-  "run_id": "circle_packing_20260601204625",
-  "running_tasks": ["task_005", "task_002"],
-  "task_agents": {
-    "task_002": {"agent_id": "agent-7e15", "status": "running"},
-    "task_005": {"agent_id": "agent-93b2", "status": "running"}
-  }
-}
+// After the while loop exits (action == budget_exhausted), wait for any still-running task-executors to finish, finally do finalization (see Step 3).
 ```
 
 ### completed_tasks.jsonl Format
@@ -271,28 +220,25 @@ Fitness is always maximized. `best_fitness` MUST be the largest successful numer
 2. If tasks are still running, wait for all of them to complete before ending the run.
 3. After all launched tasks have completed, you must call `finalize_run(run_id)` exactly as the finalization step.
 4. `finalize_run` returns report refs. Do not paste the full report into the conversation context.
-5. Do not let a freed slot sit idle while `action != "budget_exhausted"`: for every single completed task, launch exactly one replacement task after the convergence/meta-guidance check and any required foreground meta worker has completed.
-6. Success and failure both count as task completion. A failed task still frees its slot and should be replaced unless `action == "budget_exhausted"`.
-7. Never inspect or modify `scheduler_state.json` with `Read`, `Write`, `Edit`, or shell commands. Persist every task start/completion immediately through `update_task_status`; recover active scheduling state through `get_scheduler_state`. These compact tools preserve completed task-agent mappings for UI history without printing full-file diffs.
-8. Every task-executor dispatch MUST set `run_in_background: true` and include `max_attempts`. Initial fill: `max_attempts=10`; replenishment: `max_attempts=3`.
+5. Never call `check_convergence` in a tight loop — the wait-gate ensures each call (except the first and the one right after a meta commit) is preceded by at least one task-executor finishing. 
+6.`check_convergence` returns `tasks_to_create` on `continue`; spawn exactly that many.
+7. Success and failure both count as task completion. Both should trigger a `check_convergence` call. Do not stop replenishment on failure.
+8. Every task-executor dispatch MUST set `run_in_background: true` and include `max_attempts` (10 for the first batch, 3 thereafter).
 9. Plateau, WATCHING, `request_meta_guidance`, and failed meta-guidance generation are NOT stop signals.
 10. The orchestrator must never retrieve the pending meta-guidance payload, read its artifact/evaluator evidence, generate the guidance JSON, or commit it. It passes only `run_id` and `request_id` to `agent_evolve_plugin:meta-guidance-generator`.
-11. Meta-guidance-generator dispatch is foreground and stateless. Never persist its agent identifier in scheduler state, never poll it, never run more than one for the same `request_id` in one reconciliation pass, and always perform the compact convergence recheck before replenishment. The MCP recheck is authoritative if it conflicts with or outlives the worker result.
-12. Never print or repeat the meta worker's request payload or guidance. Its compact result is the only worker content allowed in orchestrator context.
+11. Never print or repeat the meta worker's request payload or guidance. Its compact result is the only worker content allowed in orchestrator context.
 
 ### Meta-Guidance Worker Dispatch
 
-When MCP returns `action == "request_meta_guidance"`, invoke
-`agent_evolve_plugin:meta-guidance-generator` with the exact dispatch template.
-Pass only the two identifiers; the worker retrieves the persisted request and
-commits its own output. Wait in the foreground so a successful commit becomes
-active before any replacement task can call parent selection.
+When `check_convergence` returns `action == "request_meta_guidance"`, invoke
+`agent_evolve_plugin:meta-guidance-generator` with the exact dispatch template
+(fill: `run_id`, `request_id` from `c.request_id`). Pass only the two 
+identifiers; the worker retrieves the persisted request and commits its own 
+output. Wait in the foreground so a successful commit becomes active before 
+the re-check.
 
-The worker returns only its compact result contract. Reconcile that claim with
-one compact `check_convergence` call and treat the MCP response as the
-source of truth. A non-commit leaves the request pending for a later completion
-event; it does not stop task replenishment and must not cause a tight retry loop
-in the current reconciliation pass.
+The worker returns only its compact result contract. After it returns, set
+`just_after_meta = true` and loop back to `check_convergence`.
 
 ---
 
@@ -300,12 +246,14 @@ in the current reconciliation pass.
 
 ### 3.1 Final Compact Progress Update
 
-After all running_tasks are empty, read `completed_tasks.jsonl` and emit one final compact progress line using the format below. Do not print a table or artifact paths.
+After the scheduling loop exits (`action == "budget_exhausted`) and all still-running
+task-executors have finished, read `completed_tasks.jsonl` and emit one final
+compact progress line using the format below. Do not print a table or artifact
+paths.
 
 ### 3.2 Final Convergence Check & Finalize
 
 ```text
-check_convergence(run_id)    // let MCP run_state reflect the final state
 finalize_result = finalize_run(run_id)
 ```
 
