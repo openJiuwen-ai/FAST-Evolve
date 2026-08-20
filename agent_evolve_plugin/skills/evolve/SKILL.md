@@ -66,7 +66,7 @@ These templates are **exclusive** — they define the exact and complete content
 
 ### `max_attempts` Dispatch Constraint
 
-`max_attempts` MUST be explicitly included in every task-executor dispatch. It is **never** omitted or left to default. Initial-fill tasks use `max_attempts = 10`; replenishment tasks use `max_attempts = 3`. This distinction is essential: initial tasks explore from scratch and need more attempts, while replenishment tasks build on parent/inspiration context and need fewer.
+`max_attempts` MUST be explicitly included in every task-executor dispatch. It is **never** omitted or left to default. The first `LINEAGE_ROOT_NUMBER` task-executor dispatches of the run are root tasks and use `max_attempts = 10`; all later dispatches use `max_attempts = 3`. This distinction is essential: root tasks explore from scratch and need more attempts, while later tasks build on parent/inspiration context and need fewer.
 
 ## Architecture Roles
 
@@ -76,6 +76,31 @@ These templates are **exclusive** — they define the exact and complete content
 | meta-guidance-generator agent | Fetch one pending request, inspect generation evidence, generate and commit guidance, return a compact result |
 | task-executor agent | Execute the full lifecycle of individual tasks |
 | Evolution Controller MCP | Parent/inspiration selection, attempt recording, scheduler-state persistence, convergence/meta-guidance state, run summary generation |
+
+---
+
+## Step 0: Confirm Run Parameters
+
+Before any run creation or MCP call, determine and confirm the three run
+parameters. They are independent knobs — never derive one from another:
+
+| Parameter | Meaning | Default |
+|---|---|---|
+| `LINEAGE_ROOT_NUMBER` | Number of initial exploration directions generated at initialization; equals the number of lineage root tasks the run establishes | 4 |
+| `MAX_CONCURRENT_TASKS` | Maximum number of task-executors running in parallel | 4 |
+| `MAX_TOTAL_TASKS` | Hard budget: total number of tasks the run may create before stopping | 50 |
+
+1. Extract each value from the user's original request when stated:
+   - `MAX_TOTAL_TASKS`: an iteration/task count (e.g., "200 iterations", "200 tasks", "max 200", "run 200 rounds").
+   - `LINEAGE_ROOT_NUMBER`: an initial direction/lineage/root count (e.g., "6 initial directions", "6 lineages", "start from 6 roots").
+   - `MAX_CONCURRENT_TASKS`: a parallelism level (e.g., "8 in parallel", "concurrency 8", "8 workers at a time").
+2. For any value not stated, use its default from the table.
+3. Present all three to the user in one compact message — name, chosen value,
+   whether it was extracted or defaulted, and a one-line meaning — and ask for
+   confirmation or adjustments.
+4. Only after the user confirms, proceed to Step 1 with the confirmed values.
+   These confirmed values are referenced by name throughout the rest of this
+   skill.
 
 ---
 
@@ -89,10 +114,8 @@ These templates are **exclusive** — they define the exact and complete content
    - `task_slug` is only a run identifier component. It must not change the original input passed as `task_description`.
 2. Generate `run_id`: `<task_slug>_YYYYMMDDHHMMSS`.
    - Use the current local start time with second-level precision. Use the Bash tool to execute `date +%Y%m%d%H%M%S`.
-3. Determine `max_total_tasks` from the user's request:
-   - If the user specified an iteration count (e.g., "200 iterations", "200 tasks", "max 200", "run 200 rounds"), extract that number.
-   - If the user did not specify, default to 50.
-   - Call `configure_run(run_id, max_total_tasks=<value>, task_description=<original user input>)` BEFORE any other controller MCP call for this run.
+3. Register the confirmed parameters with the controller:
+   - Call `configure_run(run_id, max_total_tasks=<MAX_TOTAL_TASKS>, lineage_root_number=<LINEAGE_ROOT_NUMBER>, max_concurrent_tasks=<MAX_CONCURRENT_TASKS>, task_description=<original user input>)` BEFORE any other controller MCP call for this run. The controller records all three values; they are locked for the rest of the run.
    - Store `dashboard.url` from the response when available. Print exactly one high-visibility startup banner, with a blank line before and after it:
 
      ```text
@@ -111,8 +134,6 @@ These templates are **exclusive** — they define the exact and complete content
 
    - `completed_tasks.jsonl`: subagents append to this file on completion; the orchestrator reads it. Pre-creating the empty file avoids the first subagent needing to handle a missing-file case.
 
-5. Confirm with the user and start.
-
 ---
 
 ## Step 1.5: Generate Initial Exploration Directions
@@ -120,7 +141,7 @@ These templates are **exclusive** — they define the exact and complete content
 Invoke the `agent_evolve_plugin:init-explorer` agent using the **init-explorer dispatch template** (see Dispatch Template Constraint in Orchestrator Boundary Constraint section). Fill in:
 - `run_id`: the current run_id
 - `task_description`: the user's original input verbatim
-- `num_directions`: 4 (matches MAX_CONCURRENT_TASKS)
+- `num_directions`: `LINEAGE_ROOT_NUMBER`
 
 Wait for `agent_evolve_plugin:init-explorer` to complete before proceeding to Step 2.
 
@@ -128,7 +149,9 @@ Wait for `agent_evolve_plugin:init-explorer` to complete before proceeding to St
 
 ## Step 2: Task Queue Scheduling
 
-Maintain the task queue with at most **4 concurrent tasks**. Task completion data is persisted in `completed_tasks.jsonl`, and notifications merely prompt the orchestrator to read the file.
+The MCP owns all batch sizing: `check_convergence` tells you how many tasks to create via `tasks_to_create`, and you dispatch exactly that many — never more, never fewer, never inferred. Any returned value, including 0, is a normal scheduling decision; on 0 dispatch nothing and keep looping.
+
+Task completion data is persisted in `completed_tasks.jsonl`, and notifications merely prompt the orchestrator to read the file.
 
 ### Data Flow
 
@@ -142,9 +165,9 @@ runs/<run_id>/
 ### Scheduling Pseudocode
 
 ```text
-MAX_CONCURRENT_TASKS = 4
 first_batch = true
 just_after_meta = false
+dispatched_total = 0   // task-executor dispatches so far; the first LINEAGE_ROOT_NUMBER dispatches are root tasks
 
 WHILE true:
   // Wait-gate: every check_convergence call (except the first and the one
@@ -156,8 +179,10 @@ WHILE true:
   just_after_meta = false
 
   // The first check_convergence call is mandatory: on first_batch the
-  // wait-gate is skipped, but the call itself must NOT be. The first batch's
-  // task count comes only from c.tasks_to_create — never inferred or hardcoded.
+  // wait-gate is skipped, but the call itself must NOT be. Every batch's
+  // task count comes only from c.tasks_to_create — never inferred or
+  // hardcoded. tasks_to_create == 0 with action "continue" is normal —
+  // dispatch nothing and keep looping.
   c = check_convergence(run_id, concurrency=MAX_CONCURRENT_TASKS)
 
   IF c.action == "budget_exhausted":
@@ -172,9 +197,13 @@ WHILE true:
     CONTINUE   // re-check convergence; the second check sees active guidance and goes to continue
 
   // action == "continue"
-  max_attempts = 10 if first_batch else 3
+  // The first LINEAGE_ROOT_NUMBER dispatches are root tasks and get 10
+  // attempts; later dispatches get 3. Count dispatches — do not key off
+  // first_batch.
+  max_attempts = 10 if dispatched_total < LINEAGE_ROOT_NUMBER else 3
   REPEAT c.tasks_to_create TIMES:
     Dispatch to task-executor with `run_in_background: true` using the task-executor dispatch template (fill: task_description, max_attempts=max_attempts).
+    dispatched_total += 1
   END REPEAT
   first_batch = false
 
@@ -209,7 +238,7 @@ The dashboard is the detailed observability surface. Never print the Unicode pro
 When one of the throttled visibility conditions in the pseudocode is met, print exactly one line in this shape:
 
 ```text
-Progress <completed>/<max_total_tasks> · best <best_fitness_or_—> · <running_count> active · 🖥️ UI → <dashboard.url>
+Progress <completed>/<MAX_TOTAL_TASKS> · best <best_fitness_or_—> · <running_count> active · 🖥️ UI → <dashboard.url>
 ```
 
 This line is a heartbeat, not a report. Do not print it more than once for the same completed count unless the run state changed (for example meta-guidance was committed or stopping began). While merely waiting for subagents, print nothing unless there has been no user-visible output for at least 60 seconds; in that case print only `Evolution is active · <running_count> agents · 🖥️ UI → <dashboard.url>`.
@@ -224,9 +253,9 @@ Fitness is always maximized. `best_fitness` MUST be the largest successful numer
 4. `finalize_run` returns report refs. Do not paste the full report into the conversation context.
 5. Never call `check_convergence` in a tight loop — the wait-gate ensures each call (except the first and the one right after a meta commit) is preceded by at least one task-executor finishing.
 6. The **first `check_convergence` call is mandatory and must not be skipped** — even though the wait-gate is bypassed on `first_batch`. The first batch's `tasks_to_create` comes only from this call; never infer it or hardcode it.
-7. `check_convergence` returns `tasks_to_create` on `continue`; spawn exactly that many.
+7. `check_convergence` returns `tasks_to_create` on `continue`; spawn exactly that many. `tasks_to_create == 0` is a normal scheduling decision — dispatch nothing, do not treat it as a stop signal, and keep looping.
 8. Success and failure both count as task completion. Both should trigger a `check_convergence` call. Do not stop replenishment on failure.
-9. Every task-executor dispatch MUST set `run_in_background: true` and include `max_attempts` (10 for the first batch, 3 thereafter).
+9. Every task-executor dispatch MUST set `run_in_background: true` and include `max_attempts` (10 for the first `LINEAGE_ROOT_NUMBER` dispatches — the root tasks — and 3 thereafter).
 10. Plateau, WATCHING, `request_meta_guidance`, and failed meta-guidance generation are NOT stop signals.
 11. The orchestrator must never retrieve the pending meta-guidance payload, read its artifact/evaluator evidence, generate the guidance JSON, or commit it. It passes only `run_id` and `request_id` to `agent_evolve_plugin:meta-guidance-generator`.
 12. Never print or repeat the meta worker's request payload or guidance. Its compact result is the only worker content allowed in orchestrator context.

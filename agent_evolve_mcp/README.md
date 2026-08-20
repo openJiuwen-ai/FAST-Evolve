@@ -7,7 +7,13 @@ The implementation follows a minimal-context contract: agents pass only stable i
 ## Tools
 
 ```python
-configure_run(run_id: str, max_total_tasks: int = 50, task_description: str = "")
+configure_run(
+    run_id: str,
+    max_total_tasks: int = 50,
+    lineage_root_number: int = 4,
+    max_concurrent_tasks: int = 4,
+    task_description: str = "",
+)
 select_parent(run_id: str, task_id: str)
 select_inspirations(run_id: str, task_id: str)
 record_attempt(run_id: str, task_id: str, verification_result_ref: str)
@@ -16,9 +22,21 @@ commit_generated_note(run_id: str, note_request_id: str, generated_note_json: An
 get_meta_guidance_request(run_id: str, request_id: str = "")
 commit_meta_guidance(run_id: str, request_id: str, guidance_json: Any)
 get_meta_guidance_prompt(run_id: str, task_id: str)
-check_convergence(run_id: str)
+check_convergence(run_id: str, concurrency: int)
 finalize_run(run_id: str, stop_reason: str = "")
 ```
+
+Run-shape parameters are deliberately decoupled: `lineage_root_number` is the
+number of initial exploration directions and caps the root phase (one root
+task per direction), while `max_concurrent_tasks` is the in-flight task
+target that holds in every phase. `configure_run` records all three values in
+run state. `check_convergence` schedules in three phases: the root phase
+fills toward the concurrency target but never mints more than
+`lineage_root_number` tasks in total; the root barrier then returns
+`continue` with `tasks_to_create` 0 until every root task has finished; the
+evolution phase tops up to `concurrency`. The `concurrency` argument is
+required and must be positive — callers pass the `max_concurrent_tasks`
+value confirmed at configure time.
 
 Public responses are intentionally compact:
 

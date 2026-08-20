@@ -117,9 +117,9 @@ Markdown summary.
 
 | Setting | Default | Effect |
 | --- | ---: | --- |
-| Initial directions | 4 | Number of root exploration branches |
-| Maximum concurrent tasks | 4 | Rolling scheduler queue limit |
-| Default task budget | 50 | Used when the request does not specify a task count |
+| `LINEAGE_ROOT_NUMBER` | 4 | Initial exploration directions, number of root exploration branches |
+| `MAX_CONCURRENT_TASKS` | 4 | Rolling scheduler queue limit |
+| `MAX_TOTAL_TASKS` | 50 | Hard task budget |
 | Plateau window | 5 successes | Window used for plateau diagnostics |
 | Plateau patience | 4 | Consecutive plateau count required before strategy adaptation |
 | Fitness improvement threshold | 0.0 | A positive running-best improvement is progress |
@@ -127,8 +127,11 @@ Markdown summary.
 | Uses per guidance item | 2 | Maximum tasks assigned to each item |
 | Retained tried guidance | 10 | Outcome history available to later guidance requests |
 
-Configuration is locked when a run is initialized. Set these environment
-variables before starting the MCP process:
+The three scheduling values above can be stated in the evolve request (for
+example "6 initial directions, 8 in parallel, 200 tasks"); they will be confirmed before 
+creating the run and locked when a run is initialized.
+
+Set these environment variables before starting the MCP process:
 
 ```powershell
 # Disable meta-guidance while retaining plateau diagnostics and normal selection.

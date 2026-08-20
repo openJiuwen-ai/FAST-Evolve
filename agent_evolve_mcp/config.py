@@ -17,12 +17,15 @@ from agent_evolve_mcp.models import (
     ParentSelectionConfig,
     PlateauConfig,
     RunBudgetConfig,
+    SchedulerConfig,
 )
 
 
 def load_evolution_controller_config(
     config_path: Optional[str] = None,
     max_total_tasks: int = 50,
+    lineage_root_number: int = 4,
+    max_concurrent_tasks: int = 4,
 ) -> EvolutionControllerConfig:
     """Load controller config from YAML plus caller-provided budget values."""
     data: Dict[str, Any] = {}
@@ -95,6 +98,10 @@ def load_evolution_controller_config(
             max_tried_guidance=int(
                 meta.get("max_tried_guidance", meta_defaults.max_tried_guidance)
             ),
+        ),
+        scheduler=SchedulerConfig(
+            lineage_root_number=max(int(lineage_root_number), 1),
+            max_concurrent_tasks=max(int(max_concurrent_tasks), 1),
         ),
     )
 

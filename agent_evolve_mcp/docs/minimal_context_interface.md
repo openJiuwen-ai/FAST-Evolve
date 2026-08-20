@@ -17,21 +17,31 @@
 输入：
 
 ```python
-configure_run(run_id: str, max_total_tasks: int = 50, task_description: str = "")
+configure_run(
+    run_id: str,
+    max_total_tasks: int = 50,
+    lineage_root_number: int = 4,
+    max_concurrent_tasks: int = 4,
+    task_description: str = "",
+)
 ```
 
 说明：
 
 - 必须在同一 run 的其他 controller MCP tool 之前调用。
+- `lineage_root_number` 与 `max_concurrent_tasks` 是两个独立的旋钮：前者决定初始探索方向数量，是根阶段可创建任务总数的上限（根任务全部结束前不会创建演化任务）；后者决定所有阶段的并行 task 上限。二者互不推导，默认都是 4。
+- 三个数值参数会被记录到 run state（`run_state.json` 的 `run_config`），供后续 `check_convergence` 和进程重启后的恢复使用。
 - `task_description` 保存原始用户任务描述，供后续 meta-guidance request 使用。
-- 同一 `run_id` 重复配置会被忽略，并返回已锁定的配置。
+- 同一 `run_id` 重复配置会被忽略，并返回已锁定的配置（包括其他进程已配置、落盘的情况）。
 
-返回中包含当前 meta-evolve 默认配置：
+返回中包含已生效的运行参数和 meta-evolve 默认配置：
 
 ```json
 {
   "configured": true,
   "max_total_tasks": 50,
+  "lineage_root_number": 4,
+  "max_concurrent_tasks": 4,
   "meta_evolve": {
     "enabled": true,
     "guidance_num_to_generate": 3,
@@ -165,7 +175,7 @@ MCP 内部步骤：
 输入：
 
 ```python
-check_convergence(run_id: str)
+check_convergence(run_id: str, concurrency: int)
 ```
 
 输出示例：
@@ -173,6 +183,7 @@ check_convergence(run_id: str)
 ```json
 {
   "action": "continue",
+  "tasks_to_create": 2,
   "search_state": "exploring",
   "plateau": false
 }
@@ -181,10 +192,19 @@ check_convergence(run_id: str)
 `action` 是主语义：
 
 ```text
-continue              # 继续调度 task
+continue              # 继续调度 task，补 tasks_to_create 个
 request_meta_guidance # plateau 持续足够久，需要调度专职 worker 生成 meta-guidance
 budget_exhausted      # 达到硬预算，停止提交新 task
 ```
+
+补位目标（`action == "continue"` 时）。并发上限（`concurrency` 入参，必填且必须为正整数，非正数直接报错；调用方应传 configure_run 确认的 `max_concurrent_tasks`）在所有阶段都生效，按三个阶段决定补位数量：
+
+- **根阶段**（已创建任务数 < `lineage_root_number`）：在飞任务补到并发上限，但累计创建数不得超过 `lineage_root_number`（每个初始方向恰好一个根任务）。
+- **根屏障**（已创建任务数 == `lineage_root_number` 且仍有未结束任务）：返回 `action == "continue"` 且 `tasks_to_create == 0`，直到所有根任务结束。这是正常等待状态，不是停止信号。
+- **演化阶段**（根任务全部结束后）：每次补位到并发上限。
+- 所有阶段都受 `max_total_tasks` 硬预算截断。
+
+例：`max_concurrent_tasks=2`、`lineage_root_number=3` 时，首次创建 2 个，完成 1 个后补 1 个（根数到 3），随后等 3 个全部完成才补 2 个，此后每完成 1 个补到 2。`max_concurrent_tasks=3`、`lineage_root_number=2` 时，首次创建 2 个，全部完成后补 3 个，此后每完成 1 个补到 3。
 
 约束：
 

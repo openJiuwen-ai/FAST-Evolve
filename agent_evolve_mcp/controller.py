@@ -48,13 +48,23 @@ class EvolutionController:
         operation reloads disk-backed state before making a decision.
         """
         self.run_id = run_id
-        self.config = config or load_evolution_controller_config()
+        self.run_state_store = RunStateStore(run_id)
+        if config is None:
+            # Recover the values recorded by configure_run so a fresh
+            # controller (new process, cache miss) keeps the run's confirmed
+            # budget and scheduling shape instead of silently using defaults.
+            recorded = self.run_state_store.load().run_config
+            config = load_evolution_controller_config(
+                max_total_tasks=int(recorded.get("max_total_tasks", 50)),
+                lineage_root_number=int(recorded.get("lineage_root_number", 4)),
+                max_concurrent_tasks=int(recorded.get("max_concurrent_tasks", 4)),
+            )
+        self.config = config
         self.db = SuccessDB(run_id)
         self.attempt_log = AttemptLog(run_id)
         self.notes = NotesManager(run_id)
         self.meta_guidance = MetaGuidanceManager(run_id, self.config.meta_evolve)
         self.task_contexts = TaskContextStore(run_id)
-        self.run_state_store = RunStateStore(run_id)
         self.lineage_tree = LineageTree()
         self.lineage_tree.rebuild(self.db)
         self.parent_selector = LineageAwareParentSelector(
@@ -73,7 +83,13 @@ class EvolutionController:
         run_state = self.run_state_store.load()
         if task_description and not run_state.task_description:
             run_state.task_description = task_description
-            self.run_state_store.save(run_state)
+        if not run_state.run_config:
+            run_state.run_config = {
+                "max_total_tasks": self.config.budget.max_total_tasks,
+                "lineage_root_number": self.config.scheduler.lineage_root_number,
+                "max_concurrent_tasks": self.config.scheduler.max_concurrent_tasks,
+            }
+        self.run_state_store.save(run_state)
 
     def select_parent(self, task_id: str) -> Dict[str, Any]:
         """Return the minimal parent ref for one generator task.
@@ -369,7 +385,39 @@ class EvolutionController:
         self,
         concurrency: int,
     ) -> Dict[str, Any]:
-        """Return the next scheduler action from convergence/meta-evolve state."""
+        """Return the next scheduler action from convergence/meta-evolve state.
+
+        Besides convergence/meta-guidance checking, this call is the run's
+        only task faucet: on ``action == "continue"`` it mints new task ids
+        into the pool and reports the count as ``tasks_to_create``.
+
+        Background: a run first explores ``lineage_root_number`` independent
+        directions, one root task per direction; these roots become the
+        lineage roots of the search.  Every root must finish before any
+        evolution (parent-based) task is created, so no initial direction is
+        starved and parent selection can draw from the complete set of
+        established lineages.  ``concurrency`` — required, positive, normally
+        the run's confirmed ``max_concurrent_tasks`` — caps in-flight tasks
+        in every phase.
+
+        Task creation therefore moves through three phases:
+
+        1. Root phase (``created < lineage_root_number``): top up in-flight
+           tasks toward ``concurrency``, but never mint more than
+           ``lineage_root_number`` tasks in total.
+        2. Root barrier (``created == lineage_root_number`` with unfinished
+           tasks): mint nothing — ``action`` stays ``"continue"`` with
+           ``tasks_to_create`` 0 until every root has finished.  This is a
+           normal waiting state, not a stop signal.
+        3. Evolution phase (all roots finished): top up in-flight tasks to
+           ``concurrency`` after each completion.
+
+        Every phase is additionally capped by the ``max_total_tasks`` budget.
+        """
+        if concurrency < 1:
+            raise ValueError(
+                f"concurrency must be a positive integer, got {concurrency!r}"
+            )
         self._load_state()
         run_state = self.run_state_store.load()
         total_tasks = self._task_count()
@@ -432,9 +480,18 @@ class EvolutionController:
 
         tasks_to_create = 0
         if action == "continue":
-            newly_created = scheduler.top_up_tasks(
-                self.run_id, concurrency, self.config.budget.max_total_tasks
+            root_number = self.config.scheduler.lineage_root_number
+            max_total = self.config.budget.max_total_tasks
+            pool = scheduler.pool_snapshot(self.run_id)
+            roots_finished = (
+                len(pool["completed"]) + len(pool["failed"]) >= root_number
             )
+            # Until root_number tasks have finished, minting stays capped at
+            # root_number: that both limits the root phase to one task per
+            # direction and makes top_up_tasks return [] during the root
+            # barrier (all roots minted, some still in flight).
+            mint_cap = max_total if roots_finished else min(root_number, max_total)
+            newly_created = scheduler.top_up_tasks(self.run_id, concurrency, mint_cap)
             tasks_to_create = len(newly_created)
 
         meta_stats = self.meta_guidance.stats()
@@ -448,6 +505,7 @@ class EvolutionController:
                 stop_reason=reason,
                 diagnostics=diagnostics,
                 last_checked_attempt_count=total_attempts,
+                run_config=run_state.run_config,
             )
         )
         response: Dict[str, Any] = {
@@ -497,6 +555,7 @@ class EvolutionController:
             stop_reason=final_reason,
             diagnostics=run_state.diagnostics,
             last_checked_attempt_count=self.attempt_log.count(),
+            run_config=run_state.run_config,
         )
         self.run_state_store.save(finalized_state)
         self._load_state()
