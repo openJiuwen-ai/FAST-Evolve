@@ -61,6 +61,18 @@ uv run python benchmarks/install.py --all
 基准安装脚本会将内置基准技能及其评估命令注册到
 `.claude/settings.local.json`。
 
+在同一个终端会话中，将仓库根目录加入 `PYTHONPATH`：
+
+```powershell
+# PowerShell
+$env:PYTHONPATH = "$(Get-Location);$env:PYTHONPATH"
+```
+
+```bash
+# Linux (bash)
+export PYTHONPATH=`pwd`:$PYTHONPATH
+```
+
 ### 运行基准
 
 加载 EvoTrias 工作流与基准插件并启动 Claude Code：

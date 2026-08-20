@@ -69,6 +69,18 @@ uv run python benchmarks/install.py --all
 The benchmark installer registers the bundled benchmark skills and their
 evaluator commands in `.claude/settings.local.json`.
 
+Add the repository root to `PYTHONPATH` in the same shell session:
+
+```powershell
+# PowerShell
+$env:PYTHONPATH = "$(Get-Location);$env:PYTHONPATH"
+```
+
+```bash
+# Linux (bash)
+export PYTHONPATH=`pwd`:$PYTHONPATH
+```
+
 ### Run a Benchmark
 
 Start Claude Code with the EvoTrias workflow and benchmark plugins:
