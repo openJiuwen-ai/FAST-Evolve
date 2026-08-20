@@ -155,7 +155,9 @@ WHILE true:
     wait for at least one task-executor to finish
   just_after_meta = false
 
-  // Convergence/meta-evolve check & replenishment
+  // The first check_convergence call is mandatory: on first_batch the
+  // wait-gate is skipped, but the call itself must NOT be. The first batch's
+  // task count comes only from c.tasks_to_create — never inferred or hardcoded.
   c = check_convergence(run_id, concurrency=MAX_CONCURRENT_TASKS)
 
   IF c.action == "budget_exhausted":
@@ -220,13 +222,14 @@ Fitness is always maximized. `best_fitness` MUST be the largest successful numer
 2. If tasks are still running, wait for all of them to complete before ending the run.
 3. After all launched tasks have completed, you must call `finalize_run(run_id)` exactly as the finalization step.
 4. `finalize_run` returns report refs. Do not paste the full report into the conversation context.
-5. Never call `check_convergence` in a tight loop — the wait-gate ensures each call (except the first and the one right after a meta commit) is preceded by at least one task-executor finishing. 
-6.`check_convergence` returns `tasks_to_create` on `continue`; spawn exactly that many.
-7. Success and failure both count as task completion. Both should trigger a `check_convergence` call. Do not stop replenishment on failure.
-8. Every task-executor dispatch MUST set `run_in_background: true` and include `max_attempts` (10 for the first batch, 3 thereafter).
-9. Plateau, WATCHING, `request_meta_guidance`, and failed meta-guidance generation are NOT stop signals.
-10. The orchestrator must never retrieve the pending meta-guidance payload, read its artifact/evaluator evidence, generate the guidance JSON, or commit it. It passes only `run_id` and `request_id` to `agent_evolve_plugin:meta-guidance-generator`.
-11. Never print or repeat the meta worker's request payload or guidance. Its compact result is the only worker content allowed in orchestrator context.
+5. Never call `check_convergence` in a tight loop — the wait-gate ensures each call (except the first and the one right after a meta commit) is preceded by at least one task-executor finishing.
+6. The **first `check_convergence` call is mandatory and must not be skipped** — even though the wait-gate is bypassed on `first_batch`. The first batch's `tasks_to_create` comes only from this call; never infer it or hardcode it.
+7. `check_convergence` returns `tasks_to_create` on `continue`; spawn exactly that many.
+8. Success and failure both count as task completion. Both should trigger a `check_convergence` call. Do not stop replenishment on failure.
+9. Every task-executor dispatch MUST set `run_in_background: true` and include `max_attempts` (10 for the first batch, 3 thereafter).
+10. Plateau, WATCHING, `request_meta_guidance`, and failed meta-guidance generation are NOT stop signals.
+11. The orchestrator must never retrieve the pending meta-guidance payload, read its artifact/evaluator evidence, generate the guidance JSON, or commit it. It passes only `run_id` and `request_id` to `agent_evolve_plugin:meta-guidance-generator`.
+12. Never print or repeat the meta worker's request payload or guidance. Its compact result is the only worker content allowed in orchestrator context.
 
 ### Meta-Guidance Worker Dispatch
 
