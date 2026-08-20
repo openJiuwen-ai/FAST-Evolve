@@ -150,7 +150,7 @@ def allocate_task(run_id: str) -> str | None:
     with _STATE_LOCK:
         pool = _load_pool(run_id)
         if not pool["created"]:
-            logger.error(f'allocate_task: no created tasks in run {run_id}')
+            logger.critical(f'allocate_task rejected: no created tasks in run {run_id}')
             return None
         task_id = pool["created"].pop(0)
         pool["pending"].append(task_id)
@@ -162,13 +162,12 @@ def allocate_task(run_id: str) -> str | None:
 def queue_task(run_id: str, task_id: str, agent_id: str) -> None:
     with _STATE_LOCK:
         pool = _load_pool(run_id)
-        was_pending = task_id in pool["pending"]
-        if was_pending:
-            pool["pending"].remove(task_id)
+        if task_id not in pool["pending"]:
+            logger.critical(f'queue_task rejected: task {task_id} is not in pending state in run {run_id}')
+            return
+        pool["pending"].remove(task_id)
         pool["queued"][task_id] = str(agent_id)
         _save_pool(run_id, pool)
-    if not was_pending:
-        logger.critical(f'queue_task: task {task_id} was not in pending state in run {run_id}')
     logger.info(f'queue_task: task {task_id} queued for agent {agent_id} in run {run_id}')
 
 
@@ -192,22 +191,24 @@ def start_task(run_id: str, agent_id: str) -> str | None:
 def complete_task(run_id: str, task_id: str, fitness: Any) -> None:
     with _STATE_LOCK:
         pool = _load_pool(run_id)
-        was_running = pool["running"].pop(task_id, None)
+        if task_id not in pool["running"]:
+            logger.error(f'complete_task rejected: task {task_id} is not in running state in run {run_id}')
+            return
+        pool["running"].pop(task_id)
         pool["completed"][task_id] = {"fitness": fitness}
         _save_pool(run_id, pool)
-    if was_running is None:
-        logger.error(f'complete_task: task {task_id} was not in running state in run {run_id}')
     logger.info(f'complete_task: task {task_id} completed in run {run_id}, {fitness=!r}')
 
 
 def fail_task(run_id: str, task_id: str, reason: str) -> None:
     with _STATE_LOCK:
         pool = _load_pool(run_id)
-        was_running = pool["running"].pop(task_id, None)
+        if task_id not in pool["running"]:
+            logger.error(f'fail_task rejected: task {task_id} is not in running state in run {run_id}')
+            return
+        pool["running"].pop(task_id)
         pool["failed"][task_id] = {"reason": str(reason)[:500]}
         _save_pool(run_id, pool)
-    if was_running is None:
-        logger.error(f'fail_task: task {task_id} was not in running state in run {run_id}')
     logger.info(f'fail_task: task {task_id} failed in run {run_id}, reason={str(reason)[:120]!r}')
 
 

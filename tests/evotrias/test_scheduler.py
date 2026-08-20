@@ -78,6 +78,17 @@ def test_queue_task_binds_agent(tmp_state):
     assert snap["queued"] == {"task_001": "agent-7"}
 
 
+def test_queue_task_rejects_when_not_pending(tmp_state):
+    # Precondition violation must not write: the task stays where it was and
+    # no phantom entry lands in queued.
+    sched.top_up_tasks("run-B5", target=1, max_tasks=100)
+    sched.queue_task("run-B5", "task_001", "agent-7")  # still in created
+    sched.queue_task("run-B5", "task_bogus", "agent-7")  # never existed
+    snap = sched.pool_snapshot("run-B5")
+    assert snap["created"] == ["task_001"]
+    assert snap["queued"] == {}
+
+
 def test_start_task_transitions_to_running(tmp_state):
     sched.top_up_tasks("run-B3", target=2, max_tasks=100)
     sched.queue_task("run-B3", sched.allocate_task("run-B3"), "agent-7")
@@ -111,6 +122,33 @@ def test_fail_task_stores_reason(tmp_state):
     snap = sched.pool_snapshot("run-E")
     assert snap["running"] == {}
     assert snap["failed"] == {task: {"reason": "verifier crashed"}}
+
+
+def test_complete_task_rejects_when_not_running(tmp_state):
+    sched.top_up_tasks("run-D2", target=1, max_tasks=100)
+    task = sched.allocate_task("run-D2")
+    sched.queue_task("run-D2", task, "a1")
+    sched.complete_task("run-D2", task, fitness=0.5)  # queued, never started
+    snap = sched.pool_snapshot("run-D2")
+    assert snap["queued"] == {task: "a1"}
+    assert snap["completed"] == {}
+
+
+def test_fail_task_rejects_when_not_running(tmp_state):
+    sched.top_up_tasks("run-E2", target=1, max_tasks=100)
+    task = sched.allocate_task("run-E2")
+    sched.fail_task("run-E2", task, reason="boom")  # pending, never started
+    snap = sched.pool_snapshot("run-E2")
+    assert snap["pending"] == [task]
+    assert snap["failed"] == {}
+
+
+def test_transitions_on_unknown_run_do_not_create_a_pool(tmp_state):
+    # Rejection happens before save, so a bad run_id must not mint a pool file.
+    sched.complete_task("run-ghost", "task_001", fitness=1.0)
+    sched.fail_task("run-ghost", "task_001", reason="boom")
+    sched.queue_task("run-ghost", "task_001", "a1")
+    assert not (tmp_state / "runs" / "run-ghost").exists()
 
 
 def test_remember_agent_stores_agent_info_verbatim(tmp_state):
