@@ -12,6 +12,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
+from evotrias import scheduler
+
 from agent_evolve_mcp.budget_guard import RunBudgetGuard
 from agent_evolve_mcp.config import load_evolution_controller_config
 from agent_evolve_mcp.convergence_detector import FitnessPlateauDetector
@@ -46,13 +48,23 @@ class EvolutionController:
         operation reloads disk-backed state before making a decision.
         """
         self.run_id = run_id
-        self.config = config or load_evolution_controller_config()
+        self.run_state_store = RunStateStore(run_id)
+        if config is None:
+            # Recover the values recorded by configure_run so a fresh
+            # controller (new process, cache miss) keeps the run's confirmed
+            # budget and scheduling shape instead of silently using defaults.
+            recorded = self.run_state_store.load().run_config
+            config = load_evolution_controller_config(
+                max_total_tasks=int(recorded.get("max_total_tasks", 50)),
+                lineage_root_number=int(recorded.get("lineage_root_number", 4)),
+                max_concurrent_tasks=int(recorded.get("max_concurrent_tasks", 4)),
+            )
+        self.config = config
         self.db = SuccessDB(run_id)
         self.attempt_log = AttemptLog(run_id)
         self.notes = NotesManager(run_id)
         self.meta_guidance = MetaGuidanceManager(run_id, self.config.meta_evolve)
         self.task_contexts = TaskContextStore(run_id)
-        self.run_state_store = RunStateStore(run_id)
         self.lineage_tree = LineageTree()
         self.lineage_tree.rebuild(self.db)
         self.parent_selector = LineageAwareParentSelector(
@@ -71,7 +83,13 @@ class EvolutionController:
         run_state = self.run_state_store.load()
         if task_description and not run_state.task_description:
             run_state.task_description = task_description
-            self.run_state_store.save(run_state)
+        if not run_state.run_config:
+            run_state.run_config = {
+                "max_total_tasks": self.config.budget.max_total_tasks,
+                "lineage_root_number": self.config.scheduler.lineage_root_number,
+                "max_concurrent_tasks": self.config.scheduler.max_concurrent_tasks,
+            }
+        self.run_state_store.save(run_state)
 
     def select_parent(self, task_id: str) -> Dict[str, Any]:
         """Return the minimal parent ref for one generator task.
@@ -85,6 +103,17 @@ class EvolutionController:
             return self._parent_ref(context.parent_id)
 
         context = self.task_contexts.ensure(task_id)
+        if self._in_root_phase():
+            # Only root tasks run before all roots have finished (evolution
+            # tasks are minted strictly after that), so this task is a root:
+            # it explores its own direction from scratch. Return no parent
+            # (select_inspirations then returns none) even when early roots
+            # already populated SuccessDB, and skip meta-guidance.
+            context.parent_id = None
+            context.parent_selected = True
+            self.task_contexts.put(context)
+            return self._parent_ref(None)
+
         current_best = self.db.get_canonical_best_record()
         guidance = (
             self.meta_guidance.assign_for_task(
@@ -363,8 +392,43 @@ class EvolutionController:
             }
         return self.notes.commit_generated_note(note_request_id, generated_note_json)
 
-    def check_convergence(self) -> Dict[str, Any]:
-        """Return the next scheduler action from convergence/meta-evolve state."""
+    def check_convergence(
+        self,
+        concurrency: int,
+    ) -> Dict[str, Any]:
+        """Return the next scheduler action from convergence/meta-evolve state.
+
+        Besides convergence/meta-guidance checking, this call is the run's
+        only task faucet: on ``action == "continue"`` it mints new task ids
+        into the pool and reports the count as ``tasks_to_create``.
+
+        Background: a run first explores ``lineage_root_number`` independent
+        directions, one root task per direction; these roots become the
+        lineage roots of the search.  Every root must finish before any
+        evolution (parent-based) task is created, so no initial direction is
+        starved and parent selection can draw from the complete set of
+        established lineages.  ``concurrency`` — required, positive, normally
+        the run's confirmed ``max_concurrent_tasks`` — caps in-flight tasks
+        in every phase.
+
+        Task creation therefore moves through three phases:
+
+        1. Root phase (``created < lineage_root_number``): top up in-flight
+           tasks toward ``concurrency``, but never mint more than
+           ``lineage_root_number`` tasks in total.
+        2. Root barrier (``created == lineage_root_number`` with unfinished
+           tasks): mint nothing — ``action`` stays ``"continue"`` with
+           ``tasks_to_create`` 0 until every root has finished.  This is a
+           normal waiting state, not a stop signal.
+        3. Evolution phase (all roots finished): top up in-flight tasks to
+           ``concurrency`` after each completion.
+
+        Every phase is additionally capped by the ``max_total_tasks`` budget.
+        """
+        if concurrency < 1:
+            raise ValueError(
+                f"concurrency must be a positive integer, got {concurrency!r}"
+            )
         self._load_state()
         run_state = self.run_state_store.load()
         total_tasks = self._task_count()
@@ -425,6 +489,18 @@ class EvolutionController:
         else:
             self.meta_guidance.reset_watching()
 
+        tasks_to_create = 0
+        if action == "continue":
+            root_number = self.config.scheduler.lineage_root_number
+            max_total = self.config.budget.max_total_tasks
+            # During the root phase minting stays capped at root_number: that
+            # both limits the phase to one task per direction and makes
+            # top_up_tasks return [] during the root barrier (all roots
+            # minted, some still in flight).
+            mint_cap = min(root_number, max_total) if self._in_root_phase() else max_total
+            newly_created = scheduler.top_up_tasks(self.run_id, concurrency, mint_cap)
+            tasks_to_create = len(newly_created)
+
         meta_stats = self.meta_guidance.stats()
         diagnostics["meta_guidance"] = meta_stats
         self.run_state_store.save(
@@ -436,10 +512,12 @@ class EvolutionController:
                 stop_reason=reason,
                 diagnostics=diagnostics,
                 last_checked_attempt_count=total_attempts,
+                run_config=run_state.run_config,
             )
         )
         response: Dict[str, Any] = {
             "action": action,
+            "tasks_to_create": tasks_to_create,
             "search_state": self.plateau_detector.state.value,
             "plateau": self.plateau_detector.state == SearchState.WATCHING,
             "stop_reason": reason,
@@ -484,6 +562,7 @@ class EvolutionController:
             stop_reason=final_reason,
             diagnostics=run_state.diagnostics,
             last_checked_attempt_count=self.attempt_log.count(),
+            run_config=run_state.run_config,
         )
         self.run_state_store.save(finalized_state)
         self._load_state()
@@ -505,6 +584,17 @@ class EvolutionController:
             diagnostics=run_state.diagnostics,
         )
         self.lineage_tree.rebuild(self.db)
+
+    def _in_root_phase(self) -> bool:
+        """True until all ``lineage_root_number`` roots have finished.
+
+        Completed and failed pool tasks both count as finished. The count is
+        monotonic and evolution tasks are only minted after it reaches the
+        root number, so this flips exactly once per run.
+        """
+        pool = scheduler.pool_snapshot(self.run_id)
+        finished = len(pool["completed"]) + len(pool["failed"])
+        return finished < self.config.scheduler.lineage_root_number
 
     def _progress(self) -> float:
         """Compute search progress internally from registered tasks."""

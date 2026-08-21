@@ -9,7 +9,6 @@ import yaml
 from fastmcp import Client
 
 from agent_evolve_mcp import mcp, public_tools
-from agent_evolve_mcp.scheduler_state import initialize_scheduler_state
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_ROOT = REPO_ROOT / "agent_evolve_plugin"
@@ -27,8 +26,6 @@ SHARED_WORKSPACE_HOOK = (
 
 PUBLIC_TOOL_NAMES = {
     "configure_run",
-    "update_task_status",
-    "get_scheduler_state",
     "select_parent",
     "select_inspirations",
     "record_attempt",
@@ -90,21 +87,6 @@ async def _protocol_tools():
         return await client.list_tools()
 
 
-async def _exercise_scheduler_tools(run_id: str):
-    async with Client(mcp) as client:
-        update = await client.call_tool(
-            "update_task_status",
-            {
-                "run_id": run_id,
-                "task_id": "task_001",
-                "status": "running",
-                "agent_id": "agent-contract-test",
-            },
-        )
-        state = await client.call_tool("get_scheduler_state", {"run_id": run_id})
-    return update.data, state.data
-
-
 def test_registered_mcp_tools_use_one_complete_compact_namespace():
     registered = {tool.name for tool in asyncio.run(_protocol_tools())}
 
@@ -134,18 +116,6 @@ def test_note_and_meta_commit_tools_keep_distinct_schemas():
     assert note_fields == {"run_id", "note_request_id", "generated_note_json"}
     assert meta_fields == {"run_id", "request_id", "guidance_json"}
     assert request_fields == {"run_id", "request_id"}
-
-
-def test_renamed_scheduler_tools_dispatch_through_mcp_protocol(tmp_path, monkeypatch):
-    monkeypatch.setenv("AGENT_EVOLVE_CONTROLLER_DIR", str(tmp_path))
-    run_id = "tool_contract_run"
-    initialize_scheduler_state(run_id)
-
-    update, state = asyncio.run(_exercise_scheduler_tools(run_id))
-
-    assert update["updated"] is True
-    assert state["running_tasks"] == ["task_001"]
-    assert state["active_agents"] == {"task_001": "agent-contract-test"}
 
 
 def test_complete_claude_tool_names_fit_without_hash_aliases():
@@ -201,8 +171,6 @@ def test_task_agent_is_scoped_to_task_lifecycle_tools():
 
     forbidden = {
         f"{MCP_TOOL_PREFIX}configure_run",
-        f"{MCP_TOOL_PREFIX}update_task_status",
-        f"{MCP_TOOL_PREFIX}get_scheduler_state",
         GET_REQUEST_TOOL,
         COMMIT_GUIDANCE_TOOL,
         f"{MCP_TOOL_PREFIX}check_convergence",
@@ -358,8 +326,6 @@ def test_orchestrator_mentions_only_orchestration_mcp_tools():
 
     for tool_name in (
         "configure_run",
-        "update_task_status",
-        "get_scheduler_state",
         "check_convergence",
         "finalize_run",
     ):
@@ -380,26 +346,19 @@ def test_orchestrator_mentions_only_orchestration_mcp_tools():
 
 def test_meta_worker_is_foreground_reconciled_before_replenishment():
     master = MASTER_SKILL.read_text(encoding="utf-8")
-    scheduling = master.split("// Convergence/meta-evolve check & replenishment", 1)[1]
+    scheduling = master.split("### Scheduling Pseudocode", 1)[1]
 
-    dispatch_position = scheduling.index("Dispatch to meta-guidance-generator")
-    postcheck_position = scheduling.index("post_meta = check_convergence")
-    replenish_position = scheduling.index("// Replenish:")
+    request_branch = scheduling.index('c.action == "request_meta_guidance"')
+    dispatch_position = scheduling.index("Dispatch to meta-guidance-generator", request_branch)
+    wait_position = scheduling.index("Wait for the meta-guidance-generator compact result", dispatch_position)
+    just_after_meta_position = scheduling.index("just_after_meta = true", wait_position)
+    continue_position = scheduling.index("// re-check convergence", just_after_meta_position)
+    replenish_position = scheduling.index('action == "continue"', continue_position)
 
-    assert dispatch_position < postcheck_position < replenish_position
+    assert request_branch < dispatch_position < wait_position
+    assert wait_position < just_after_meta_position < continue_position
+    assert continue_position < replenish_position
     assert "`run_in_background: false`" in scheduling
-    assert "meta_requests_attempted_this_reconciliation = set()" in scheduling
-    assert (
-        "do not dispatch the same request_id again during this reconciliation pass"
-        in scheduling
-    )
-    assert "meta-guidance generation failure alone is not a stop signal" in scheduling
-    assert "Treat post_meta as authoritative" in scheduling
-    assert (
-        "IF the worker result status is `mcp_error` and the authoritative "
-        "postcondition does not confirm a commit"
-    ) in scheduling
-    assert "Apply the persistent MCP error rule during finalization." in scheduling
 
 
 def test_project_permissions_allow_dispatching_all_plugin_agents():

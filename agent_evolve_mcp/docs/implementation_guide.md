@@ -389,6 +389,15 @@ max_total_tasks
 max_time_seconds
 ```
 
+#### `SchedulerConfig`
+
+任务池形态参数（由 `configure_run` 记录，二者相互独立）：
+
+```python
+lineage_root_number    # 初始探索方向数；根阶段任务总数上限，根任务全部结束后才创建演化任务，默认 4
+max_concurrent_tasks   # 所有阶段的并行 task 上限，默认 4
+```
+
 #### `PlateauConfig`
 
 fitness plateau 检测参数：
@@ -490,7 +499,12 @@ created_at
 入口函数：
 
 ```python
-load_evolution_controller_config(config_path=None, max_total_tasks=100)
+load_evolution_controller_config(
+    config_path=None,
+    max_total_tasks=50,
+    lineage_root_number=4,
+    max_concurrent_tasks=4,
+)
 ```
 
 当前 MVP 默认不要求配置文件。
@@ -528,25 +542,17 @@ plateau:
 
 #### 当前注意点
 
-目前公开 MCP tools 没有暴露：
+公开 MCP tool `configure_run` 已暴露按 run 配置的入口：
 
 ```text
-config_path
-max_total_tasks
+max_total_tasks       # 默认 50
+lineage_root_number   # 默认 4
+max_concurrent_tasks  # 默认 4
 ```
 
-所以从 MCP tool 路径调用时，使用的是默认配置：
-
-```text
-max_total_tasks = 100
-```
-
-后续如果主循环需要每个 run 自定义预算，可以扩展：
-
-1. 增加 `configure_run`；
-2. 或让 `EvolutionController(run_id, config=...)` 从某个 run config 文件加载。
-
-当前代码已经预留了内部加载能力，但公开 MCP schema 还没有开放这部分。
+这三个值会记录到 run state（`run_state.json` 的 `run_config`）；进程重启后新建的
+controller 会从记录恢复，而不是退回默认值。`config_path` 仍未通过 MCP 暴露，
+YAML 细粒度参数只能在 Python 内部加载时使用。
 
 ### 4.6 `storage.py`
 
@@ -1598,7 +1604,9 @@ run_id = run_001
 
 ```text
 controller 状态目录 = .agent_evolve/controller
-max_total_tasks = 100
+max_total_tasks = 50（configure_run 默认）
+lineage_root_number = 4
+max_concurrent_tasks = 4
 fitness 越高越好
 ```
 
@@ -1684,11 +1692,8 @@ controller = EvolutionController("run_001", config=config)
 
 可以自定义。
 
-未来如果要让第三方 agent 也能配置，建议加一个新 MCP tool：
-
-```text
-configure_run
-```
+运行级预算与任务池形态（max_total_tasks / lineage_root_number /
+max_concurrent_tasks）则通过公开 MCP tool `configure_run` 配置。
 
 ---
 
@@ -1858,15 +1863,13 @@ Boltzmann 采样后期温度。
 
 #### `max_total_tasks`
 
-默认：
+默认（`configure_run` 入口）：
 
 ```text
-100
+50
 ```
 
-硬安全阀。
-
-当前 MCP tool 暂未暴露配置入口。
+硬安全阀。通过 `configure_run(run_id, max_total_tasks=...)` 按 run 配置。
 
 #### `max_time_seconds`
 
@@ -1949,27 +1952,20 @@ task_id 在同一个 run 内唯一
 
 ## 11. 当前实现的限制和后续建议
 
-### 11.1 配置尚未通过 MCP 暴露
+### 11.1 配置已部分通过 MCP 暴露
 
-当前内部支持 YAML config，但 MCP tools 没有配置入口。
-
-建议后续加：
-
-```text
-configure_run
-```
-
-字段可包括：
+`configure_run` 已作为公开 MCP tool 存在，当前字段：
 
 ```yaml
 run_id: string
-max_total_tasks: int
-max_time_seconds: float | null
-parent_selection: object
-inspiration: object
-budget: object
-plateau: object
+max_total_tasks: int        # 默认 50
+lineage_root_number: int    # 默认 4，初始方向/谱系根任务数
+max_concurrent_tasks: int   # 默认 4，正常阶段并行上限
+task_description: string
 ```
+
+YAML 细粒度参数（parent_selection / inspiration / plateau / max_time_seconds
+等）仍未通过 MCP 暴露，只能在 Python 内部加载时使用。
 
 ### 11.2 没有 run-level 元数据
 

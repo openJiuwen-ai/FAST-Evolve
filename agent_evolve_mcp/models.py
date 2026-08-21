@@ -67,6 +67,22 @@ class RunBudgetConfig:
 
 
 @dataclass
+class SchedulerConfig:
+    """Task-pool shape confirmed at configure_run time.
+
+    ``lineage_root_number`` is the number of initial exploration directions
+    and therefore the number of lineage roots the run establishes.  It bounds
+    the root phase: at most this many tasks are minted before all of them must
+    finish (the root barrier).  ``max_concurrent_tasks`` is the in-flight task
+    target that holds in every phase, root phase included.  The two are
+    deliberately independent knobs.
+    """
+
+    lineage_root_number: int = 4
+    max_concurrent_tasks: int = 4
+
+
+@dataclass
 class PlateauConfig:
     """Configuration for fitness-plateau detection."""
 
@@ -93,6 +109,7 @@ class EvolutionControllerConfig:
     budget: RunBudgetConfig = field(default_factory=RunBudgetConfig)
     plateau: PlateauConfig = field(default_factory=PlateauConfig)
     meta_evolve: MetaEvolveConfig = field(default_factory=MetaEvolveConfig)
+    scheduler: SchedulerConfig = field(default_factory=SchedulerConfig)
 
 
 @dataclass
@@ -286,6 +303,7 @@ class RunState:
     stop_reason: str = ""
     diagnostics: Dict[str, Any] = field(default_factory=dict)
     last_checked_attempt_count: int = 0
+    run_config: Dict[str, Any] = field(default_factory=dict)
     updated_at: str = field(default_factory=utc_now_iso)
 
     def touch(self) -> None:
@@ -307,5 +325,6 @@ class RunState:
             stop_reason=str(data.get("stop_reason") or ""),
             diagnostics=dict(data.get("diagnostics") or {}),
             last_checked_attempt_count=int(data.get("last_checked_attempt_count", 0)),
+            run_config=dict(data.get("run_config") or {}),
             updated_at=str(data.get("updated_at") or utc_now_iso()),
         )

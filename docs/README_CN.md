@@ -61,6 +61,18 @@ uv run python benchmarks/install.py --all
 基准安装脚本会将内置基准技能及其评估命令注册到
 `.claude/settings.local.json`。
 
+在同一个终端会话中，将仓库根目录加入 `PYTHONPATH`：
+
+```powershell
+# PowerShell
+$env:PYTHONPATH = "$(Get-Location);$env:PYTHONPATH"
+```
+
+```bash
+# Linux (bash)
+export PYTHONPATH=`pwd`:$PYTHONPATH
+```
+
 ### 运行基准
 
 加载 EvoTrias 工作流与基准插件并启动 Claude Code：
@@ -95,9 +107,9 @@ tests/                  控制器与基准回归测试
 
 | 设置 | 默认值 | 作用 |
 | --- | ---: | --- |
-| 初始探索方向 | 4 | 根探索分支数量 |
-| 最大并发任务数 | 4 | 滚动调度队列上限 |
-| 默认任务预算 | 50 | 请求未指定任务数时使用 |
+| `LINEAGE_ROOT_NUMBER` | 4 | 初始探索方向数，即根探索分支数量 |
+| `MAX_CONCURRENT_TASKS` | 4 | 滚动调度队列上限 |
+| `MAX_TOTAL_TASKS` | 50 | 任务硬预算 |
 | 停滞检测窗口 | 5 个成功候选 | 用于判断搜索是否停滞 |
 | 停滞耐心值 | 4 | 连续达到停滞条件后触发策略调整 |
 | 适应度提升阈值 | 0.0 | 最优适应度只要正向提升即视为进展 |
@@ -105,7 +117,10 @@ tests/                  控制器与基准回归测试
 | 每条元指导使用次数 | 2 | 每条指导最多分配给多少个任务 |
 | 已尝试元指导保留数 | 10 | 后续生成指导时可参考的结果历史 |
 
-运行初始化后配置即被锁定。下列环境变量需要在 MCP 进程启动前设置：
+上表前三个调度参数可以直接写在进化请求里（例如"6 initial directions, 8 in parallel, 200 tasks"）；
+它们会在创建运行前得到确认，并在运行初始化后锁定。
+
+下列环境变量需要在 MCP 进程启动前设置：
 
 ```powershell
 # 关闭元指导，但保留停滞诊断和正常选择逻辑。
@@ -133,7 +148,6 @@ EvoTrias 将面向用户的运行输出与控制器内部状态分开保存：
 ```text
 runs/<run_id>/
   completed_tasks.jsonl
-  scheduler_state.json
   dashboard.json
   tasks/<task_id>/attempts/<attempt_id>/solution.py  # 或 solution.cpp
   tasks/<task_id>/attempts/<attempt_id>/eval_result.json

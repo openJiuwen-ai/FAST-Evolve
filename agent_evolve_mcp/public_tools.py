@@ -17,11 +17,7 @@ from agent_evolve_mcp.controller import EvolutionController
 from agent_evolve_mcp.dashboard import start_dashboard
 from agent_evolve_mcp.mcp_server import mcp
 from agent_evolve_mcp.notes import notes_enabled
-from agent_evolve_mcp.scheduler_state import (
-    get_scheduler_state,
-    initialize_scheduler_state,
-    update_task_status,
-)
+from agent_evolve_mcp.state_store import RunStateStore
 
 _controllers: Dict[str, EvolutionController] = {}
 
@@ -44,21 +40,33 @@ def _controller(run_id: str) -> EvolutionController:
 def evolve_configure_run(
     run_id: str,
     max_total_tasks: int = 50,
+    lineage_root_number: int = 4,
+    max_concurrent_tasks: int = 4,
     task_description: str = "",
 ) -> Dict[str, Any]:
     """Configure evolution run parameters before starting tasks.
 
     Must be called BEFORE any other controller tool for the same run_id.
     Subsequent calls for the same run_id are ignored (the configuration
-    is locked after the first call).
+    is locked after the first call). ``lineage_root_number`` caps the root
+    phase: at most that many tasks are minted (one root per exploration
+    direction) and all must finish before evolution tasks start.
+    ``max_concurrent_tasks`` is the in-flight task target in every phase.
     """
-    initialize_scheduler_state(run_id)
-    if run_id in _controllers:
-        config = _controllers[run_id].config
+    controller = _controllers.get(run_id)
+    if controller is None and RunStateStore(run_id).load().run_config:
+        # A previous process already configured this run: recover the recorded
+        # values instead of re-configuring with the caller's new ones.
+        controller = EvolutionController(run_id)
+        _controllers[run_id] = controller
+    if controller is not None:
+        config = controller.config
         return {
             "configured": False,
-            "reason": "Controller already exists for this run_id; configuration locked.",
+            "reason": "Run already configured for this run_id; configuration locked.",
             "max_total_tasks": config.budget.max_total_tasks,
+            "lineage_root_number": config.scheduler.lineage_root_number,
+            "max_concurrent_tasks": config.scheduler.max_concurrent_tasks,
             "meta_evolve": _meta_evolve_config_ref(config),
             "dashboard": _dashboard_ref(
                 run_id,
@@ -68,13 +76,19 @@ def evolve_configure_run(
                 notes_feature_enabled=notes_enabled(),
             ),
         }
-    config = load_evolution_controller_config(max_total_tasks=max_total_tasks)
+    config = load_evolution_controller_config(
+        max_total_tasks=max_total_tasks,
+        lineage_root_number=lineage_root_number,
+        max_concurrent_tasks=max_concurrent_tasks,
+    )
     controller = EvolutionController(run_id, config=config)
     controller.configure_run(task_description=task_description)
     _controllers[run_id] = controller
     return {
         "configured": True,
         "max_total_tasks": config.budget.max_total_tasks,
+        "lineage_root_number": config.scheduler.lineage_root_number,
+        "max_concurrent_tasks": config.scheduler.max_concurrent_tasks,
         "meta_evolve": _meta_evolve_config_ref(config),
         "dashboard": _dashboard_ref(
             run_id,
@@ -84,28 +98,6 @@ def evolve_configure_run(
             notes_feature_enabled=notes_enabled(),
         ),
     }
-
-
-@mcp.tool(name="update_task_status", run_in_thread=False)
-def evolve_update_task_status(
-    run_id: str,
-    task_id: str,
-    status: str,
-    agent_id: str = "",
-) -> Dict[str, Any]:
-    """Persist one scheduler task transition without exposing the state-file diff."""
-    return update_task_status(
-        run_id=run_id,
-        task_id=task_id,
-        status=status,
-        agent_id=agent_id,
-    )
-
-
-@mcp.tool(name="get_scheduler_state", run_in_thread=False)
-def evolve_get_scheduler_state(run_id: str) -> Dict[str, Any]:
-    """Return only active tasks and agents for scheduling recovery."""
-    return get_scheduler_state(run_id)
 
 
 @mcp.tool(name="select_parent", run_in_thread=False)
@@ -200,9 +192,20 @@ def evolve_get_meta_guidance_prompt(run_id: str, task_id: str) -> Dict[str, Any]
 
 
 @mcp.tool(name="check_convergence", run_in_thread=False)
-def evolve_check_convergence(run_id: str) -> Dict[str, Any]:
-    """Return the next scheduler action from convergence/meta-evolve state."""
-    return _controller(run_id).check_convergence()
+def evolve_check_convergence(
+    run_id: str,
+    concurrency: int,
+) -> Dict[str, Any]:
+    """Return the next scheduler action from convergence/meta-evolve state.
+
+    ``concurrency`` is required and must be a positive integer — pass the
+    ``max_concurrent_tasks`` value confirmed at ``configure_run`` time. The
+    cap holds in every phase. The recorded ``lineage_root_number`` caps how
+    many tasks the root phase may mint in total; once minted, all of them
+    must finish before evolution tasks are created (meanwhile ``continue`` is
+    returned with ``tasks_to_create`` 0).
+    """
+    return _controller(run_id).check_convergence(concurrency=concurrency)
 
 
 @mcp.tool(name="finalize_run", run_in_thread=False)
