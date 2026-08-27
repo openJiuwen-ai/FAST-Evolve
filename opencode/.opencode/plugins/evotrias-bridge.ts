@@ -42,7 +42,12 @@ export const EvotriasBridge = async ({ directory }: { directory: string }) => {
   return {
     "tool.execute.before": async (input: any, output: any) => {
       const result = await dispatch("tool.execute.before", { input, output })
-      if (result?.args) output.args = result.args
+      if (result?.args) {
+        // Mutate args in place: opencode's tool executor holds a reference
+        // to the original object, so replacing output.args is invisible to it.
+        for (const key of Object.keys(output.args)) delete output.args[key]
+        Object.assign(output.args, result.args)
+      }
     },
     "tool.execute.after": async (input: any, output: any) => {
       await dispatch("tool.execute.after", { input, output })
