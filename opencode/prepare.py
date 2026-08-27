@@ -14,7 +14,7 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-PROBLEMS = ["circle_packing"]
+PROBLEMS = ["circle_packing", "signal_processing"]
 
 WORKSPACE = Path(__file__).resolve().parent
 ROOT = WORKSPACE.parent
