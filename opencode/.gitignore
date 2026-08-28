@@ -1,0 +1,3 @@
+# prepare sync artifacts (sources: agent_evolve_plugin/, benchmarks/)
+.opencode/agents/
+.opencode/skills/
