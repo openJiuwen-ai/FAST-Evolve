@@ -1,0 +1,3 @@
+# GPU kernel benchmarks: kernelbench_layernorm (requires a CUDA-capable GPU)
+torch
+triton>=3.0.0

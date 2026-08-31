@@ -53,13 +53,27 @@ Evolution Controller MCP
 在仓库根目录运行：
 
 ```powershell
-python -m pip install -r requirements.txt
-uv sync --extra adrs --extra math --extra dev
+uv sync
 uv run python benchmarks/install.py --all
 ```
 
 基准安装脚本会将内置基准技能及其评估命令注册到
 `.claude/settings.local.json`。
+
+### Benchmark依赖
+
+Benchmark是插件，其 Python 依赖不属于包本身。运行基准前，请先安装对应分组的
+依赖集：
+
+```powershell
+uv pip install -r benchmarks/requirements/math.txt   # 数学类
+uv pip install -r benchmarks/requirements/adrs.txt   # ADRS
+uv pip install -r benchmarks/requirements/gpu.txt    # GPU算子
+```
+
+`frontier_cs_algo` 不需要额外依赖。注意：`uv sync` 会移除项目未声明的包，
+因此每次 sync 之后需要重新执行对应的 `uv pip install` 命令（后续计划将
+安装动作集成进 `benchmarks/install.py`）。
 
 在同一个终端会话中，将仓库根目录加入 `PYTHONPATH`：
 

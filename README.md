@@ -61,13 +61,28 @@ filling the host agent's context window.
 From the repository root:
 
 ```powershell
-python -m pip install -r requirements.txt
-uv sync --extra adrs --extra math --extra dev
+uv sync
 uv run python benchmarks/install.py --all
 ```
 
 The benchmark installer registers the bundled benchmark skills and their
 evaluator commands in `.claude/settings.local.json`.
+
+### Benchmark Dependencies
+
+Benchmarks are plugins; their Python dependencies are not part of the package.
+Before running a benchmark, install the requirement set for its group:
+
+```powershell
+uv pip install -r benchmarks/requirements/math.txt   # math benchmarks
+uv pip install -r benchmarks/requirements/adrs.txt   # ADRS benchmarks
+uv pip install -r benchmarks/requirements/gpu.txt    # GPU kernel benchmarks
+```
+
+`frontier_cs_algo` needs no extra dependencies. Note that `uv sync` prunes
+packages that are not declared by the project, so re-run the matching
+`uv pip install` command after syncing (automatic installation via
+`benchmarks/install.py` is planned).
 
 Add the repository root to `PYTHONPATH` in the same shell session:
 

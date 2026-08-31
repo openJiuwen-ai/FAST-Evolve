@@ -1,0 +1,13 @@
+# Math benchmarks: circle_packing, circle_packing_rect, erdos_min_overlap,
+# first/second/third_autocorr_ineq, heilbronn_convex_13/14, heilbronn_triangle,
+# hexagon_packing_11/12, matmul, minimizing_max_min_dist_2/3, signal_processing,
+# sums_diffs_finite_sets, uncertainty_ineq
+numpy>=1.22.0
+tqdm>=4.64.0
+scipy>=1.11.0
+sympy>=1.14.0
+jax>=0.6.2
+optax>=0.2.6
+matplotlib
+scikit-learn>=1.0.0
+PyWavelets
