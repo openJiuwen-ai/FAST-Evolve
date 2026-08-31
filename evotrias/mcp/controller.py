@@ -14,24 +14,24 @@ from uuid import uuid4
 
 from evotrias import scheduler
 
-from agent_evolve_mcp.budget_guard import RunBudgetGuard
-from agent_evolve_mcp.config import load_evolution_controller_config
-from agent_evolve_mcp.convergence_detector import FitnessPlateauDetector
-from agent_evolve_mcp.inspiration_selector import LineageBoltzmannInspirationSelector
-from agent_evolve_mcp.lineage_tree import LineageTree
-from agent_evolve_mcp.models import (
+from evotrias.mcp.budget_guard import RunBudgetGuard
+from evotrias.mcp.config import load_evolution_controller_config
+from evotrias.mcp.convergence_detector import FitnessPlateauDetector
+from evotrias.mcp.inspiration_selector import LineageBoltzmannInspirationSelector
+from evotrias.mcp.lineage_tree import LineageTree
+from evotrias.mcp.models import (
     AttemptRecord,
     EvolutionControllerConfig,
     RunState,
     SearchState,
     SuccessRecord,
 )
-from agent_evolve_mcp.meta_guidance import MetaGuidanceManager
-from agent_evolve_mcp.notes import NOTES_ENABLED_ENV, NotesManager, notes_enabled
-from agent_evolve_mcp.parent_selector import LineageAwareParentSelector
-from agent_evolve_mcp.state_store import RunStateStore, TaskContextStore
-from agent_evolve_mcp.success_db import AttemptLog, SuccessDB
-from agent_evolve_mcp.run_report import write_run_report
+from evotrias.mcp.meta_guidance import MetaGuidanceManager
+from evotrias.mcp.notes import NOTES_ENABLED_ENV, NotesManager, notes_enabled
+from evotrias.mcp.parent_selector import LineageAwareParentSelector
+from evotrias.mcp.state_store import RunStateStore, TaskContextStore
+from evotrias.mcp.success_db import AttemptLog, SuccessDB
+from evotrias.mcp.run_report import write_run_report
 
 
 class EvolutionController:

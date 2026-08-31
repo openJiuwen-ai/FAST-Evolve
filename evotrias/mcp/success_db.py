@@ -10,8 +10,8 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional
 
-from agent_evolve_mcp.models import AttemptRecord, SuccessRecord
-from agent_evolve_mcp.storage import (
+from evotrias.mcp.models import AttemptRecord, SuccessRecord
+from evotrias.mcp.storage import (
     append_jsonl,
     attempts_log_path,
     read_json,

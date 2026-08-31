@@ -43,7 +43,7 @@ Evolution Controller MCP
 
 ### 环境要求
 
-- Python 3.10–3.13
+- Python 3.10+
 - [uv](https://docs.astral.sh/uv/)
 - 使用内置插件工作流时需要
   [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
@@ -53,13 +53,27 @@ Evolution Controller MCP
 在仓库根目录运行：
 
 ```powershell
-python -m pip install -r requirements.txt
-uv sync --extra adrs --extra math --extra dev
+uv sync
 uv run python benchmarks/install.py --all
 ```
 
 基准安装脚本会将内置基准技能及其评估命令注册到
 `.claude/settings.local.json`。
+
+### Benchmark依赖
+
+Benchmark是插件，其 Python 依赖不属于包本身。运行基准前，请先安装对应分组的
+依赖集：
+
+```powershell
+uv pip install -r benchmarks/requirements/math.txt   # 数学类
+uv pip install -r benchmarks/requirements/adrs.txt   # ADRS
+uv pip install -r benchmarks/requirements/gpu.txt    # GPU算子
+```
+
+`frontier_cs_algo` 不需要额外依赖。注意：`uv sync` 会移除项目未声明的包，
+因此每次 sync 之后需要重新执行对应的 `uv pip install` 命令（后续计划将
+安装动作集成进 `benchmarks/install.py`）。
 
 在同一个终端会话中，将仓库根目录加入 `PYTHONPATH`：
 
@@ -75,7 +89,19 @@ export PYTHONPATH=`pwd`:$PYTHONPATH
 
 ### 运行基准
 
-加载 EvoTrias 工作流与基准插件并启动 Claude Code：
+先进入项目虚拟环境：
+
+```powershell
+# PowerShell
+.\.venv\Scripts\Activate.ps1
+```
+
+```bash
+# Linux (bash)
+source .venv/bin/activate
+```
+
+然后加载 EvoTrias 工作流与基准插件并启动 Claude Code：
 
 ```powershell
 claude --plugin-dir agent_evolve_plugin --plugin-dir benchmarks
@@ -93,11 +119,11 @@ EvoTrias 会在 `runs/` 下创建具名运行，启动仪表盘，探索多个�
 ## 仓库结构
 
 ```text
-agent_evolve_mcp/       进化控制器与持久化层
+evotrias/               核心包：调度、hooks 与控制器 MCP（evotrias/mcp）
 agent_evolve_plugin/    工作流技能与任务执行智能体
 benchmarks/             基准技能、评估器与参考资料
 docs/                   集成指南
-tests/                  控制器与基准回归测试
+tests/                  测试用例
 ```
 
 运行产物保存在 Git 忽略的 `runs/` 和 `.agent_evolve/` 目录中。每次完成的运行都会
@@ -173,7 +199,7 @@ runs/<run_id>/
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\python.exe -m compileall agent_evolve_mcp agent_evolve_plugin benchmarks
+.\.venv\Scripts\python.exe -m compileall evotrias agent_evolve_plugin benchmarks
 ```
 
 如需接入其他智能体宿主，请参考

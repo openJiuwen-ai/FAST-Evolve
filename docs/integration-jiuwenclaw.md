@@ -17,13 +17,13 @@ JiuwenClaw Agent
 
 ### Step 1：复制 MCP 服务器代码
 
-将 `agent_evolve_mcp/` 包复制到 jiuwenclaw 项目根目录：
+将 `evotrias.mcp/` 包复制到 jiuwenclaw 项目根目录：
 
 ```bash
-cp -r evolve_agent/agent_evolve_mcp/ jiuwenclaw/agent_evolve_mcp/
+cp -r evolve_agent/evotrias.mcp/ jiuwenclaw/evotrias.mcp/
 ```
 
-MCP 服务器是独立进程，通过 `python -m agent_evolve_mcp` 启动。公开 13 个紧凑工具，核心工具如下：
+MCP 服务器是独立进程，通过 `python -m evotrias.mcp` 启动。公开 13 个紧凑工具，核心工具如下：
 
 | MCP Tool | 功能 |
 |----------|------|
@@ -47,7 +47,7 @@ MCP 服务器是独立进程，通过 `python -m agent_evolve_mcp` 启动。公�
 在 `[tool.setuptools.packages.find]` 中添加包发现：
 
 ```toml
-include = ["openjiuwen*", "jiuwenclaw*", "agent_evolve_mcp*"]
+include = ["openjiuwen*", "jiuwenclaw*", "evotrias.mcp*"]
 ```
 
 ### Step 3：配置 MCP 服务器
@@ -57,11 +57,11 @@ include = ["openjiuwen*", "jiuwenclaw*", "agent_evolve_mcp*"]
 ```yaml
 mcp:
   servers:
-    - name: agent_evolve_mcp
+    - name: evotrias.mcp
       enabled: true
       transport: stdio
       command: python
-      args: ["-m", "agent_evolve_mcp"]
+      args: ["-m", "evotrias.mcp"]
 ```
 
 ### Step 4：安装 Skills
@@ -97,12 +97,12 @@ done
 cd jiuwenclaw
 
 # 1. 验证 MCP 服务器导入
-.venv/Scripts/python -c "from agent_evolve_mcp import mcp; print(mcp.name)"
+.venv/Scripts/python -c "from evotrias.mcp import mcp; print(mcp.name)"
 # 期望输出: agent_evolve
 
 # 2. 验证工具注册
 .venv/Scripts/python -c "
-from agent_evolve_mcp import mcp
+from evotrias.mcp import mcp
 for name in mcp._tool_manager._tools:
     print(f'  - {name}')
 "

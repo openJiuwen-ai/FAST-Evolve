@@ -10,10 +10,10 @@ from __future__ import annotations
 
 import pytest
 
-from agent_evolve_mcp import public_tools as public_tools_module
-from agent_evolve_mcp.controller import EvolutionController
-from agent_evolve_mcp.models import SuccessRecord
-from agent_evolve_mcp.state_store import RunStateStore
+from evotrias.mcp import public_tools as public_tools_module
+from evotrias.mcp.controller import EvolutionController
+from evotrias.mcp.models import SuccessRecord
+from evotrias.mcp.state_store import RunStateStore
 from evotrias import scheduler as sched
 
 RUN_ID = "run_shape_test"

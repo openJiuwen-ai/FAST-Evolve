@@ -14,8 +14,8 @@ import os
 import random
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
-from agent_evolve_mcp.models import AttemptRecord, SuccessRecord, utc_now_iso
-from agent_evolve_mcp.storage import (
+from evotrias.mcp.models import AttemptRecord, SuccessRecord, utc_now_iso
+from evotrias.mcp.storage import (
     append_jsonl,
     note_requests_path,
     notes_events_path,
@@ -24,7 +24,7 @@ from agent_evolve_mcp.storage import (
     read_jsonl,
     write_json_atomic,
 )
-from agent_evolve_mcp.success_db import SuccessDB
+from evotrias.mcp.success_db import SuccessDB
 
 SCHEMA_VERSION = "notes_run_local"
 NOTE_TYPES = {"error", "negative", "positive"}

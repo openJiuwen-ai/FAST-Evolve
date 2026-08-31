@@ -1,8 +1,8 @@
 # Agent Evolve MCP 实现讲解
 
-> 版本提示：这是一份较早的实现讲解。当前开发请以仓库根目录 `agent_evolve_mcp/README.md` 和本目录 `minimal_context_interface.md` 为准；`check_convergence` 的主语义是 `action`。
+> 版本提示：这是一份较早的实现讲解。当前开发请以仓库根目录 `evotrias.mcp/README.md` 和本目录 `minimal_context_interface.md` 为准；`check_convergence` 的主语义是 `action`。
 
-> 本文解释当前 `agent_evolve_mcp` 目录下这版 Evolution Controller MCP 的代码结构、运行流程、配置方式和接入边界。它面向后续要实现 `agent_evolve_plugin` 主循环、或要把 MCP 接到 Claude Code / Codex / opencode 等第三方 agent 的同事。
+> 本文解释当前 `evotrias.mcp` 目录下这版 Evolution Controller MCP 的代码结构、运行流程、配置方式和接入边界。它面向后续要实现 `agent_evolve_plugin` 主循环、或要把 MCP 接到 Claude Code / Codex / opencode 等第三方 agent 的同事。
 
 > 设计更新说明：精简版接口契约见：[minimal_context_interface.md](minimal_context_interface.md)。
 
@@ -10,7 +10,7 @@
 
 ## 1. 这部分代码到底负责什么
 
-当前 `agent_evolve_mcp` 实现的是 **进化控制器 MCP**，也就是整个自进化底座里的“策略状态服务”。
+当前 `evotrias.mcp` 实现的是 **进化控制器 MCP**，也就是整个自进化底座里的“策略状态服务”。
 
 它只负责四件事：
 
@@ -162,10 +162,10 @@ SuccessRecord = 成功且有 fitness 的 attempt，能被未来复用
 
 ## 3. 目录结构总览
 
-当前 `agent_evolve_mcp` 目录如下：
+当前 `evotrias.mcp` 目录如下：
 
 ```text
-agent_evolve_mcp/
+evotrias.mcp/
   __init__.py
   mcp_server.py
   public_tools.py
@@ -233,19 +233,19 @@ FastMCP server 层
 ```python
 mcp = FastMCP("agent_evolve")
 
-import agent_evolve_mcp.public_tools
+import evotrias.mcp.public_tools
 ```
 
 这里的 `mcp` 是全局 MCP server 对象。
 
 `public_tools.py` 里所有 `@mcp.tool()` 都会注册到这个 server 上。
 
-正式运行环境要求安装 `fastmcp`。当前代码不再提供开发期 fallback；如果环境缺少 `fastmcp`，导入 `agent_evolve_mcp.mcp_server` 会直接失败，这样可以更早暴露部署依赖问题。
+正式运行环境要求安装 `fastmcp`。当前代码不再提供开发期 fallback；如果环境缺少 `fastmcp`，导入 `evotrias.mcp.mcp_server` 会直接失败，这样可以更早暴露部署依赖问题。
 
 可以用下面命令确认当前环境走的是真实 `FastMCP`：
 
 ```powershell
-python -c "import agent_evolve_mcp.mcp_server as s; print(type(s.mcp).__name__)"
+python -c "import evotrias.mcp.mcp_server as s; print(type(s.mcp).__name__)"
 ```
 
 预期输出：
@@ -265,7 +265,7 @@ FastMCP
 当前导出：
 
 ```python
-from agent_evolve_mcp.mcp_server import mcp
+from evotrias.mcp.mcp_server import mcp
 from . import public_tools as public_tools
 
 __all__ = ["mcp", "public_tools"]
@@ -276,7 +276,7 @@ __all__ = ["mcp", "public_tools"]
 这是为了避免下面这种导入被包级变量遮蔽：
 
 ```python
-import agent_evolve_mcp.mcp_server
+import evotrias.mcp.mcp_server
 ```
 
 ### 4.3 `public_tools.py`
@@ -296,7 +296,7 @@ import agent_evolve_mcp.mcp_server
 
 它不应该塞入复杂算法。
 
-以下列出五个核心数据与收敛 MCP tools；完整注册表以 `agent_evolve_mcp/README.md` 为准：
+以下列出五个核心数据与收敛 MCP tools；完整注册表以 `evotrias.mcp/README.md` 为准：
 
 ```python
 select_parent(...)
@@ -1330,7 +1330,7 @@ finalize_run(
 4. 只返回 ref，不返回完整报告正文；
 5. 保持幂等，重复调用不会重复写 SuccessDB 或 attempt log。
 
-报告内容由 `agent_evolve_mcp/run_report.py` 确定性生成，包括：
+报告内容由 `evotrias.mcp/run_report.py` 确定性生成，包括：
 
 - Overview / Best Result；
 - 停止原因和收敛诊断指标；
@@ -1680,8 +1680,8 @@ plateau:
 如果直接在 Python 内部用：
 
 ```python
-from agent_evolve_mcp.config import load_evolution_controller_config
-from agent_evolve_mcp.controller import EvolutionController
+from evotrias.mcp.config import load_evolution_controller_config
+from evotrias.mcp.controller import EvolutionController
 
 config = load_evolution_controller_config(
     config_path="path/to/config.yaml",
@@ -2026,7 +2026,7 @@ heartbeat / reflect / consolidate / pivot 应该由主循环或 skill 实现。
 在安装 `fastmcp` 后，可以确认 server 使用真实 FastMCP：
 
 ```powershell
-python -c "import agent_evolve_mcp.mcp_server as s; print(type(s.mcp).__name__)"
+python -c "import evotrias.mcp.mcp_server as s; print(type(s.mcp).__name__)"
 ```
 
 预期：
@@ -2038,14 +2038,14 @@ FastMCP
 编译检查：
 
 ```powershell
-python -m compileall agent_evolve_mcp
+python -m compileall evotrias.mcp
 ```
 
 也可以直接调用 Python wrapper 做最小本地验证。为兼容既有 Python
 集成，wrapper 保留 `evolve_*` 名称；对应的 MCP 注册名不带该前缀：
 
 ```python
-from agent_evolve_mcp.public_tools import (
+from evotrias.mcp.public_tools import (
     evolve_select_parent,
     evolve_record_attempt,
     evolve_select_inspirations,
@@ -2088,7 +2088,7 @@ print(evolve_finalize_run(
 
 ## 13. 一句话总结
 
-当前 `agent_evolve_mcp` 是一个通用 fitness 最大化的 Evolution Controller MCP：
+当前 `evotrias.mcp` 是一个通用 fitness 最大化的 Evolution Controller MCP：
 
 ```text
 public_tools.py 暴露无冗余前缀的紧凑 MCP tools

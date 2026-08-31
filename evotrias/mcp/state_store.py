@@ -10,8 +10,8 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Dict, Optional
 
-from agent_evolve_mcp.models import RunState, TaskContext
-from agent_evolve_mcp.storage import read_json, run_state_path, task_contexts_path, write_json_atomic
+from evotrias.mcp.models import RunState, TaskContext
+from evotrias.mcp.storage import read_json, run_state_path, task_contexts_path, write_json_atomic
 
 
 class TaskContextStore:

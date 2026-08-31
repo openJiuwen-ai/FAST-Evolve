@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-from agent_evolve_mcp.models import (
+from evotrias.mcp.models import (
     EvolutionControllerConfig,
     InspirationSelectionConfig,
     MetaEvolveConfig,

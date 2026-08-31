@@ -4,7 +4,7 @@
   "mcp": {
     "evotrias": {
       "type": "local",
-      "command": ["uv", "run", "python", "-m", "agent_evolve_mcp"],
+      "command": ["uv", "run", "python", "-m", "evotrias.mcp"],
       "environment": {
         "PYTHONPATH": ".."
       },

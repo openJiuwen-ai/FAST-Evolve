@@ -12,12 +12,12 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from agent_evolve_mcp.config import load_evolution_controller_config
-from agent_evolve_mcp.controller import EvolutionController
-from agent_evolve_mcp.dashboard import start_dashboard
-from agent_evolve_mcp.mcp_server import mcp
-from agent_evolve_mcp.notes import notes_enabled
-from agent_evolve_mcp.state_store import RunStateStore
+from evotrias.mcp.config import load_evolution_controller_config
+from evotrias.mcp.controller import EvolutionController
+from evotrias.mcp.dashboard import start_dashboard
+from evotrias.mcp.mcp_server import mcp
+from evotrias.mcp.notes import notes_enabled
+from evotrias.mcp.state_store import RunStateStore
 
 _controllers: Dict[str, EvolutionController] = {}
 

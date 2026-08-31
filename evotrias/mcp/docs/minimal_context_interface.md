@@ -1,6 +1,6 @@
 # Evolution Controller MCP 最小上下文接口设计
 
-本文描述 `agent_evolve_mcp` 当前的公开接口边界。核心目标仍然是减少 agent 上下文占用：能由 MCP 从本地状态恢复的信息，不让主 agent 或 task-executor 反复转述。
+本文描述 `evotrias.mcp` 当前的公开接口边界。核心目标仍然是减少 agent 上下文占用：能由 MCP 从本地状态恢复的信息，不让主 agent 或 task-executor 反复转述。
 
 ## 1. 第一性原则
 

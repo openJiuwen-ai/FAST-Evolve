@@ -51,7 +51,7 @@ filling the host agent's context window.
 
 ### Prerequisites
 
-- Python 3.10–3.13
+- Python 3.10+
 - [uv](https://docs.astral.sh/uv/)
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) for the bundled
   plugin workflow
@@ -61,13 +61,28 @@ filling the host agent's context window.
 From the repository root:
 
 ```powershell
-python -m pip install -r requirements.txt
-uv sync --extra adrs --extra math --extra dev
+uv sync
 uv run python benchmarks/install.py --all
 ```
 
 The benchmark installer registers the bundled benchmark skills and their
 evaluator commands in `.claude/settings.local.json`.
+
+### Benchmark Dependencies
+
+Benchmarks are plugins; their Python dependencies are not part of the package.
+Before running a benchmark, install the requirement set for its group:
+
+```powershell
+uv pip install -r benchmarks/requirements/math.txt   # math benchmarks
+uv pip install -r benchmarks/requirements/adrs.txt   # ADRS benchmarks
+uv pip install -r benchmarks/requirements/gpu.txt    # GPU kernel benchmarks
+```
+
+`frontier_cs_algo` needs no extra dependencies. Note that `uv sync` prunes
+packages that are not declared by the project, so re-run the matching
+`uv pip install` command after syncing (automatic installation via
+`benchmarks/install.py` is planned).
 
 Add the repository root to `PYTHONPATH` in the same shell session:
 
@@ -83,7 +98,19 @@ export PYTHONPATH=`pwd`:$PYTHONPATH
 
 ### Run a Benchmark
 
-Start Claude Code with the EvoTrias workflow and benchmark plugins:
+Activate the project virtual environment:
+
+```powershell
+# PowerShell
+.\.venv\Scripts\Activate.ps1
+```
+
+```bash
+# Linux (bash)
+source .venv/bin/activate
+```
+
+Then start Claude Code with the EvoTrias workflow and benchmark plugins:
 
 ```powershell
 claude --plugin-dir agent_evolve_plugin --plugin-dir benchmarks
@@ -102,11 +129,11 @@ configured task or time budget is exhausted.
 ## Repository Layout
 
 ```text
-agent_evolve_mcp/       Evolution controller and persistence layer
+evotrias/               Core package: scheduler, hooks, and the controller MCP (evotrias/mcp)
 agent_evolve_plugin/    Workflow skills and task-executor agents
 benchmarks/             Benchmark skills, evaluators, and references
 docs/                   Integration guides
-tests/                  Controller and benchmark regression tests
+tests/                  Testcases
 ```
 
 Runtime artifacts are written to the gitignored `runs/` and `.agent_evolve/`
@@ -194,7 +221,7 @@ directories.
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\python.exe -m compileall agent_evolve_mcp agent_evolve_plugin benchmarks
+.\.venv\Scripts\python.exe -m compileall evotrias agent_evolve_plugin benchmarks
 ```
 
 For integration with another agent host, see the

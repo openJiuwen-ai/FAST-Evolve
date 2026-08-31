@@ -1,0 +1,5 @@
+# ADRS benchmarks: cloudcast, eplb, llm_sql, prism, txn_scheduling
+numpy>=1.22.0
+pandas
+networkx>=3.2,<3.4
+torch

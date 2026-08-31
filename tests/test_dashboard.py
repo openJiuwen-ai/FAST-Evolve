@@ -8,9 +8,9 @@ from urllib.parse import quote
 
 import pytest
 
-import agent_evolve_mcp.dashboard as dashboard_module
-import agent_evolve_mcp.public_tools as public_tools_module
-from agent_evolve_mcp.dashboard import DashboardServer, build_snapshot, list_runs
+import evotrias.mcp.dashboard as dashboard_module
+import evotrias.mcp.public_tools as public_tools_module
+from evotrias.mcp.dashboard import DashboardServer, build_snapshot, list_runs
 
 RUN_ID = "signal_processing_20260715010101"
 
@@ -421,7 +421,7 @@ def test_dashboard_keeps_loopback_default_when_remote_hosts_are_unset(tmp_path, 
 
 
 def test_dashboard_includes_robust_chart_scale_controls():
-    static_root = Path(__file__).parents[1] / "agent_evolve_mcp" / "dashboard_static"
+    static_root = Path(__file__).parents[1] / "evotrias" / "mcp" / "dashboard_static"
     html = (static_root / "index.html").read_text(encoding="utf-8")
     javascript = (static_root / "app.js").read_text(encoding="utf-8")
 
@@ -434,7 +434,7 @@ def test_dashboard_includes_robust_chart_scale_controls():
 
 
 def test_dashboard_includes_flat_run_history_selector():
-    static_root = Path(__file__).parents[1] / "agent_evolve_mcp" / "dashboard_static"
+    static_root = Path(__file__).parents[1] / "evotrias" / "mcp" / "dashboard_static"
     html = (static_root / "index.html").read_text(encoding="utf-8")
     javascript = (static_root / "app.js").read_text(encoding="utf-8")
     stylesheet = (static_root / "styles.css").read_text(encoding="utf-8")
@@ -451,7 +451,7 @@ def test_dashboard_includes_flat_run_history_selector():
 
 
 def test_dashboard_shows_feature_status_badges():
-    static_root = Path(__file__).parents[1] / "agent_evolve_mcp" / "dashboard_static"
+    static_root = Path(__file__).parents[1] / "evotrias" / "mcp" / "dashboard_static"
     html = (static_root / "index.html").read_text(encoding="utf-8")
     javascript = (static_root / "app.js").read_text(encoding="utf-8")
     stylesheet = (static_root / "styles.css").read_text(encoding="utf-8")
@@ -466,7 +466,7 @@ def test_dashboard_shows_feature_status_badges():
 
 
 def test_dashboard_uses_evotrias_branding():
-    static_root = Path(__file__).parents[1] / "agent_evolve_mcp" / "dashboard_static"
+    static_root = Path(__file__).parents[1] / "evotrias" / "mcp" / "dashboard_static"
     html = (static_root / "index.html").read_text(encoding="utf-8")
     stylesheet = (static_root / "styles.css").read_text(encoding="utf-8")
 
@@ -479,7 +479,7 @@ def test_dashboard_uses_evotrias_branding():
 
 
 def test_lineage_tooltip_avoids_native_duplicate_and_wraps_inspirations():
-    static_root = Path(__file__).parents[1] / "agent_evolve_mcp" / "dashboard_static"
+    static_root = Path(__file__).parents[1] / "evotrias" / "mcp" / "dashboard_static"
     javascript = (static_root / "app.js").read_text(encoding="utf-8")
     stylesheet = (static_root / "styles.css").read_text(encoding="utf-8")
 
@@ -493,7 +493,7 @@ def test_lineage_tooltip_avoids_native_duplicate_and_wraps_inspirations():
 
 
 def test_dashboard_includes_interactive_lineage_controls():
-    static_root = Path(__file__).parents[1] / "agent_evolve_mcp" / "dashboard_static"
+    static_root = Path(__file__).parents[1] / "evotrias" / "mcp" / "dashboard_static"
     html = (static_root / "index.html").read_text(encoding="utf-8")
     javascript = (static_root / "app.js").read_text(encoding="utf-8")
     stylesheet = (static_root / "styles.css").read_text(encoding="utf-8")

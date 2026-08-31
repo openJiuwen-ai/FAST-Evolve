@@ -14,9 +14,9 @@ import math
 import random
 from typing import Dict, Optional
 
-from agent_evolve_mcp.lineage_tree import LineageTree
-from agent_evolve_mcp.models import ParentSelectionConfig, SuccessRecord
-from agent_evolve_mcp.success_db import SuccessDB
+from evotrias.mcp.lineage_tree import LineageTree
+from evotrias.mcp.models import ParentSelectionConfig, SuccessRecord
+from evotrias.mcp.success_db import SuccessDB
 
 
 class LineageAwareParentSelector:
