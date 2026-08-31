@@ -111,7 +111,7 @@ agent_evolve_mcp/       进化控制器与持久化层
 agent_evolve_plugin/    工作流技能与任务执行智能体
 benchmarks/             基准技能、评估器与参考资料
 docs/                   集成指南
-tests/                  控制器与基准回归测试
+tests/                  测试用例
 ```
 
 运行产物保存在 Git 忽略的 `runs/` 和 `.agent_evolve/` 目录中。每次完成的运行都会

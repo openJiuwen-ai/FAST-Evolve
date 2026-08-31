@@ -121,7 +121,7 @@ agent_evolve_mcp/       Evolution controller and persistence layer
 agent_evolve_plugin/    Workflow skills and task-executor agents
 benchmarks/             Benchmark skills, evaluators, and references
 docs/                   Integration guides
-tests/                  Controller and benchmark regression tests
+tests/                  Testcases
 ```
 
 Runtime artifacts are written to the gitignored `runs/` and `.agent_evolve/`
