@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import json
 
-from agent_evolve_mcp.controller import EvolutionController
-from agent_evolve_mcp.meta_guidance import MetaGuidanceManager
-from agent_evolve_mcp.storage import attempts_log_path, notes_path, read_jsonl
-from agent_evolve_mcp.models import (
+from evotrias.mcp.controller import EvolutionController
+from evotrias.mcp.meta_guidance import MetaGuidanceManager
+from evotrias.mcp.storage import attempts_log_path, notes_path, read_jsonl
+from evotrias.mcp.models import (
     EvolutionControllerConfig,
     MetaEvolveConfig,
     PlateauConfig,

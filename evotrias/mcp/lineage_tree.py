@@ -12,8 +12,8 @@ import math
 from collections import deque
 from typing import Dict, List, Optional, Set
 
-from agent_evolve_mcp.models import LineageStats, SuccessRecord
-from agent_evolve_mcp.success_db import SuccessDB
+from evotrias.mcp.models import LineageStats, SuccessRecord
+from evotrias.mcp.success_db import SuccessDB
 
 
 class LineageTree:

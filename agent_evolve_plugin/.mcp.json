@@ -2,7 +2,7 @@
   "mcpServers": {
     "ctrl": {
       "command": "python",
-      "args": ["-m", "agent_evolve_mcp"]
+      "args": ["-m", "evotrias.mcp"]
     }
   }
 }

@@ -43,7 +43,7 @@ Evolution Controller MCP
 
 ### 环境要求
 
-- Python 3.10–3.13
+- Python 3.10+
 - [uv](https://docs.astral.sh/uv/)
 - 使用内置插件工作流时需要
   [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
@@ -89,7 +89,19 @@ export PYTHONPATH=`pwd`:$PYTHONPATH
 
 ### 运行基准
 
-加载 EvoTrias 工作流与基准插件并启动 Claude Code：
+先进入项目虚拟环境：
+
+```powershell
+# PowerShell
+.\.venv\Scripts\Activate.ps1
+```
+
+```bash
+# Linux (bash)
+source .venv/bin/activate
+```
+
+然后加载 EvoTrias 工作流与基准插件并启动 Claude Code：
 
 ```powershell
 claude --plugin-dir agent_evolve_plugin --plugin-dir benchmarks
@@ -107,7 +119,7 @@ EvoTrias 会在 `runs/` 下创建具名运行，启动仪表盘，探索多个�
 ## 仓库结构
 
 ```text
-agent_evolve_mcp/       进化控制器与持久化层
+evotrias/               核心包：调度、hooks 与控制器 MCP（evotrias/mcp）
 agent_evolve_plugin/    工作流技能与任务执行智能体
 benchmarks/             基准技能、评估器与参考资料
 docs/                   集成指南
@@ -187,7 +199,7 @@ runs/<run_id>/
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\python.exe -m compileall agent_evolve_mcp agent_evolve_plugin benchmarks
+.\.venv\Scripts\python.exe -m compileall evotrias agent_evolve_plugin benchmarks
 ```
 
 如需接入其他智能体宿主，请参考

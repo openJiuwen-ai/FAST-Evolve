@@ -15,9 +15,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from agent_evolve_mcp.lineage_tree import LineageTree
-from agent_evolve_mcp.models import RunState, SuccessRecord
-from agent_evolve_mcp.storage import (
+from evotrias.mcp.lineage_tree import LineageTree
+from evotrias.mcp.models import RunState, SuccessRecord
+from evotrias.mcp.storage import (
     attempts_log_path,
     meta_guidance_state_path,
     meta_guidance_uses_path,
@@ -25,7 +25,7 @@ from agent_evolve_mcp.storage import (
     read_jsonl,
     write_json_atomic,
 )
-from agent_evolve_mcp.success_db import SuccessDB
+from evotrias.mcp.success_db import SuccessDB
 
 REPORT_FILENAME = "run_summary.md"
 SUMMARY_FILENAME = "run_summary.json"

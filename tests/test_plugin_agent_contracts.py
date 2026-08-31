@@ -8,7 +8,7 @@ import subprocess
 import yaml
 from fastmcp import Client
 
-from agent_evolve_mcp import mcp, public_tools
+from evotrias.mcp import mcp, public_tools
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PLUGIN_ROOT = REPO_ROOT / "agent_evolve_plugin"

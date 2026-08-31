@@ -13,15 +13,15 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from agent_evolve_mcp.models import MetaEvolveConfig, SuccessRecord, utc_now_iso
-from agent_evolve_mcp.storage import (
+from evotrias.mcp.models import MetaEvolveConfig, SuccessRecord, utc_now_iso
+from evotrias.mcp.storage import (
     append_jsonl,
     meta_guidance_state_path,
     meta_guidance_uses_path,
     read_json,
     write_json_atomic,
 )
-from agent_evolve_mcp.success_db import SuccessDB
+from evotrias.mcp.success_db import SuccessDB
 
 
 class MetaGuidanceManager:

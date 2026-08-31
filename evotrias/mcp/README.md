@@ -1,6 +1,6 @@
 # Agent Evolve MCP
 
-`agent_evolve_mcp` is the Evolution Controller MCP module for Agent Evolve. It exposes a small FastMCP interface for parent selection, inspiration selection, attempt recording, convergence/meta-guidance checking, and deterministic run finalization.
+`evotrias.mcp` is the Evolution Controller MCP module for Agent Evolve. It exposes a small FastMCP interface for parent selection, inspiration selection, attempt recording, convergence/meta-guidance checking, and deterministic run finalization.
 
 The implementation follows a minimal-context contract: agents pass only stable ids and refs, while the MCP keeps detailed state in local files.
 
@@ -113,5 +113,5 @@ runs/{run_id}/run_summary.json
 ## Checks
 
 ```powershell
-python -m compileall agent_evolve_mcp
+python -m compileall evotrias.mcp
 ```
