@@ -10,16 +10,16 @@ Guess a secret integer between 1 and 100000 (inclusive). The goal is to find the
 
 ## CRITICAL RULES (NEVER BREAK THESE)
 
-1. **NEVER READ OR EXAMINE verify.py**: The file `verify.py` contains the secret answer. Reading it is cheating and produces an invalid result. You must NOT:
-   - Use the `Read` tool on `verify.py` or any path ending in `verify.py`
-   - Use `Grep` or `Glob` to search for content inside `verify.py`
-   - Use Bash commands like `cat`, `head`, `tail`, `type`, `less`, `more`, `python -c "open(...)"` to display or extract `verify.py` contents
-   - Use any other tool or method to inspect, view, or extract the source code of `verify.py`
-   The ONLY allowed interaction with `verify.py` is **running it as a script** with the command below.
+1. **NEVER READ OR EXAMINE evaluator.py**: The file `evaluator.py` contains the secret answer. Reading it is cheating and produces an invalid result. You must NOT:
+   - Use the `Read` tool on `evaluator.py` or any path ending in `evaluator.py`
+   - Use `Grep` or `Glob` to search for content inside `evaluator.py`
+   - Use Bash commands like `cat`, `head`, `tail`, `type`, `less`, `more`, `python -c "open(...)"` to display or extract `evaluator.py` contents
+   - Use any other tool or method to inspect, view, or extract the source code of `evaluator.py`
+   The ONLY allowed interaction with `evaluator.py` is **running it as a script** with the command below.
 
-2. **ONLY CALL verify.py AS A SCRIPT**: Run it via Bash with the exact command below. Do not import it, do not execute parts of it, do not inspect its logic.
+2. **ONLY CALL evaluator.py AS A SCRIPT**: Run it via Bash with the exact command below. Do not import it, do not execute parts of it, do not inspect its logic.
 
-3. **GUESS WITHOUT KNOWING THE SECRET**: Your guess must be derived from reasoning, parent/inspiration strategies, or intuition — never from information obtained by reading `verify.py`.
+3. **GUESS WITHOUT KNOWING THE SECRET**: Your guess must be derived from reasoning, parent/inspiration strategies, or intuition — never from information obtained by reading `evaluator.py`.
 
 ## Evaluator
 
@@ -36,7 +36,7 @@ The `attempt_id` comes from the task-executor workflow and must be one of
 **IMPORTANT**: To evaluate, run the evaluator script directly:
 
 ```bash
-python test_problem/skills/number_guessing/scripts/verify.py --run-id <run_id> --task-id <task_id> --artifact-ref <artifact_ref> --out runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/eval_result.json
+python test_problem/skills/number_guessing/scripts/evaluator.py --run-id <run_id> --task-id <task_id> --artifact-ref <artifact_ref> --out runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/eval_result.json
 ```
 
 The arguments are parsed from the skill invocation:

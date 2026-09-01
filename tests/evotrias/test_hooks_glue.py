@@ -1,4 +1,4 @@
-"""Tests for evotrias.hooks glue (scheduler)."""
+"""Tests for evotrias.hooks glue (permission + scheduler)."""
 
 from __future__ import annotations
 
@@ -11,7 +11,7 @@ from evotrias import scheduler as sched
 from evotrias.enums import Agents
 from evotrias.hooks import broker
 from evotrias.hooks import hook_manager
-from evotrias.hooks.claude import scheduler_hooks as sched_glue
+from evotrias.hooks.claude import permission_hooks as perm_glue, scheduler_hooks as sched_glue
 
 
 @pytest.fixture
@@ -28,6 +28,7 @@ def tmp_env(monkeypatch, tmp_path):
     # @register side effects repopulate the broker against a clean slate.
     broker._handlers.clear()
     import importlib
+    importlib.reload(perm_glue)
     importlib.reload(sched_glue)
     return repo
 
@@ -57,6 +58,18 @@ def _start_executor(run_id, agent_id):
         },
     )
     return task_id
+
+
+def _make_task_executor_payload(agent_id, tool_name, tool_input, run_id, task_id):
+    """Build a PreToolUse payload as if from a task-executor subagent."""
+    return {
+        "session_id": "sess-1",
+        "agent_id": agent_id,
+        "agent_type": "agent_evolve_plugin:task-executor",
+        "hook_event_name": "PreToolUse",
+        "tool_name": tool_name,
+        "tool_input": tool_input,
+    }
 
 
 def test_executor_spawn_full_chain(tmp_env):
@@ -318,3 +331,47 @@ def test_subagent_stop_fails_task_with_last_message(tmp_env):
     reason = snap["failed"]["task_001"]["reason"]
     assert len(reason) <= 200
     assert "verifier timed out" in reason
+
+
+def test_pre_tool_use_bypasses_task_executor_read_in_workspace(tmp_env):
+    # Non-evaluator reads are not decided by the gate; the hook stays silent.
+    sched.remember_session_run("sess-1", "run-R")
+    sched.top_up_tasks("run-R", target=1, max_tasks=100)
+    _start_executor("run-R", "agent-20")
+    payload = _make_task_executor_payload(
+        "agent-20",
+        "Read",
+        {"file_path": "runs/run-R/tasks/task_001/solution.py"},
+        "run-R",
+        "task_001",
+    )
+    out = hook_manager.dispatch("claude", "pre_tool_use", payload)
+    assert out is None
+
+
+def test_pre_tool_use_denies_task_executor_read_evaluator(tmp_env):
+    sched.remember_session_run("sess-1", "run-R")
+    sched.top_up_tasks("run-R", target=1, max_tasks=100)
+    _start_executor("run-R", "agent-21")
+    payload = _make_task_executor_payload(
+        "agent-21",
+        "Read",
+        {"file_path": "benchmarks/skills/foo/scripts/evaluator.py"},
+        "run-R",
+        "task_001",
+    )
+    out = hook_manager.dispatch("claude", "pre_tool_use", payload)
+    assert out is not None
+    assert out["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+
+def test_pre_tool_use_bypass_for_main_agent_returns_none(tmp_env):
+    sched.remember_session_run("sess-main", "run-R")
+    payload = {
+        "session_id": "sess-main",
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Bash",
+        "tool_input": {"command": "ls"},
+    }
+    out = hook_manager.dispatch("claude", "pre_tool_use", payload)
+    assert out is None
