@@ -223,6 +223,3 @@ directories.
 .\.venv\Scripts\python.exe -m pytest -q
 .\.venv\Scripts\python.exe -m compileall evotrias agent_evolve_plugin benchmarks
 ```
-
-For integration with another agent host, see the
-[JiuwenClaw integration guide](docs/integration-jiuwenclaw.md).
