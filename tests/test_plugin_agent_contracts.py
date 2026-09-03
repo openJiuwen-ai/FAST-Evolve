@@ -187,6 +187,8 @@ def test_meta_guidance_agent_is_stateless_and_strictly_tool_scoped():
     assert _agent_tools(META_AGENT) == META_TOOLS
     assert "do not poll" in body.lower()
     assert "never modify project files" in body.lower()
+    assert "inspect verifier/evaluator source" not in body.lower()
+    assert "evaluator are read-only evidence" not in body.lower()
     assert body.index("get_meta_guidance_request") < body.index("commit_meta_guidance")
     assert "Never return the guidance JSON to the orchestrator." in body
     assert "make at most one additional commit attempt" in body
