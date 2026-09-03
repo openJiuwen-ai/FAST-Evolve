@@ -201,6 +201,3 @@ runs/<run_id>/
 .\.venv\Scripts\python.exe -m pytest -q
 .\.venv\Scripts\python.exe -m compileall evotrias agent_evolve_plugin benchmarks
 ```
-
-如需接入其他智能体宿主，请参考
-[JiuwenClaw 集成指南](integration-jiuwenclaw.md)。
