@@ -331,8 +331,8 @@ def test_meta_guidance_request_includes_current_best_artifact_excerpt(tmp_path, 
     assert request["current_best"]["artifact_excerpt_truncated"] is False
     assert any("critically" in item.lower() for item in request["generation_instructions"])
     assert any("current_best.metrics" in item for item in request["generation_instructions"])
-    assert any(
-        "verifier/evaluator source" in item and "may inspect" in item
+    assert all(
+        "verifier/evaluator source" not in item.lower()
         for item in request["generation_instructions"]
     )
     assert any(
@@ -343,8 +343,9 @@ def test_meta_guidance_request_includes_current_best_artifact_excerpt(tmp_path, 
         "no_effect" in item and "does not by itself prove" in item
         for item in request["generation_instructions"]
     )
-    assert any(
-        "may read verifier/evaluator source" in item.lower() for item in request["constraints"]
+    assert all(
+        "may read verifier/evaluator source" not in item.lower()
+        for item in request["constraints"]
     )
 
 

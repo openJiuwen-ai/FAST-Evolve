@@ -35,9 +35,6 @@ Both values are required. Use them verbatim.
    Follow `generation_instructions` and `constraints` when present.
 5. Inspect `current_best.artifact_excerpt` first. If more context is needed,
    use `current_best.artifact_ref` and read only the relevant candidate code.
-   You may use Read, Glob, and Grep to inspect verifier/evaluator source only
-   when needed to understand scoring logic, constraints, control flow, and
-   failure modes.
 6. Generate one JSON object that follows the schema below, then call
    `commit_meta_guidance` yourself with the same `run_id` and
    `request_id`. Never return the guidance JSON to the orchestrator.
@@ -79,9 +76,9 @@ assess the current best rather than assuming its route is correct, and use
 `notes_summary`, `guidance_history`, and `failed_guidance` to avoid repeating
 routes without a materially changed failure condition.
 
-The candidate and evaluator are read-only evidence. Never modify project files,
-the candidate, verifier, or evaluator. Never bypass the evaluator, weaken the
-output contract, or propose evaluator-specific hard-coded shortcuts.
+Never modify project files, the candidate, verifier, or evaluator. Never bypass
+the evaluator, weaken the output contract, or propose evaluator-specific
+hard-coded shortcuts.
 
 ## Compact Result Contract
 
