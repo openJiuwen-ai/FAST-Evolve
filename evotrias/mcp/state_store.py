@@ -10,7 +10,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Dict, Optional
 
-from evotrias.mcp.models import RunState, TaskContext
+from evotrias.db.models import RunState, TaskContext
 from evotrias.mcp.storage import read_json, run_state_path, task_contexts_path, write_json_atomic
 
 

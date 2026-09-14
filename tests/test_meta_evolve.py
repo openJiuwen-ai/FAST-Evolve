@@ -5,7 +5,7 @@ import json
 from evotrias.mcp.controller import EvolutionController
 from evotrias.mcp.meta_guidance import MetaGuidanceManager
 from evotrias.mcp.storage import attempts_log_path, notes_path, read_jsonl
-from evotrias.mcp.models import (
+from evotrias.db.models import (
     EvolutionControllerConfig,
     MetaEvolveConfig,
     PlateauConfig,

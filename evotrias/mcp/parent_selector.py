@@ -15,7 +15,7 @@ import random
 from typing import Dict, Optional
 
 from evotrias.mcp.lineage_tree import LineageTree
-from evotrias.mcp.models import ParentSelectionConfig, SuccessRecord
+from evotrias.db.models import ParentSelectionConfig, SuccessRecord
 from evotrias.mcp.success_db import SuccessDB
 
 

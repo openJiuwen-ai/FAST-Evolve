@@ -19,7 +19,7 @@ from evotrias.mcp.config import load_evolution_controller_config
 from evotrias.mcp.convergence_detector import FitnessPlateauDetector
 from evotrias.mcp.inspiration_selector import LineageBoltzmannInspirationSelector
 from evotrias.mcp.lineage_tree import LineageTree
-from evotrias.mcp.models import (
+from evotrias.db.models import (
     AttemptRecord,
     EvolutionControllerConfig,
     RunState,

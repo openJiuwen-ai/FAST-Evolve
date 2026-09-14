@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional
 
-from evotrias.mcp.models import AttemptRecord, SuccessRecord
+from evotrias.db.models import AttemptRecord, SuccessRecord
 from evotrias.mcp.storage import (
     append_jsonl,
     attempts_log_path,

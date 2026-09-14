@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from evotrias.mcp.models import RunBudgetConfig
+from evotrias.db.models import RunBudgetConfig
 
 
 class RunBudgetGuard:

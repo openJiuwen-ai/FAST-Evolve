@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from evotrias.mcp.lineage_tree import LineageTree
-from evotrias.mcp.models import RunState, SuccessRecord
+from evotrias.db.models import RunState, SuccessRecord
 from evotrias.mcp.storage import (
     attempts_log_path,
     meta_guidance_state_path,

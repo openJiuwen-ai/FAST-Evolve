@@ -1,4 +1,8 @@
-"""Shared data models for the Evolution Controller MCP.
+"""Data models: run configuration and persisted records.
+
+Transitional home for the dataclasses formerly in ``evotrias.mcp.models``.
+Each class moves into its own ``evotrias.db.<file>`` module as that store is
+migrated; this file is deleted once empty.
 
 The controller is intentionally task-agnostic.  It does not know whether a
 record came from kernel generation, code repair, research search, or another

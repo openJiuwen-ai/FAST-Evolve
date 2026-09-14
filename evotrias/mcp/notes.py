@@ -14,7 +14,7 @@ import os
 import random
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
-from evotrias.mcp.models import AttemptRecord, SuccessRecord, utc_now_iso
+from evotrias.db.models import AttemptRecord, SuccessRecord, utc_now_iso
 from evotrias.mcp.storage import (
     append_jsonl,
     note_requests_path,

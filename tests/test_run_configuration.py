@@ -12,7 +12,7 @@ import pytest
 
 from evotrias.mcp import public_tools as public_tools_module
 from evotrias.mcp.controller import EvolutionController
-from evotrias.mcp.models import SuccessRecord
+from evotrias.db.models import SuccessRecord
 from evotrias.mcp.state_store import RunStateStore
 from evotrias import scheduler as sched
 

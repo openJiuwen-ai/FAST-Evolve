@@ -12,7 +12,7 @@ import math
 from collections import deque
 from typing import Dict, List, Optional, Set
 
-from evotrias.mcp.models import LineageStats, SuccessRecord
+from evotrias.db.models import LineageStats, SuccessRecord
 from evotrias.mcp.success_db import SuccessDB
 
 
