@@ -20,10 +20,11 @@ def _read(path) -> str:
 @pytest.fixture
 def tmp_log(monkeypatch, tmp_path):
     repo_root = tmp_path / "repo"
+    repo_root.mkdir()
+    monkeypatch.chdir(repo_root)
     log_dir = repo_root / ".evotrias" / "logs"
     monkeypatch.setattr(logger_mod, "_LOG_DIR", str(log_dir))
     monkeypatch.setattr(logger_mod, "_LOG_PATH", str(log_dir / "latest.log"))
-    monkeypatch.setattr(logger_mod, "_LOCK_PATH", str(repo_root / ".evotrias" / "logs.lock"))
     # Must stay well above one formatted line so a single emit never immediately
     # rotates latest.log away, yet small enough that a handful of lines still
     # triggers rotation.

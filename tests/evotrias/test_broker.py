@@ -5,6 +5,7 @@ from __future__ import annotations
 import threading
 import time
 
+from evotrias.db import paths
 from evotrias.hooks import broker
 from evotrias.hooks import hook_manager
 from evotrias.utils.filelock import blocking_filelock, filelock
@@ -81,7 +82,7 @@ def test_extra_data_passed():
 def test_dispatch_serializes_under_global_lock(tmp_path, monkeypatch):
     # msvcrt/flock locks conflict across descriptors even in one process, so
     # two threads dispatching concurrently must not overlap their handlers.
-    monkeypatch.setattr(broker, "_DISPATCH_LOCK_PATH", str(tmp_path / "hook_queue.lock"))
+    monkeypatch.chdir(tmp_path)
     intervals = []
 
     @hook_manager.register("claude", "pre_tool_use", priority=1)
@@ -106,8 +107,8 @@ def test_dispatch_serializes_under_global_lock(tmp_path, monkeypatch):
 
 
 def test_dispatch_timeout_returns_none_without_running(tmp_path, monkeypatch):
-    lock_path = str(tmp_path / "hook_queue.lock")
-    monkeypatch.setattr(broker, "_DISPATCH_LOCK_PATH", lock_path)
+    monkeypatch.chdir(tmp_path)
+    lock_path = paths.HOOK_QUEUE_LOCK
     monkeypatch.setattr(
         broker, "blocking_filelock", lambda path: blocking_filelock(path, timeout=0.2))
     calls = []
