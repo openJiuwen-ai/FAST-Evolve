@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 from urllib.parse import parse_qs, urlparse
 
+from evotrias.db import paths
 from evotrias.mcp.storage import controller_root
 
 DEFAULT_DASHBOARD_HOST = "127.0.0.1"
@@ -142,7 +143,7 @@ def build_snapshot(run_id: str, workspace_root: Path) -> Dict[str, Any]:
     public_run_dir = workspace_root / "runs" / safe_run_id
     state_root = _controller_run_dir(workspace_root, safe_run_id)
 
-    run_state = _read_json(state_root / "run_state.json", {})
+    run_state = _read_json(workspace_root / paths.run_dir(run_id) / paths.RUN_STATE, {})
     manifest = _read_json(public_run_dir / "dashboard.json", {})
     completed = _read_jsonl(public_run_dir / "completed_tasks.jsonl")
     # Task scheduling state (running/completed/failed and task→agent mapping)
@@ -204,7 +205,7 @@ def build_snapshot(run_id: str, workspace_root: Path) -> Dict[str, Any]:
     max_total_tasks = _coerce_int(manifest.get("max_total_tasks"))
     if max_total_tasks is None:
         max_total_tasks = _coerce_int(diagnostics.get("max_total_tasks"))
-    started_at = run_state.get("started_at") or manifest.get("started_at")
+    started_at = run_state.get("created_at") or manifest.get("started_at")
     updated_at = run_state.get("updated_at") or _latest_timestamp(
         [row.get("created_at") for row in attempts]
     )
@@ -276,7 +277,7 @@ def list_runs(current_run_id: str, workspace_root: Path) -> Dict[str, Any]:
             workspace_root / ".evotrias" / "state" / "runs" / run_id / "task_pool.json",
             {},
         )
-        run_state = _read_json(state_root / "run_state.json", {})
+        run_state = _read_json(workspace_root / paths.run_dir(run_id) / paths.RUN_STATE, {})
         completed = _read_jsonl(run_dir / "completed_tasks.jsonl")
         attempts = _read_jsonl(state_root / "attempts.jsonl")
         successful_fitness = [
@@ -294,7 +295,7 @@ def list_runs(current_run_id: str, workspace_root: Path) -> Dict[str, Any]:
         updated_at = _latest_timestamp(
             [
                 run_state.get("updated_at"),
-                run_state.get("started_at"),
+                run_state.get("created_at"),
                 manifest.get("started_at"),
                 modified_at,
             ]
@@ -316,7 +317,7 @@ def list_runs(current_run_id: str, workspace_root: Path) -> Dict[str, Any]:
                 "completed_tasks": len(completed),
                 "attempts": len(attempts),
                 "best_fitness": max(successful_fitness) if successful_fitness else None,
-                "started_at": run_state.get("started_at") or manifest.get("started_at"),
+                "started_at": run_state.get("created_at") or manifest.get("started_at"),
                 "updated_at": updated_at,
                 "task_description": run_state.get("task_description")
                 or manifest.get("task_description")

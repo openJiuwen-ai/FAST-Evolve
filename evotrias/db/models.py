@@ -14,18 +14,9 @@ or ``metrics`` and are preserved for the host agent to interpret.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from enum import Enum
 from typing import Any, Dict, List, Optional
 
 from evotrias.utils.time import utc_now_iso
-
-
-class SearchState(Enum):
-    """Internal search state maintained by the controller."""
-
-    EXPLORING = "exploring"
-    WATCHING = "watching"
-    STOPPED = "stopped"
 
 
 @dataclass
@@ -204,43 +195,5 @@ class TaskContext:
             entered_success_db=data.get("entered_success_db"),
             success_record_id=data.get("success_record_id"),
             created_at=str(data.get("created_at") or utc_now_iso()),
-            updated_at=str(data.get("updated_at") or utc_now_iso()),
-        )
-
-
-@dataclass
-class RunState:
-    """Controller-owned run metadata that should not enter agent context."""
-
-    run_id: str
-    started_at: str = field(default_factory=utc_now_iso)
-    task_description: str = ""
-    search_state: str = SearchState.EXPLORING.value
-    stop_reason: str = ""
-    diagnostics: Dict[str, Any] = field(default_factory=dict)
-    last_checked_attempt_count: int = 0
-    run_config: Dict[str, Any] = field(default_factory=dict)
-    updated_at: str = field(default_factory=utc_now_iso)
-
-    def touch(self) -> None:
-        """Refresh the update timestamp before persistence."""
-        self.updated_at = utc_now_iso()
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Serialize the run state to JSON-compatible data."""
-        return asdict(self)
-
-    @classmethod
-    def from_dict(cls, run_id: str, data: Dict[str, Any]) -> "RunState":
-        """Build run state from persisted JSON-compatible data."""
-        return cls(
-            run_id=str(data.get("run_id") or run_id),
-            started_at=str(data.get("started_at") or utc_now_iso()),
-            task_description=str(data.get("task_description") or ""),
-            search_state=str(data.get("search_state") or SearchState.EXPLORING.value),
-            stop_reason=str(data.get("stop_reason") or ""),
-            diagnostics=dict(data.get("diagnostics") or {}),
-            last_checked_attempt_count=int(data.get("last_checked_attempt_count", 0)),
-            run_config=dict(data.get("run_config") or {}),
             updated_at=str(data.get("updated_at") or utc_now_iso()),
         )

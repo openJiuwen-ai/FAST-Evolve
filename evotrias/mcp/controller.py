@@ -17,7 +17,9 @@ from evotrias import scheduler
 
 from evotrias.db.config import Config
 from evotrias.logger import logger
-from evotrias.db.models import AttemptRecord, RunState, SearchState, SuccessRecord
+from evotrias.db.models import AttemptRecord, SuccessRecord
+from evotrias.db.run_state import RunState
+from evotrias.enums import SearchState
 from evotrias.mcp.budget_guard import RunBudgetGuard
 from evotrias.mcp.convergence_detector import FitnessPlateauDetector
 from evotrias.mcp.inspiration_selector import LineageBoltzmannInspirationSelector
@@ -25,7 +27,7 @@ from evotrias.mcp.lineage_tree import LineageTree
 from evotrias.mcp.meta_guidance import MetaGuidanceManager
 from evotrias.mcp.notes import NotesManager
 from evotrias.mcp.parent_selector import LineageAwareParentSelector
-from evotrias.mcp.state_store import RunStateStore, TaskContextStore
+from evotrias.mcp.state_store import TaskContextStore
 from evotrias.mcp.success_db import AttemptLog, SuccessDB
 from evotrias.mcp.run_report import write_run_report
 
@@ -92,7 +94,6 @@ class EvolutionController:
         a run that was never configured gets defaults.
         """
         self.run_id = run_id
-        self.run_state_store = RunStateStore(run_id)
         self.config = Config(run_id)
         if not self.config.created_at:
             logger.warning(f"run {run_id}: no config.json yet, controller is using defaults")
@@ -115,17 +116,10 @@ class EvolutionController:
         self.plateau_detector = FitnessPlateauDetector(self.config.plateau)
 
     def configure_run(self, task_description: str = "") -> None:
-        """Persist optional run metadata supplied during initial configuration."""
-        run_state = self.run_state_store.load()
-        if task_description and not run_state.task_description:
-            run_state.task_description = task_description
-        if not run_state.run_config:
-            run_state.run_config = {
-                "max_total_tasks": self.config.budget.max_total_tasks,
-                "lineage_root_number": self.config.scheduler.lineage_root_number,
-                "max_concurrent_tasks": self.config.scheduler.max_concurrent_tasks,
-            }
-        self.run_state_store.save(run_state)
+        """Create run_state.json (its created_at is the run's start) and record the task description."""
+        with RunState(self.run_id) as run_state:
+            if task_description and not run_state.task_description:
+                run_state.task_description = task_description
 
     def select_parent(self, task_id: str) -> Dict[str, Any]:
         """Return the minimal parent ref for one generator task.
@@ -466,11 +460,11 @@ class EvolutionController:
                 f"concurrency must be a positive integer, got {concurrency!r}"
             )
         self._load_state()
-        run_state = self.run_state_store.load()
+        run_state = RunState(self.run_id)
         total_tasks = self._task_count()
         total_attempts = self.attempt_log.count()
         total_success = len(self.db.get_all())
-        elapsed_seconds = self.run_state_store.elapsed_seconds()
+        elapsed_seconds = run_state.elapsed_seconds()
         reason = self.budget_guard.exhaustion_reason(
             total_tasks=total_tasks,
             elapsed_seconds=elapsed_seconds,
@@ -539,18 +533,11 @@ class EvolutionController:
 
         meta_stats = self.meta_guidance.stats()
         diagnostics["meta_guidance"] = meta_stats
-        self.run_state_store.save(
-            RunState(
-                run_id=self.run_id,
-                started_at=run_state.started_at,
-                task_description=run_state.task_description,
-                search_state=self.plateau_detector.state.value,
-                stop_reason=reason,
-                diagnostics=diagnostics,
-                last_checked_attempt_count=total_attempts,
-                run_config=run_state.run_config,
-            )
-        )
+        with RunState(self.run_id) as saved:
+            saved.search_state = self.plateau_detector.state.value
+            saved.stop_reason = reason
+            saved.diagnostics = diagnostics
+            saved.last_checked_attempt_count = total_attempts
         response: Dict[str, Any] = {
             "action": action,
             "tasks_to_create": tasks_to_create,
@@ -588,32 +575,23 @@ class EvolutionController:
         SuccessDB or attempt history.
         """
         self._load_state()
-        run_state = self.run_state_store.load()
-        final_reason = stop_reason or run_state.stop_reason or "manual_finalize"
-        finalized_state = RunState(
-            run_id=self.run_id,
-            started_at=run_state.started_at,
-            task_description=run_state.task_description,
-            search_state=SearchState.STOPPED.value,
-            stop_reason=final_reason,
-            diagnostics=run_state.diagnostics,
-            last_checked_attempt_count=self.attempt_log.count(),
-            run_config=run_state.run_config,
-        )
-        self.run_state_store.save(finalized_state)
+        with RunState(self.run_id) as run_state:
+            run_state.search_state = SearchState.STOPPED.value
+            run_state.stop_reason = stop_reason or run_state.stop_reason or "manual_finalize"
+            run_state.last_checked_attempt_count = self.attempt_log.count()
         self._load_state()
         return write_run_report(
             run_id=self.run_id,
             db=self.db,
             lineage_tree=self.lineage_tree,
-            run_state=self.run_state_store.load(),
+            run_state=RunState(self.run_id),
         )
 
     def _load_state(self) -> None:
         """Reload all disk-backed state needed for a decision."""
         self.db.load()
         self.task_contexts.load()
-        run_state = self.run_state_store.load()
+        run_state = RunState(self.run_id)
         self.plateau_detector.restore_state(
             run_state.search_state,
             stop_reason=run_state.stop_reason,

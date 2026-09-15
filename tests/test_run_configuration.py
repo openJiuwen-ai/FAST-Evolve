@@ -13,7 +13,7 @@ import pytest
 from evotrias.mcp import public_tools as public_tools_module
 from evotrias.mcp.controller import EvolutionController
 from evotrias.db.models import SuccessRecord
-from evotrias.mcp.state_store import RunStateStore
+from evotrias.db.config import Config
 from evotrias import scheduler as sched
 
 RUN_ID = "run_shape_test"
@@ -61,11 +61,12 @@ def test_configure_run_records_and_returns_run_shape(run_env):
     assert result["max_total_tasks"] == 30
     assert result["lineage_root_number"] == 6
     assert result["max_concurrent_tasks"] == 2
-    assert RunStateStore(RUN_ID).load().run_config == {
-        "max_total_tasks": 30,
-        "lineage_root_number": 6,
-        "max_concurrent_tasks": 2,
-    }
+    config = Config(RUN_ID)
+    assert (
+        config.budget.max_total_tasks,
+        config.scheduler.lineage_root_number,
+        config.scheduler.max_concurrent_tasks,
+    ) == (30, 6, 2)
 
 
 def test_configure_run_is_locked_in_process(run_env):
@@ -130,12 +131,14 @@ def test_root_phase_caps_minting_and_barrier_gates_evolution(run_env):
     assert check() == 2  # every root finished: evolution fill to concurrency
     _finish_one_task(RUN_ID, "agent_3")
     assert check() == 1  # steady state: top up to 2 after each completion
-    # check_convergence rewrites run state; the recorded shape must survive it.
-    assert RunStateStore(RUN_ID).load().run_config == {
-        "max_total_tasks": 30,
-        "lineage_root_number": 3,
-        "max_concurrent_tasks": 2,
-    }
+    # check_convergence rewrites run state; the recorded shape lives in
+    # config.json and must be untouched by it.
+    config = Config(RUN_ID)
+    assert (
+        config.budget.max_total_tasks,
+        config.scheduler.lineage_root_number,
+        config.scheduler.max_concurrent_tasks,
+    ) == (30, 3, 2)
 
 
 def test_small_root_budget_finishes_before_wider_concurrency(run_env):

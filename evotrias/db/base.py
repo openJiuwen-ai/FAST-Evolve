@@ -127,18 +127,23 @@ class DBObject:
     its dict on load; other nested shapes (e.g. ``dict[str, SomeDataclass]``)
     need the subclass to override ``_load``/``_dump``.
 
-    ``created_at`` is managed here, not declared by subclasses: empty until the
-    file is first written, stamped then, never changed afterwards.
+    ``created_at`` and ``updated_at`` are managed here, not declared by
+    subclasses: both empty until the file is first written; ``created_at`` is
+    stamped once, ``updated_at`` on every write.  They are deliberately plain
+    attributes rather than dataclass fields so ``==``, ``repr`` and ``asdict``
+    see only the payload -- which is why ``__exit__`` adds them to the dumped
+    dict by hand.
     """
 
     _path: Path
     created_at: str
+    updated_at: str
 
     def __init_subclass__(cls, **kwargs) -> None:
         super().__init_subclass__(**kwargs)
         for name in inspect.get_annotations(cls):
-            if name == "created_at":
-                raise TypeError(f"{cls.__name__}.created_at is managed by DBObject; do not declare it")
+            if name in ("created_at", "updated_at"):
+                raise TypeError(f"{cls.__name__}.{name} is managed by DBObject; do not declare it")
             value = cls.__dict__.get(name, dataclasses.MISSING)
             if isinstance(value, dataclasses.Field):
                 if value.default is dataclasses.MISSING and value.default_factory is dataclasses.MISSING:
@@ -151,6 +156,7 @@ class DBObject:
         self._path = Path(path)
         data = read_json(self._path, {})
         self.created_at = str(data.get("created_at") or "")
+        self.updated_at = str(data.get("updated_at") or "")
         self._load(data)
 
     def _load(self, data: Dict[str, Any]) -> None:
@@ -175,8 +181,10 @@ class DBObject:
 
     def __exit__(self, exc_type, exc, tb) -> None:
         if exc_type is None:
+            self.updated_at = utc_now_iso()
             if not self.created_at:
-                self.created_at = utc_now_iso()
+                self.created_at = self.updated_at
             payload = self._dump()
             payload["created_at"] = self.created_at
+            payload["updated_at"] = self.updated_at
             write_json_atomic(self._path, payload)

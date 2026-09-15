@@ -16,7 +16,8 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from evotrias.mcp.lineage_tree import LineageTree
-from evotrias.db.models import RunState, SuccessRecord
+from evotrias.db.models import SuccessRecord
+from evotrias.db.run_state import RunState
 from evotrias.mcp.storage import (
     attempts_log_path,
     meta_guidance_state_path,
@@ -95,7 +96,7 @@ def _build_summary(
         "stop_reason": run_state.stop_reason or "manual_finalize",
         "diagnostics": dict(run_state.diagnostics or {}),
         "overview": {
-            "started_at": run_state.started_at,
+            "started_at": run_state.created_at,
             "updated_at": run_state.updated_at,
             "total_attempts": attempt_count,
             "successful_records": success_count,

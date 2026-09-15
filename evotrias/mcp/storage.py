@@ -47,11 +47,6 @@ def task_contexts_path(run_id: str) -> Path:
     return run_dir(run_id) / "task_contexts.json"
 
 
-def run_state_path(run_id: str) -> Path:
-    """Return the JSON file that stores internal controller runtime state."""
-    return run_dir(run_id) / "run_state.json"
-
-
 def notes_path(run_id: str) -> Path:
     """Return the run-local Notes JSON file."""
     return run_dir(run_id) / "notes.json"

@@ -159,11 +159,10 @@ def test_dbobject_field_without_default_fails_at_definition():
             name: str
 
 
-def test_dbobject_declaring_created_at_fails_at_definition():
-    with pytest.raises(TypeError, match="created_at is managed"):
-
-        class _Bad(base.DBObject):
-            created_at: str = ""
+@pytest.mark.parametrize("name", ["created_at", "updated_at"])
+def test_dbobject_declaring_managed_timestamp_fails_at_definition(name):
+    with pytest.raises(TypeError, match=f"{name} is managed"):
+        type("_Bad", (base.DBObject,), {"__annotations__": {name: str}, name: ""})
 
 
 def test_dbobject_field_with_bare_field_call_fails_at_definition():
@@ -215,6 +214,7 @@ def test_dbobject_with_block_writes_on_exit(tmp_path, log):
         state.count = 7
     on_disk = json.loads(path.read_text(encoding="utf-8"))
     assert on_disk.pop("created_at")
+    assert on_disk.pop("updated_at")
     assert on_disk == {"name": "y", "count": 7, "tags": [], "meta": {}}
 
 
@@ -264,6 +264,7 @@ def test_dbobject_nested_dataclass_round_trips(tmp_path, log):
         outer.label = "L"
     on_disk = json.loads(path.read_text(encoding="utf-8"))
     on_disk.pop("created_at")
+    on_disk.pop("updated_at")
     assert on_disk == {"inner": {"x": 5, "y": "five"}, "label": "L"}
     reloaded = _Outer(path)
     assert isinstance(reloaded.inner, _Inner)
@@ -277,17 +278,23 @@ def test_dbobject_nested_dataclass_ignores_unknown_keys(tmp_path, log):
     assert reloaded.inner == _Inner(x=1, y="")
 
 
-def test_dbobject_created_at_is_stamped_once_on_first_write(tmp_path, log):
+def test_dbobject_timestamps_created_once_updated_every_write(tmp_path, log, monkeypatch):
+    clock = iter(["2026-01-01T00:00:00+00:00", "2026-01-01T00:00:01+00:00"])
+    monkeypatch.setattr(base, "utc_now_iso", lambda: next(clock))
     path = tmp_path / "state.json"
-    assert _State(path).created_at == ""
+    fresh = _State(path)
+    assert (fresh.created_at, fresh.updated_at) == ("", "")
     with _State(path) as state:
         state.name = "first"
-    first = _State(path).created_at
-    assert first
+    after_first = _State(path)
+    assert after_first.created_at == after_first.updated_at == "2026-01-01T00:00:00+00:00"
     with _State(path) as state:
         state.name = "second"
-    assert _State(path).created_at == first
-    assert json.loads(path.read_text(encoding="utf-8"))["created_at"] == first
+    after_second = _State(path)
+    assert after_second.created_at == "2026-01-01T00:00:00+00:00"
+    assert after_second.updated_at == "2026-01-01T00:00:01+00:00"
+    on_disk = json.loads(path.read_text(encoding="utf-8"))
+    assert (on_disk["created_at"], on_disk["updated_at"]) == (after_second.created_at, after_second.updated_at)
 
 
 def test_dbobject_created_at_not_stamped_without_write(tmp_path, log):

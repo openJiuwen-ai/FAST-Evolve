@@ -89,11 +89,10 @@ def _seed_run(tmp_path: Path, monkeypatch):
         )
     _write_jsonl(state / "attempts.jsonl", attempts)
     _write_json(
-        state / "run_state.json",
+        tmp_path / ".evotrias" / "db" / "runs" / RUN_ID / "run_state.json",
         {
-            "run_id": RUN_ID,
             "search_state": "watching",
-            "started_at": "2026-07-15T01:00:00+00:00",
+            "created_at": "2026-07-15T01:00:00+00:00",
             "updated_at": "2026-07-15T01:03:00+00:00",
             "task_description": "Improve the benchmark candidate.",
             "diagnostics": {
@@ -184,11 +183,10 @@ def _seed_history_run(tmp_path: Path):
         ],
     )
     _write_json(
-        state / "run_state.json",
+        tmp_path / ".evotrias" / "db" / "runs" / run_id / "run_state.json",
         {
-            "run_id": run_id,
             "search_state": "stopped",
-            "started_at": "2026-07-14T01:01:01+00:00",
+            "created_at": "2026-07-14T01:01:01+00:00",
             "updated_at": "2026-07-14T01:03:00+00:00",
         },
     )

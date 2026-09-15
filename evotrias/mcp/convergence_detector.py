@@ -11,7 +11,8 @@ from typing import List, Optional
 
 from evotrias.mcp.lineage_tree import LineageTree
 from evotrias.db.config import PlateauConfig
-from evotrias.db.models import SearchState, SuccessRecord
+from evotrias.db.models import SuccessRecord
+from evotrias.enums import SearchState
 from evotrias.mcp.success_db import SuccessDB
 
 
