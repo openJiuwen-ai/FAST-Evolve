@@ -21,6 +21,7 @@ RUN_ID = "run_shape_test"
 
 @pytest.fixture
 def run_env(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
     monkeypatch.setenv(
         "AGENT_EVOLVE_CONTROLLER_DIR", str(tmp_path / ".agent_evolve" / "controller")
     )

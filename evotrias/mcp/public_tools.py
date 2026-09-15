@@ -12,12 +12,11 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
-from evotrias.mcp.config import load_evolution_controller_config
+from evotrias.db.config import Config
+from evotrias.mcp import controller as controller_module
 from evotrias.mcp.controller import EvolutionController
 from evotrias.mcp.dashboard import start_dashboard
 from evotrias.mcp.mcp_server import mcp
-from evotrias.mcp.notes import notes_enabled
-from evotrias.mcp.state_store import RunStateStore
 
 _controllers: Dict[str, EvolutionController] = {}
 
@@ -53,39 +52,23 @@ def evolve_configure_run(
     direction) and all must finish before evolution tasks start.
     ``max_concurrent_tasks`` is the in-flight task target in every phase.
     """
-    controller = _controllers.get(run_id)
-    if controller is None and RunStateStore(run_id).load().run_config:
-        # A previous process already configured this run: recover the recorded
-        # values instead of re-configuring with the caller's new ones.
-        controller = EvolutionController(run_id)
-        _controllers[run_id] = controller
-    if controller is not None:
-        config = controller.config
-        return {
-            "configured": False,
-            "reason": "Run already configured for this run_id; configuration locked.",
-            "max_total_tasks": config.budget.max_total_tasks,
-            "lineage_root_number": config.scheduler.lineage_root_number,
-            "max_concurrent_tasks": config.scheduler.max_concurrent_tasks,
-            "meta_evolve": _meta_evolve_config_ref(config),
-            "dashboard": _dashboard_ref(
-                run_id,
-                max_total_tasks=config.budget.max_total_tasks,
-                task_description=task_description,
-                meta_guidance_enabled=config.meta_evolve.enabled,
-                notes_feature_enabled=notes_enabled(),
-            ),
-        }
-    config = load_evolution_controller_config(
-        max_total_tasks=max_total_tasks,
-        lineage_root_number=lineage_root_number,
-        max_concurrent_tasks=max_concurrent_tasks,
-    )
-    controller = EvolutionController(run_id, config=config)
-    controller.configure_run(task_description=task_description)
-    _controllers[run_id] = controller
-    return {
-        "configured": True,
+    first_time = not Config(run_id).created_at
+    if first_time:
+        controller_module.configure_run(
+            run_id,
+            max_total_tasks=max_total_tasks,
+            lineage_root_number=lineage_root_number,
+            max_concurrent_tasks=max_concurrent_tasks,
+        )
+        # Replace any controller cached before config.json existed (a tool
+        # called ahead of configure_run) so it picks up the written config.
+        controller = _controllers[run_id] = EvolutionController(run_id)
+        controller.configure_run(task_description=task_description)
+    else:
+        controller = _controller(run_id)
+    config = controller.config
+    response = {
+        "configured": first_time,
         "max_total_tasks": config.budget.max_total_tasks,
         "lineage_root_number": config.scheduler.lineage_root_number,
         "max_concurrent_tasks": config.scheduler.max_concurrent_tasks,
@@ -95,9 +78,12 @@ def evolve_configure_run(
             max_total_tasks=config.budget.max_total_tasks,
             task_description=task_description,
             meta_guidance_enabled=config.meta_evolve.enabled,
-            notes_feature_enabled=notes_enabled(),
+            notes_feature_enabled=config.notes.enabled,
         ),
     }
+    if not first_time:
+        response["reason"] = "Run already configured for this run_id; configuration locked."
+    return response
 
 
 @mcp.tool(name="select_parent", run_in_thread=False)

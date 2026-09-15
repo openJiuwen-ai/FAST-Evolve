@@ -13,7 +13,8 @@ import random
 from typing import List, Optional, Set
 
 from evotrias.mcp.lineage_tree import LineageTree
-from evotrias.db.models import InspirationSelectionConfig, SuccessRecord
+from evotrias.db.config import InspirationSelectionConfig
+from evotrias.db.models import SuccessRecord
 from evotrias.mcp.success_db import SuccessDB
 
 

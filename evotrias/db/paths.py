@@ -28,6 +28,7 @@ HOOK_QUEUE_LOCK = LOCKS_ROOT / "hook_queue.lock"
 LOGS_LOCK = LOCKS_ROOT / "logs.lock"
 
 # Per-run files: join with run_dir() / public_run_dir().
+CONFIG = "config.json"
 RUN_STATE = "run_state.json"
 TASK_CONTEXTS = "task_contexts.json"
 SUCCESS_DB = "success_db.json"

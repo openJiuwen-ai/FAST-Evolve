@@ -13,7 +13,9 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from evotrias.db.models import MetaEvolveConfig, SuccessRecord, utc_now_iso
+from evotrias.db.config import MetaEvolveConfig
+from evotrias.db.models import SuccessRecord
+from evotrias.utils.time import utc_now_iso
 from evotrias.mcp.storage import (
     append_jsonl,
     meta_guidance_state_path,

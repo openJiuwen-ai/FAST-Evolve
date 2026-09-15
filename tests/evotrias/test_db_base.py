@@ -144,10 +144,12 @@ class _State(base.DBObject):
     meta: dict = field(default_factory=dict)
 
 
-def test_dbobject_subclass_becomes_dataclass_with_base_init():
+def test_dbobject_subclass_becomes_dataclass_without_generated_init():
     assert dataclasses.is_dataclass(_State)
     assert [f.name for f in dataclasses.fields(_State)] == ["name", "count", "tags", "meta"]
-    assert _State.__init__ is base.DBObject.__init__
+    # Concrete stores define __init__(self, run_id); what must never happen is
+    # a dataclass-generated __init__ taking field kwargs.
+    assert _State.__dataclass_params__.init is False
 
 
 def test_dbobject_field_without_default_fails_at_definition():
@@ -155,6 +157,13 @@ def test_dbobject_field_without_default_fails_at_definition():
 
         class _Bad(base.DBObject):
             name: str
+
+
+def test_dbobject_declaring_created_at_fails_at_definition():
+    with pytest.raises(TypeError, match="created_at is managed"):
+
+        class _Bad(base.DBObject):
+            created_at: str = ""
 
 
 def test_dbobject_field_with_bare_field_call_fails_at_definition():
@@ -179,7 +188,7 @@ def test_every_db_object_subclass_in_package_is_well_formed():
         if not cls.__module__.startswith("evotrias.db."):
             continue
         assert dataclasses.is_dataclass(cls), cls
-        assert cls.__init__ is base.DBObject.__init__, cls
+        assert cls.__dataclass_params__.init is False, cls
         for f in dataclasses.fields(cls):
             has_default = f.default is not dataclasses.MISSING or f.default_factory is not dataclasses.MISSING
             assert has_default, (cls, f.name)
@@ -204,12 +213,9 @@ def test_dbobject_with_block_writes_on_exit(tmp_path, log):
     with _State(path) as state:
         state.name = "y"
         state.count = 7
-    assert json.loads(path.read_text(encoding="utf-8")) == {
-        "name": "y",
-        "count": 7,
-        "tags": [],
-        "meta": {},
-    }
+    on_disk = json.loads(path.read_text(encoding="utf-8"))
+    assert on_disk.pop("created_at")
+    assert on_disk == {"name": "y", "count": 7, "tags": [], "meta": {}}
 
 
 def test_dbobject_without_with_never_writes(tmp_path, log):
@@ -237,3 +243,56 @@ def test_dbobject_nested_mutation_is_persisted(tmp_path, log):
     reloaded = _State(path)
     assert reloaded.tags == ["a"]
     assert reloaded.meta == {"k": {"deep": 1}}
+
+
+@dataclass
+class _Inner:
+    x: int = 0
+    y: str = ""
+
+
+class _Outer(base.DBObject):
+    inner: _Inner = field(default_factory=_Inner)
+    label: str = ""
+
+
+def test_dbobject_nested_dataclass_round_trips(tmp_path, log):
+    path = tmp_path / "state.json"
+    with _Outer(path) as outer:
+        outer.inner.x = 5
+        outer.inner.y = "five"
+        outer.label = "L"
+    on_disk = json.loads(path.read_text(encoding="utf-8"))
+    on_disk.pop("created_at")
+    assert on_disk == {"inner": {"x": 5, "y": "five"}, "label": "L"}
+    reloaded = _Outer(path)
+    assert isinstance(reloaded.inner, _Inner)
+    assert reloaded.inner == _Inner(x=5, y="five")
+
+
+def test_dbobject_nested_dataclass_ignores_unknown_keys(tmp_path, log):
+    path = tmp_path / "state.json"
+    path.write_text(json.dumps({"inner": {"x": 1, "stale": True}}), encoding="utf-8")
+    reloaded = _Outer(path)
+    assert reloaded.inner == _Inner(x=1, y="")
+
+
+def test_dbobject_created_at_is_stamped_once_on_first_write(tmp_path, log):
+    path = tmp_path / "state.json"
+    assert _State(path).created_at == ""
+    with _State(path) as state:
+        state.name = "first"
+    first = _State(path).created_at
+    assert first
+    with _State(path) as state:
+        state.name = "second"
+    assert _State(path).created_at == first
+    assert json.loads(path.read_text(encoding="utf-8"))["created_at"] == first
+
+
+def test_dbobject_created_at_not_stamped_without_write(tmp_path, log):
+    path = tmp_path / "state.json"
+    state = _State(path)
+    state.name = "x"
+    assert state.created_at == ""
+    assert not path.exists()

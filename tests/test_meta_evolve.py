@@ -5,14 +5,8 @@ import json
 from evotrias.mcp.controller import EvolutionController
 from evotrias.mcp.meta_guidance import MetaGuidanceManager
 from evotrias.mcp.storage import attempts_log_path, notes_path, read_jsonl
-from evotrias.db.models import (
-    EvolutionControllerConfig,
-    MetaEvolveConfig,
-    PlateauConfig,
-    RunBudgetConfig,
-    SchedulerConfig,
-    SuccessRecord,
-)
+from evotrias.db.config import Config, MetaEvolveConfig
+from evotrias.db.models import SuccessRecord
 
 
 def _controller(
@@ -24,25 +18,21 @@ def _controller(
     patience=1,
     meta_enabled=True,
 ):
+    monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("AGENT_EVOLVE_CONTROLLER_DIR", str(tmp_path / "controller"))
-    config = EvolutionControllerConfig(
-        budget=RunBudgetConfig(max_total_tasks=max_total_tasks),
-        plateau=PlateauConfig(
-            window=1,
-            improvement_threshold=perf_improvement_threshold,
-            patience=patience,
-        ),
-        meta_evolve=MetaEvolveConfig(
-            enabled=meta_enabled,
-            guidance_num_to_generate=3,
-            guidance_max_uses=2,
-        ),
+    with Config("run_meta_test") as config:
+        config.budget.max_total_tasks = max_total_tasks
+        config.plateau.window = 1
+        config.plateau.improvement_threshold = perf_improvement_threshold
+        config.plateau.patience = patience
+        config.meta_evolve.enabled = meta_enabled
+        config.meta_evolve.guidance_num_to_generate = 3
+        config.meta_evolve.guidance_max_uses = 2
         # These tests model an established run in its evolution phase; a zero
         # root number means the root phase is already over, so select_parent
         # is never root-gated.
-        scheduler=SchedulerConfig(lineage_root_number=0),
-    )
-    controller = EvolutionController("run_meta_test", config=config)
+        config.scheduler.lineage_root_number = 0
+    controller = EvolutionController("run_meta_test")
     controller.configure_run("optimize the test task")
     return controller
 

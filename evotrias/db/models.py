@@ -14,14 +14,10 @@ or ``metrics`` and are preserved for the host agent to interpret.
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
-
-def utc_now_iso() -> str:
-    """Return an ISO timestamp with timezone information for persisted records."""
-    return datetime.now(timezone.utc).isoformat()
+from evotrias.utils.time import utc_now_iso
 
 
 class SearchState(Enum):
@@ -30,90 +26,6 @@ class SearchState(Enum):
     EXPLORING = "exploring"
     WATCHING = "watching"
     STOPPED = "stopped"
-
-
-@dataclass
-class ParentSelectionConfig:
-    """Configuration for the lineage-aware parent selector.
-
-    The selector first chooses a lineage using a soft-island policy, then picks
-    a concrete record inside that lineage using local UCB.  The ``*_start`` and
-    ``*_end`` values are annealed by search progress in ``[0, 1]``.
-    """
-
-    tau_start: float = 1.5
-    tau_end: float = 0.5
-    c_local_start: float = 1.5
-    c_local_end: float = 0.5
-    p_exploit: float = 0.7
-    quality_bonus_strength: float = 0.3
-    elite_rank_fraction: float = 0.15
-    elite_selection_shield: float = 0.6
-
-
-@dataclass
-class InspirationSelectionConfig:
-    """Configuration for Boltzmann inspiration sampling with migration."""
-
-    inspiration_sample_num: int = 3
-    p_migrate: float = 0.2
-    foreign_elite_num: int = 2
-    T_start: float = 1.5
-    T_end: float = 0.5
-
-
-@dataclass
-class RunBudgetConfig:
-    """Hard run limits that stop task replenishment."""
-
-    max_total_tasks: int = 100
-    max_time_seconds: Optional[float] = None
-
-
-@dataclass
-class SchedulerConfig:
-    """Task-pool shape confirmed at configure_run time.
-
-    ``lineage_root_number`` is the number of initial exploration directions
-    and therefore the number of lineage roots the run establishes.  It bounds
-    the root phase: at most this many tasks are minted before all of them must
-    finish (the root barrier).  ``max_concurrent_tasks`` is the in-flight task
-    target that holds in every phase, root phase included.  The two are
-    deliberately independent knobs.
-    """
-
-    lineage_root_number: int = 4
-    max_concurrent_tasks: int = 4
-
-
-@dataclass
-class PlateauConfig:
-    """Configuration for fitness-plateau detection."""
-
-    window: int = 5
-    improvement_threshold: float = 0.0
-    patience: int = 4
-
-
-@dataclass
-class MetaEvolveConfig:
-    """Configuration for lightweight meta-guidance control."""
-
-    enabled: bool = True
-    guidance_num_to_generate: int = 3
-    guidance_max_uses: int = 2
-
-
-@dataclass
-class EvolutionControllerConfig:
-    """Top-level controller configuration grouped by solver."""
-
-    parent_selection: ParentSelectionConfig = field(default_factory=ParentSelectionConfig)
-    inspiration: InspirationSelectionConfig = field(default_factory=InspirationSelectionConfig)
-    budget: RunBudgetConfig = field(default_factory=RunBudgetConfig)
-    plateau: PlateauConfig = field(default_factory=PlateauConfig)
-    meta_evolve: MetaEvolveConfig = field(default_factory=MetaEvolveConfig)
-    scheduler: SchedulerConfig = field(default_factory=SchedulerConfig)
 
 
 @dataclass

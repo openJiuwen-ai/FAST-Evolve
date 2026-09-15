@@ -10,7 +10,8 @@ from __future__ import annotations
 from typing import List, Optional
 
 from evotrias.mcp.lineage_tree import LineageTree
-from evotrias.db.models import PlateauConfig, SearchState, SuccessRecord
+from evotrias.db.config import PlateauConfig
+from evotrias.db.models import SearchState, SuccessRecord
 from evotrias.mcp.success_db import SuccessDB
 
 

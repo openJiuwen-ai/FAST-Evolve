@@ -25,10 +25,12 @@ import inspect
 import json
 import os
 import threading
+import typing
 from pathlib import Path
 from typing import Any, Dict, Iterator, List
 
 from evotrias.logger import logger
+from evotrias.utils.time import utc_now_iso
 
 
 def read_json(path: Path, default: Dict[str, Any]) -> Dict[str, Any]:
@@ -86,6 +88,12 @@ def append_jsonl(path: Path, row: Dict[str, Any]) -> None:
         handle.write(line)
 
 
+def _dataclass_from_dict(cls: type, data: Dict[str, Any]) -> Any:
+    """Build a plain dataclass from a dict, ignoring unknown keys."""
+    known = {f.name for f in dataclasses.fields(cls)}
+    return cls(**{k: v for k, v in data.items() if k in known})
+
+
 class DBList:
     """Append-only JSONL log. Subclasses may override ``_encode``/``_decode``."""
 
@@ -115,15 +123,22 @@ class DBObject:
     Subclasses only declare fields; ``__init_subclass__`` turns them into a
     ``dataclass(init=False)`` and rejects any field without a default, so a
     malformed store fails at import rather than on first load.  Unknown keys in
-    the file are ignored.  Subclasses holding nested dataclasses override
-    ``_load``/``_dump``.
+    the file are ignored.  A field typed as a plain dataclass is rebuilt from
+    its dict on load; other nested shapes (e.g. ``dict[str, SomeDataclass]``)
+    need the subclass to override ``_load``/``_dump``.
+
+    ``created_at`` is managed here, not declared by subclasses: empty until the
+    file is first written, stamped then, never changed afterwards.
     """
 
     _path: Path
+    created_at: str
 
     def __init_subclass__(cls, **kwargs) -> None:
         super().__init_subclass__(**kwargs)
         for name in inspect.get_annotations(cls):
+            if name == "created_at":
+                raise TypeError(f"{cls.__name__}.created_at is managed by DBObject; do not declare it")
             value = cls.__dict__.get(name, dataclasses.MISSING)
             if isinstance(value, dataclasses.Field):
                 if value.default is dataclasses.MISSING and value.default_factory is dataclasses.MISSING:
@@ -134,12 +149,18 @@ class DBObject:
 
     def __init__(self, path: Path):
         self._path = Path(path)
-        self._load(read_json(self._path, {}))
+        data = read_json(self._path, {})
+        self.created_at = str(data.get("created_at") or "")
+        self._load(data)
 
     def _load(self, data: Dict[str, Any]) -> None:
+        hints = typing.get_type_hints(type(self))
         for field in dataclasses.fields(self):
             if field.name in data:
                 value = data[field.name]
+                hint = hints.get(field.name)
+                if isinstance(value, dict) and isinstance(hint, type) and dataclasses.is_dataclass(hint):
+                    value = _dataclass_from_dict(hint, value)
             elif field.default is not dataclasses.MISSING:
                 value = field.default
             else:
@@ -154,4 +175,8 @@ class DBObject:
 
     def __exit__(self, exc_type, exc, tb) -> None:
         if exc_type is None:
-            write_json_atomic(self._path, self._dump())
+            if not self.created_at:
+                self.created_at = utc_now_iso()
+            payload = self._dump()
+            payload["created_at"] = self.created_at
+            write_json_atomic(self._path, payload)

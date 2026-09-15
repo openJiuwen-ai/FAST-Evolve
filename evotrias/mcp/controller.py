@@ -8,61 +8,97 @@ context cache, run state, lineage indexes, and the three strategy solvers.
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
 
 from evotrias import scheduler
 
+from evotrias.db.config import Config
+from evotrias.logger import logger
+from evotrias.db.models import AttemptRecord, RunState, SearchState, SuccessRecord
 from evotrias.mcp.budget_guard import RunBudgetGuard
-from evotrias.mcp.config import load_evolution_controller_config
 from evotrias.mcp.convergence_detector import FitnessPlateauDetector
 from evotrias.mcp.inspiration_selector import LineageBoltzmannInspirationSelector
 from evotrias.mcp.lineage_tree import LineageTree
-from evotrias.db.models import (
-    AttemptRecord,
-    EvolutionControllerConfig,
-    RunState,
-    SearchState,
-    SuccessRecord,
-)
 from evotrias.mcp.meta_guidance import MetaGuidanceManager
-from evotrias.mcp.notes import NOTES_ENABLED_ENV, NotesManager, notes_enabled
+from evotrias.mcp.notes import NotesManager
 from evotrias.mcp.parent_selector import LineageAwareParentSelector
 from evotrias.mcp.state_store import RunStateStore, TaskContextStore
 from evotrias.mcp.success_db import AttemptLog, SuccessDB
 from evotrias.mcp.run_report import write_run_report
 
 
+META_EVOLVE_ENABLED_ENV = "AGENT_EVOLVE_META_EVOLVE_ENABLED"
+PERF_IMPROVEMENT_THRESHOLD_ENV = "AGENT_EVOLVE_PERF_IMPROVEMENT_THRESHOLD"
+NOTES_ENABLED_ENV = "AGENT_EVOLVE_NOTES_ENABLED"
+
+
+def configure_run(
+    run_id: str,
+    *,
+    max_total_tasks: int = 50,
+    lineage_root_number: int = 4,
+    max_concurrent_tasks: int = 4,
+) -> None:
+    """Write ``config.json`` for a new run.
+
+    Environment overrides are resolved here, once, so the persisted file is
+    the complete configuration for the rest of the run.
+    """
+    with Config(run_id) as config:
+        config.budget.max_total_tasks = int(max_total_tasks)
+        config.scheduler.lineage_root_number = max(int(lineage_root_number), 1)
+        config.scheduler.max_concurrent_tasks = max(int(max_concurrent_tasks), 1)
+        config.meta_evolve.enabled = _bool_from_env(META_EVOLVE_ENABLED_ENV, config.meta_evolve.enabled)
+        config.plateau.improvement_threshold = _float_from_env(
+            PERF_IMPROVEMENT_THRESHOLD_ENV, config.plateau.improvement_threshold
+        )
+        config.notes.enabled = _bool_from_env(NOTES_ENABLED_ENV, config.notes.enabled)
+
+
+def _bool_from_env(env_name: str, default: bool) -> bool:
+    value = os.getenv(env_name)
+    if value is None:
+        return default
+    normalized = value.strip().lower()
+    if normalized in {"1", "true", "yes", "on", "enabled"}:
+        return True
+    if normalized in {"0", "false", "no", "off", "disabled"}:
+        return False
+    return default
+
+
+def _float_from_env(env_name: str, default: float) -> float:
+    value = os.getenv(env_name)
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except ValueError:
+        return default
+
+
 class EvolutionController:
     """Coordinate persistence, lineage indexing, selectors, and convergence."""
 
-    def __init__(
-        self,
-        run_id: str,
-        config: Optional[EvolutionControllerConfig] = None,
-    ):
+    def __init__(self, run_id: str):
         """Create a controller bound to one run id.
 
         The controller object itself is only a convenience cache.  Every public
-        operation reloads disk-backed state before making a decision.
+        operation reloads disk-backed state before making a decision.  Run
+        configuration comes from ``config.json`` written by ``configure_run``;
+        a run that was never configured gets defaults.
         """
         self.run_id = run_id
         self.run_state_store = RunStateStore(run_id)
-        if config is None:
-            # Recover the values recorded by configure_run so a fresh
-            # controller (new process, cache miss) keeps the run's confirmed
-            # budget and scheduling shape instead of silently using defaults.
-            recorded = self.run_state_store.load().run_config
-            config = load_evolution_controller_config(
-                max_total_tasks=int(recorded.get("max_total_tasks", 50)),
-                lineage_root_number=int(recorded.get("lineage_root_number", 4)),
-                max_concurrent_tasks=int(recorded.get("max_concurrent_tasks", 4)),
-            )
-        self.config = config
+        self.config = Config(run_id)
+        if not self.config.created_at:
+            logger.warning(f"run {run_id}: no config.json yet, controller is using defaults")
         self.db = SuccessDB(run_id)
         self.attempt_log = AttemptLog(run_id)
-        self.notes = NotesManager(run_id)
+        self.notes = NotesManager(run_id, self.config.notes)
         self.meta_guidance = MetaGuidanceManager(run_id, self.config.meta_evolve)
         self.task_contexts = TaskContextStore(run_id)
         self.lineage_tree = LineageTree()
@@ -188,7 +224,7 @@ class EvolutionController:
 
     def get_notes_prompt(self, task_id: str) -> Dict[str, Any]:
         """Return the run-local Notes prompt after parent/inspirations are fixed."""
-        if not notes_enabled():
+        if not self.config.notes.enabled:
             return {
                 "available": False,
                 "prompt": "",
@@ -201,7 +237,7 @@ class EvolutionController:
                     "random_fill": 0,
                 },
                 "disabled": True,
-                "reason": f"Run-local Notes disabled by {NOTES_ENABLED_ENV}.",
+                "reason": "Run-local Notes disabled in run config.",
             }
         self._load_state()
         context = self.task_contexts.get(task_id)
@@ -255,7 +291,7 @@ class EvolutionController:
                 )
             note_requests = (
                 self.notes.public_requests_for_attempt(task_id, resolved_attempt_id)
-                if notes_enabled()
+                if self.config.notes.enabled
                 else []
             )
             return _record_response_from_attempt(
@@ -363,7 +399,7 @@ class EvolutionController:
                 best_fitness_before=best_before,
                 best_fitness_after=best_after,
             )
-        if notes_enabled():
+        if self.config.notes.enabled:
             all_attempts = self.attempt_log.get_all()
             note_requests = self.notes.build_note_requests(
                 attempt=attempt,
@@ -384,11 +420,11 @@ class EvolutionController:
         self, note_request_id: str, generated_note_json: Any
     ) -> Dict[str, Any]:
         """Commit one LLM-distilled run-local note."""
-        if not notes_enabled():
+        if not self.config.notes.enabled:
             return {
                 "committed": False,
                 "disabled": True,
-                "reason": f"Run-local Notes disabled by {NOTES_ENABLED_ENV}.",
+                "reason": "Run-local Notes disabled in run config.",
             }
         return self.notes.commit_generated_note(note_request_id, generated_note_json)
 
@@ -471,10 +507,10 @@ class EvolutionController:
                     lineages=self._lineage_summaries(),
                     notes_summary=(
                         self.notes.summarize_for_meta_guidance()
-                        if notes_enabled()
+                        if self.config.notes.enabled
                         else {
                             "enabled": False,
-                            "reason": f"Run-local Notes disabled by {NOTES_ENABLED_ENV}.",
+                            "reason": "Run-local Notes disabled in run config.",
                             "positive": [],
                             "negative": [],
                             "error": [],

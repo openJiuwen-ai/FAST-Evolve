@@ -10,11 +10,12 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-import os
 import random
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
-from evotrias.db.models import AttemptRecord, SuccessRecord, utc_now_iso
+from evotrias.db.config import NotesConfig
+from evotrias.db.models import AttemptRecord, SuccessRecord
+from evotrias.utils.time import utc_now_iso
 from evotrias.mcp.storage import (
     append_jsonl,
     note_requests_path,
@@ -28,37 +29,17 @@ from evotrias.mcp.success_db import SuccessDB
 
 SCHEMA_VERSION = "notes_run_local"
 NOTE_TYPES = {"error", "negative", "positive"}
-WARMUP_TASKS = 10
-NOTES_ACTIVE_START_ROUND = 11
-NOTES_ACTIVE_END_ROUND = 50
-DELTA_QUANTILE_START = 0.80
-DELTA_QUANTILE_END = 0.60
-DELTA_THRESHOLD_MIN = 0.02
-DELTA_THRESHOLD_MAX = 0.05
-POSITIVE_BEST_RATIO_START = 0.80
-POSITIVE_BEST_RATIO_END = 1.00
 POSITIVE_DUPLICATE_FITNESS_TOL = 1e-6
 DEFAULT_DELTA_THRESHOLD = 0.05
 FITNESS_EPS = 1e-12
-POS_NEG_TARGET = 5
-ERROR_PROMPT_LIMIT = 10
-NOTES_ENABLED_ENV = "AGENT_EVOLVE_NOTES_ENABLED"
-FALSE_ENV_VALUES = {"0", "false", "off", "no", "disabled"}
-
-
-def notes_enabled() -> bool:
-    """Return whether run-local Notes are enabled for this MCP process."""
-    value = os.environ.get(NOTES_ENABLED_ENV)
-    if value is None:
-        return True
-    return value.strip().lower() not in FALSE_ENV_VALUES
 
 
 class NotesManager:
     """Run-local note selection, request creation, and commit validation."""
 
-    def __init__(self, run_id: str):
+    def __init__(self, run_id: str, config: NotesConfig):
         self.run_id = run_id
+        self.config = config
         self.notes_file = notes_path(run_id)
         self.requests_file = note_requests_path(run_id)
         self.events_file = notes_events_path(run_id)
@@ -77,7 +58,7 @@ class NotesManager:
 
         error_notes = [n for n in active if n.get("note_type") == "error"]
         error_notes = sorted(error_notes, key=lambda n: str(n.get("created_at") or ""))[
-            -ERROR_PROMPT_LIMIT:
+            -self.config.error_prompt_limit:
         ]
 
         pos_neg_notes = [n for n in active if n.get("note_type") in {"positive", "negative"}]
@@ -86,7 +67,7 @@ class NotesManager:
         selected_pos_neg = list(matched)
 
         unmatched = [n for n in pos_neg_notes if n not in selected_pos_neg]
-        fill_needed = max(POS_NEG_TARGET - len(selected_pos_neg), 0)
+        fill_needed = max(self.config.pos_neg_target - len(selected_pos_neg), 0)
         random_fill = _stable_sample(
             unmatched,
             limit=fill_needed,
@@ -162,7 +143,7 @@ class NotesManager:
             all_attempt_rows, current_task_id=attempt.task_id
         )
 
-        if current_round <= WARMUP_TASKS:
+        if current_round <= self.config.warmup_tasks:
             self._append_event(
                 "note_request_skipped",
                 {
@@ -171,7 +152,7 @@ class NotesManager:
                     "attempt_id": attempt.id,
                     "task_round": current_round,
                     "completed_task_count_before": completed_task_count,
-                    "warmup_tasks": WARMUP_TASKS,
+                    "warmup_tasks": self.config.warmup_tasks,
                 },
             )
             return []
@@ -212,20 +193,23 @@ class NotesManager:
                     exclude_task_id=attempt.task_id,
                     exclude_attempt_id=attempt.id,
                 )
-                delta_quantile = _delta_quantile(current_round)
+                delta_quantile = _delta_quantile(current_round, self.config)
                 positive_threshold = _material_delta_threshold(
                     positive_history,
                     q=delta_quantile,
+                    cfg=self.config,
                 )
                 negative_threshold = _material_delta_threshold(
                     negative_history,
                     q=delta_quantile,
+                    cfg=self.config,
                 )
                 positive_gate = _positive_gate(
                     child_fitness=child_fitness,
                     previous_best=previous_best,
                     current_round=current_round,
                     parent_delta_threshold=positive_threshold,
+                    cfg=self.config,
                 )
                 duplicate_positive_plateau = (
                     positive_gate.get("eligible")
@@ -507,19 +491,6 @@ class NotesManager:
                 "run_id": self.run_id,
                 "created_at": utc_now_iso(),
                 "updated_at": utc_now_iso(),
-                "config": {
-                    "warmup_tasks": WARMUP_TASKS,
-                    "notes_active_start_round": NOTES_ACTIVE_START_ROUND,
-                    "notes_active_end_round": NOTES_ACTIVE_END_ROUND,
-                    "delta_quantile_start": DELTA_QUANTILE_START,
-                    "delta_quantile_end": DELTA_QUANTILE_END,
-                    "delta_threshold_min": DELTA_THRESHOLD_MIN,
-                    "delta_threshold_max": DELTA_THRESHOLD_MAX,
-                    "positive_best_ratio_start": POSITIVE_BEST_RATIO_START,
-                    "positive_best_ratio_end": POSITIVE_BEST_RATIO_END,
-                    "max_error_notes": ERROR_PROMPT_LIMIT,
-                    "max_positive_negative_random_fill": POS_NEG_TARGET,
-                },
                 "notes": [],
             },
         )
@@ -921,8 +892,9 @@ def _positive_gate(
     previous_best: Optional[float],
     current_round: int,
     parent_delta_threshold: float,
+    cfg: NotesConfig,
 ) -> Dict[str, Any]:
-    best_ratio_threshold = _positive_best_ratio_threshold(current_round)
+    best_ratio_threshold = _positive_best_ratio_threshold(current_round, cfg)
     if previous_best is None:
         return {
             "eligible": True,
@@ -954,27 +926,27 @@ def _positive_gate(
     }
 
 
-def _positive_best_ratio_threshold(current_round: int) -> float:
+def _positive_best_ratio_threshold(current_round: int, cfg: NotesConfig) -> float:
     t = _linear_progress(
         current_round,
-        start=NOTES_ACTIVE_START_ROUND,
-        end=NOTES_ACTIVE_END_ROUND,
+        start=cfg.active_start_round,
+        end=cfg.active_end_round,
     )
-    return _lerp(POSITIVE_BEST_RATIO_START, POSITIVE_BEST_RATIO_END, t)
+    return _lerp(cfg.positive_best_ratio_start, cfg.positive_best_ratio_end, t)
 
 
-def _delta_quantile(current_round: int) -> float:
+def _delta_quantile(current_round: int, cfg: NotesConfig) -> float:
     t = _linear_progress(
         current_round,
-        start=NOTES_ACTIVE_START_ROUND,
-        end=NOTES_ACTIVE_END_ROUND,
+        start=cfg.active_start_round,
+        end=cfg.active_end_round,
     )
-    return _lerp(DELTA_QUANTILE_START, DELTA_QUANTILE_END, t)
+    return _lerp(cfg.delta_quantile_start, cfg.delta_quantile_end, t)
 
 
-def _material_delta_threshold(values: Sequence[float], *, q: float) -> float:
+def _material_delta_threshold(values: Sequence[float], *, q: float, cfg: NotesConfig) -> float:
     raw = _quantile(values, q) if values else DEFAULT_DELTA_THRESHOLD
-    return max(DELTA_THRESHOLD_MIN, min(raw, DELTA_THRESHOLD_MAX))
+    return max(cfg.delta_threshold_min, min(raw, cfg.delta_threshold_max))
 
 
 def _material_delta_histories(
