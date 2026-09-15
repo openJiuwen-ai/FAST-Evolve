@@ -95,6 +95,22 @@ def _dataclass_from_dict(cls: type, data: Dict[str, Any]) -> Any:
     return cls(**{k: v for k, v in data.items() if k in known})
 
 
+def _rebuild(hint: Any, value: Any) -> Any:
+    """Turn loaded JSON back into the shape ``hint`` declares.
+
+    Handles a plain dataclass and ``Dict[str, <dataclass>]``; anything else is
+    returned as-is.
+    """
+    if isinstance(value, dict):
+        if isinstance(hint, type) and dataclasses.is_dataclass(hint):
+            return _dataclass_from_dict(hint, value)
+        if typing.get_origin(hint) is dict:
+            args = typing.get_args(hint)
+            if len(args) == 2 and isinstance(args[1], type) and dataclasses.is_dataclass(args[1]):
+                return {k: _dataclass_from_dict(args[1], v) for k, v in value.items()}
+    return value
+
+
 class DBList:
     """Append-only JSONL log whose rows are instances of ``schema``.
 
@@ -126,9 +142,9 @@ class DBObject:
     Subclasses only declare fields; ``__init_subclass__`` turns them into a
     ``dataclass(init=False)`` and rejects any field without a default, so a
     malformed store fails at import rather than on first load.  Unknown keys in
-    the file are ignored.  A field typed as a plain dataclass is rebuilt from
-    its dict on load; other nested shapes (e.g. ``dict[str, SomeDataclass]``)
-    need the subclass to override ``_load``/``_dump``.
+    the file are ignored.  Fields typed as a plain dataclass or as
+    ``Dict[str, <dataclass>]`` are rebuilt from JSON on load; other nested
+    shapes need the subclass to override ``_load``/``_dump``.
 
     ``created_at`` and ``updated_at`` are managed here, not declared by
     subclasses: both empty until the file is first written; ``created_at`` is
@@ -166,10 +182,7 @@ class DBObject:
         hints = typing.get_type_hints(type(self))
         for field in dataclasses.fields(self):
             if field.name in data:
-                value = data[field.name]
-                hint = hints.get(field.name)
-                if isinstance(value, dict) and isinstance(hint, type) and dataclasses.is_dataclass(hint):
-                    value = _dataclass_from_dict(hint, value)
+                value = _rebuild(hints.get(field.name), data[field.name])
             elif field.default is not dataclasses.MISSING:
                 value = field.default
             else:

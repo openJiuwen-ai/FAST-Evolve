@@ -101,8 +101,8 @@ def _seed_run(tmp_path: Path, monkeypatch):
         },
     )
     _write_json(
-        state / "task_contexts.json",
-        {"task_003": {"parent_id": "task_002", "inspiration_ids": ["task_001"]}},
+        tmp_path / ".evotrias" / "db" / "runs" / RUN_ID / "task_contexts.json",
+        {"tasks": {"task_003": {"parent_id": "task_002", "inspiration_ids": ["task_001"]}}},
     )
     _write_json(
         state / "notes.json",

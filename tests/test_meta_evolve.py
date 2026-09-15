@@ -7,6 +7,7 @@ from evotrias.mcp.meta_guidance import MetaGuidanceManager
 from evotrias.db.attempts import Attempts
 from evotrias.mcp.storage import notes_path, read_jsonl
 from evotrias.db.config import Config, MetaEvolveConfig
+from evotrias.db.task_contexts import TaskContexts
 from evotrias.db.models import SuccessRecord
 
 
@@ -129,7 +130,8 @@ def test_meta_disabled_observes_plateau_without_requesting_guidance(tmp_path, mo
 
 def test_hard_budget_still_stops(tmp_path, monkeypatch):
     controller = _controller(tmp_path, monkeypatch, max_total_tasks=1)
-    controller.task_contexts.ensure("task_001")
+    with TaskContexts(controller.run_id) as contexts:
+        contexts.get("task_001", create=True)
 
     result = controller.check_convergence(concurrency=1)
 

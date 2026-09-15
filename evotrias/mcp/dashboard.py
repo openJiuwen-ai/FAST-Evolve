@@ -150,7 +150,7 @@ def build_snapshot(run_id: str, workspace_root: Path) -> Dict[str, Any]:
     best = _best_record(progress, attempt_index)
     running_map = task_pool.get("running") or {}
     running_tasks = [str(item) for item in running_map]
-    task_contexts = _read_json(state_root / "task_contexts.json", {})
+    task_contexts = _read_json(workspace_root / paths.run_dir(run_id) / paths.TASK_CONTEXTS, {}).get("tasks") or {}
     agents = _build_agents(
         public_run_dir=public_run_dir,
         running_tasks=running_tasks,

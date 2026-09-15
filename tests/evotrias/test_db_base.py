@@ -304,3 +304,19 @@ def test_dbobject_created_at_not_stamped_without_write(tmp_path, log):
     state.name = "x"
     assert state.created_at == ""
     assert not path.exists()
+
+
+class _Registry(base.DBObject):
+    entries: dict[str, _Inner] = field(default_factory=dict)
+
+
+def test_dbobject_dict_of_dataclass_round_trips(tmp_path, log):
+    path = tmp_path / "registry.json"
+    with _Registry(path) as reg:
+        reg.entries["a"] = _Inner(x=1, y="one")
+        reg.entries["b"] = _Inner(x=2)
+    on_disk = json.loads(path.read_text(encoding="utf-8"))
+    assert on_disk["entries"] == {"a": {"x": 1, "y": "one"}, "b": {"x": 2, "y": ""}}
+    reloaded = _Registry(path)
+    assert reloaded.entries == {"a": _Inner(x=1, y="one"), "b": _Inner(x=2)}
+    assert all(isinstance(v, _Inner) for v in reloaded.entries.values())

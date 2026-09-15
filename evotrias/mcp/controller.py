@@ -21,6 +21,7 @@ from evotrias.logger import logger
 from evotrias.db.attempts import AttemptRecord, Attempts
 from evotrias.db.models import SuccessRecord
 from evotrias.db.run_state import RunState
+from evotrias.db.task_contexts import TaskContext, TaskContexts
 from evotrias.enums import SearchState
 from evotrias.mcp.budget_guard import RunBudgetGuard
 from evotrias.mcp.convergence_detector import FitnessPlateauDetector
@@ -29,7 +30,6 @@ from evotrias.mcp.lineage_tree import LineageTree
 from evotrias.mcp.meta_guidance import MetaGuidanceManager
 from evotrias.mcp.notes import NotesManager
 from evotrias.mcp.parent_selector import LineageAwareParentSelector
-from evotrias.mcp.state_store import TaskContextStore
 from evotrias.mcp.success_db import SuccessDB
 from evotrias.mcp.run_report import write_run_report
 
@@ -103,7 +103,6 @@ class EvolutionController:
         self.attempt_log = Attempts(run_id)
         self.notes = NotesManager(run_id, self.config.notes)
         self.meta_guidance = MetaGuidanceManager(run_id, self.config.meta_evolve)
-        self.task_contexts = TaskContextStore(run_id)
         self.lineage_tree = LineageTree()
         self.lineage_tree.rebuild(self.db)
         self.parent_selector = LineageAwareParentSelector(
@@ -130,49 +129,48 @@ class EvolutionController:
         return the cached parent without incrementing selection count again.
         """
         self._load_state()
-        context = self.task_contexts.get(task_id)
-        if context is not None and context.parent_selected:
-            return self._parent_ref(context.parent_id)
+        existing = TaskContexts(self.run_id).get(task_id)
+        if existing is not None and existing.parent_selected:
+            return self._parent_ref(existing.parent_id)
 
-        context = self.task_contexts.ensure(task_id)
-        if self._in_root_phase():
-            # Only root tasks run before all roots have finished (evolution
-            # tasks are minted strictly after that), so this task is a root:
-            # it explores its own direction from scratch. Return no parent
-            # (select_inspirations then returns none) even when early roots
-            # already populated SuccessDB, and skip meta-guidance.
-            context.parent_id = None
+        with TaskContexts(self.run_id) as contexts:
+            context = contexts.get(task_id, create=True)
+            if self._in_root_phase():
+                # Only root tasks run before all roots have finished (evolution
+                # tasks are minted strictly after that), so this task is a root:
+                # it explores its own direction from scratch. Return no parent
+                # (select_inspirations then returns none) even when early roots
+                # already populated SuccessDB, and skip meta-guidance.
+                context.parent_id = None
+                context.parent_selected = True
+                return self._parent_ref(None)
+
+            current_best = self.db.get_canonical_best_record()
+            guidance = (
+                self.meta_guidance.assign_for_task(
+                    task_id,
+                    anchor_parent_id=current_best.id,
+                    anchor_fitness=current_best.fitness,
+                )
+                if current_best is not None
+                else None
+            )
+            if guidance is not None:
+                parent = self.db.get(str(guidance.get("anchor_parent_id")))
+                if parent is not None:
+                    context.meta_guidance_id = str(guidance.get("guidance_id"))
+                    context.anchor_parent_id = str(guidance.get("anchor_parent_id"))
+                else:
+                    guidance = None
+
+            if guidance is None:
+                parent = self.parent_selector.select(
+                    self.db,
+                    self._progress(),
+                )
+
+            context.parent_id = parent.id if parent is not None else None
             context.parent_selected = True
-            self.task_contexts.put(context)
-            return self._parent_ref(None)
-
-        current_best = self.db.get_canonical_best_record()
-        guidance = (
-            self.meta_guidance.assign_for_task(
-                task_id,
-                anchor_parent_id=current_best.id,
-                anchor_fitness=current_best.fitness,
-            )
-            if current_best is not None
-            else None
-        )
-        if guidance is not None:
-            parent = self.db.get(str(guidance.get("anchor_parent_id")))
-            if parent is not None:
-                context.meta_guidance_id = str(guidance.get("guidance_id"))
-                context.anchor_parent_id = str(guidance.get("anchor_parent_id"))
-            else:
-                guidance = None
-
-        if guidance is None:
-            parent = self.parent_selector.select(
-                self.db,
-                self._progress(),
-            )
-
-        context.parent_id = parent.id if parent is not None else None
-        context.parent_selected = True
-        self.task_contexts.put(context)
         if guidance is not None and context.parent_id:
             self.db.increment_selection(context.parent_id)
         return self._parent_ref(context.parent_id)
@@ -185,37 +183,36 @@ class EvolutionController:
         later attempt recording.
         """
         self._load_state()
-        context = self.task_contexts.get(task_id)
-        if context is None or not context.parent_selected:
+        existing = TaskContexts(self.run_id).get(task_id)
+        if existing is None or not existing.parent_selected:
             raise ValueError(
                 "Call select_parent before select_inspirations for this task."
             )
+        if existing.inspirations_selected:
+            return self._inspiration_refs(existing.inspiration_ids)
 
-        if context.inspirations_selected:
-            return self._inspiration_refs(context.inspiration_ids)
+        with TaskContexts(self.run_id) as contexts:
+            context = contexts.get(task_id, create=True)
+            if context.parent_id is None:
+                context.inspiration_ids = []
+                context.inspirations_selected = True
+                return {"inspirations": []}
 
-        if context.parent_id is None:
-            context.inspiration_ids = []
+            parent = self.db.get(context.parent_id)
+            if parent is None:
+                raise ValueError(f"Cached parent {context.parent_id!r} is not present in SuccessDB.")
+
+            inspirations = self.inspiration_selector.select(
+                parent,
+                self.db,
+                self._progress(),
+            )
+            context.inspiration_ids = [
+                str(item["id"])
+                for item in inspirations
+                if not item.get("is_parent") and item.get("id") != parent.id
+            ]
             context.inspirations_selected = True
-            self.task_contexts.put(context)
-            return {"inspirations": []}
-
-        parent = self.db.get(context.parent_id)
-        if parent is None:
-            raise ValueError(f"Cached parent {context.parent_id!r} is not present in SuccessDB.")
-
-        inspirations = self.inspiration_selector.select(
-            parent,
-            self.db,
-            self._progress(),
-        )
-        context.inspiration_ids = [
-            str(item["id"])
-            for item in inspirations
-            if not item.get("is_parent") and item.get("id") != parent.id
-        ]
-        context.inspirations_selected = True
-        self.task_contexts.put(context)
         return self._inspiration_refs(context.inspiration_ids)
 
     def get_notes_prompt(self, task_id: str) -> Dict[str, Any]:
@@ -236,7 +233,7 @@ class EvolutionController:
                 "reason": "Run-local Notes disabled in run config.",
             }
         self._load_state()
-        context = self.task_contexts.get(task_id)
+        context = TaskContexts(self.run_id).get(task_id)
         if context is None or not context.parent_selected:
             raise ValueError("Call select_parent before get_notes_prompt.")
         if not context.inspirations_selected:
@@ -262,7 +259,7 @@ class EvolutionController:
         idempotent.
         """
         self._load_state()
-        context = self.task_contexts.ensure(task_id)
+        context = TaskContexts(self.run_id).get(task_id) or TaskContext(task_id=task_id)
 
         verification_result = _load_verification_result(verification_result_ref)
         resolved_artifact_ref = str(artifact_ref or verification_result.get("artifact_ref") or "")
@@ -366,11 +363,12 @@ class EvolutionController:
         self.attempt_log.append(attempt)
 
         if status == "success" or _attempt_number(resolved_attempt_id) >= max_attempts:
-            context.recorded = True
-            context.verification_result_ref = verification_result_ref
-            context.entered_success_db = entered_success_db
-            context.success_record_id = success_record_id if entered_success_db else None
-            self.task_contexts.put(context)
+            with TaskContexts(self.run_id) as contexts:
+                saved = contexts.get(task_id, create=True)
+                saved.recorded = True
+                saved.verification_result_ref = verification_result_ref
+                saved.entered_success_db = entered_success_db
+                saved.success_record_id = success_record_id if entered_success_db else None
 
         self.db.load()
         best_after = _best_fitness(self.db)
@@ -565,7 +563,7 @@ class EvolutionController:
     def get_meta_guidance_prompt(self, task_id: str) -> Dict[str, Any]:
         """Return the meta-guidance prompt assigned during parent selection."""
         self._load_state()
-        context = self.task_contexts.get(task_id)
+        context = TaskContexts(self.run_id).get(task_id)
         if context is None or not context.parent_selected:
             raise ValueError("Call select_parent before get_meta_guidance_prompt.")
         return self.meta_guidance.prompt_for_task(task_id)
@@ -593,7 +591,6 @@ class EvolutionController:
     def _load_state(self) -> None:
         """Reload all disk-backed state needed for a decision."""
         self.db.load()
-        self.task_contexts.load()
         run_state = RunState(self.run_id)
         self.plateau_detector.restore_state(
             run_state.search_state,
@@ -625,7 +622,7 @@ class EvolutionController:
         so its row count must not be used as the task-budget counter.
         """
         attempt_task_ids = {a.task_id for a in self.attempt_log if a.task_id}
-        return max(self.task_contexts.count(), len(attempt_task_ids))
+        return max(len(TaskContexts(self.run_id)), len(attempt_task_ids))
 
     def _parent_ref(self, parent_id: Optional[str]) -> Dict[str, Any]:
         """Return the compact public parent payload, including diagnostics."""
