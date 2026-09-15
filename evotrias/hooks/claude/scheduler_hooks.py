@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-import json
-import os
-from typing import Any, Optional
+from typing import Any
 
+from evotrias.db.attempts import Attempts
 from evotrias.enums import Agents
 from evotrias.hooks import hook_manager
 from evotrias.logger import logger
@@ -35,28 +34,6 @@ def _is_executor_spawn(payload: dict) -> bool:
     tool_input = payload.get("tool_input") or {}
     raw = str(tool_input.get("subagent_type") or "").strip().lower()
     return _AGENT_TYPE_MAP.get(raw) == Agents.TASK_EXECUTOR
-
-
-def _find_completed_task(run_id: str, task_id: str) -> Optional[dict[str, Any]]:
-    path = os.path.join("runs", run_id, "completed_tasks.jsonl")
-    if not os.path.exists(path):
-        return None
-    try:
-        with open(path, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    rec = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                tid = rec.get("task_id")
-                if tid == task_id:
-                    return rec
-    except OSError:
-        pass
-    return None
 
 
 @hook_manager.register("claude", "post_tool_use", priority=0)
@@ -180,14 +157,14 @@ def executor_report_complete(payload: dict, result: dict, extra_data: Any) -> di
         logger.error(f"scheduler hook: agent {agent_id} has no task_id in run {run_id}")
         return result
 
-    completed = _find_completed_task(run_id, task_id)
-    if completed is not None:
-        fitness = completed.get("fitness")
+    success = Attempts(run_id).successes.get(task_id)
+    if success is not None:
+        fitness = success.verification_result.get("fitness")
         scheduler.complete_task(run_id, task_id, fitness)
         logger.info(f"scheduler hook: subagent_stop complete run={run_id} task={task_id} fitness={fitness!r}")
     else:
         last_msg = str(payload.get("last_assistant_message") or "")
-        reason = last_msg[:200] if last_msg else "no completion record and no assistant message"
+        reason = last_msg[:200] if last_msg else "no successful attempt recorded and no assistant message"
         scheduler.fail_task(run_id, task_id, reason)
         logger.info(f"scheduler hook: subagent_stop fail run={run_id} task={task_id} reason={reason[:80]!r}")
     return result

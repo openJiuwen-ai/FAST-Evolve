@@ -67,7 +67,6 @@ def _seed_run(tmp_path: Path, monkeypatch):
             "artifact_ref": f"runs/{RUN_ID}/tasks/task_002/attempts/attempt_001/solution.py",
         },
     ]
-    _write_jsonl(public / "completed_tasks.jsonl", completed)
     attempts = []
     for index, row in enumerate(completed, start=1):
         attempts.append(
@@ -83,6 +82,7 @@ def _seed_run(tmp_path: Path, monkeypatch):
                     "fitness": row["fitness"],
                     "metrics": {"accuracy_score": row["fitness"], "bad": float("nan")},
                 },
+                "entered_success_db": True,
             }
         )
     _write_jsonl(tmp_path / ".evotrias" / "db" / "runs" / RUN_ID / "attempts.jsonl", attempts)
@@ -149,17 +149,6 @@ def _seed_history_run(tmp_path: Path):
         {"run_id": run_id, "pending": [], "running": {}, "completed": {}, "failed": {}},
     )
     _write_jsonl(
-        public / "completed_tasks.jsonl",
-        [
-            {
-                "task_id": "task_001",
-                "fitness": 0.2,
-                "status": "success",
-                "artifact_ref": artifact,
-            }
-        ],
-    )
-    _write_jsonl(
         tmp_path / ".evotrias" / "db" / "runs" / run_id / "attempts.jsonl",
         [
             {
@@ -169,6 +158,7 @@ def _seed_history_run(tmp_path: Path):
                 "created_at": "2026-07-14T01:02:00+00:00",
                 "generation": 0,
                 "verification_result": {"status": "success", "fitness": 0.2},
+                "entered_success_db": True,
             }
         ],
     )

@@ -83,3 +83,14 @@ def test_unknown_keys_on_disk_are_ignored():
     [got] = list(Attempts(RUN_ID))
     assert got.id == "attempt_001"
     assert not hasattr(got, "retired_field")
+
+
+def test_successes_maps_task_id_to_its_success_attempt():
+    log = Attempts(RUN_ID)
+    assert log.successes == {}
+    log.append(_attempt("task_001", "attempt_001", verification_result={"status": "failure"}))
+    log.append(_attempt("task_001", "attempt_002", entered_success_db=True))
+    log.append(_attempt("task_002", "attempt_001"))  # finished, never entered SuccessDB
+    successes = log.successes
+    assert set(successes) == {"task_001"}
+    assert successes["task_001"].id == "attempt_002"

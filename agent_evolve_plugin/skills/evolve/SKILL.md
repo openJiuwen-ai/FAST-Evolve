@@ -127,10 +127,8 @@ parameters. They are independent knobs — never derive one from another:
 4. Create the run workspace directory and persistent state files. **All `runs/` paths are relative to the project root (cwd), not to the skill's base directory.** Use Bash to execute:
 
    ```bash
-   mkdir -p "runs/<run_id>" && touch "runs/<run_id>/completed_tasks.jsonl"
+   mkdir -p "runs/<run_id>"
    ```
-
-   - `completed_tasks.jsonl`: subagents append to this file on completion; the orchestrator reads it. Pre-creating the empty file avoids the first subagent needing to handle a missing-file case.
 
 ---
 
@@ -149,7 +147,7 @@ Wait for `agent_evolve_plugin:init-explorer` to complete before proceeding to St
 
 The MCP owns all batch sizing: `check_convergence` tells you how many tasks to create via `tasks_to_create`, and you dispatch exactly that many — never more, never fewer, never inferred. Any returned value, including 0, is a normal scheduling decision; on 0 dispatch nothing and keep looping.
 
-Task completion data is persisted in `completed_tasks.jsonl`, and notifications merely prompt the orchestrator to read the file.
+Task completion data is persisted by the controller as subagents record their attempts; notifications merely prompt the orchestrator to call `check_convergence` again.
 
 ### Data Flow
 
@@ -157,7 +155,6 @@ All `runs/` paths below are relative to the project root (cwd).
 
 ```
 runs/<run_id>/
-├── completed_tasks.jsonl          ← subagents append, orchestrator(you) reads
 ```
 
 ### Scheduling Pseudocode
@@ -218,17 +215,6 @@ END WHILE
 // After the while loop exits (action == budget_exhausted), wait for any still-running task-executors to finish, finally do finalization (see Step 3).
 ```
 
-### completed_tasks.jsonl Format
-
-Each line is one JSON object, appended by the subagents on completion:
-
-```jsonl
-{"task_id":"task_005","fitness":0.7709,"status":"success","artifact_ref":"runs/<run_id>/tasks/task_005/attempts/attempt_001/solution.py"}
-{"task_id":"task_002","fitness":"-","status":"failure","artifact_ref":"runs/<run_id>/tasks/task_002/attempts"}
-```
-
-While parsing, skip unparseable lines.
-
 ### Compact Terminal Progress
 
 The dashboard is the detailed observability surface. Never print the Unicode progress table, completed artifact paths, Notes content, meta-guidance content, task-by-task history, or the full running-task list in the main terminal.
@@ -241,7 +227,7 @@ Progress <completed>/<MAX_TOTAL_TASKS> · best <best_fitness_or_—> · <running
 
 This line is a heartbeat, not a report. Do not print it more than once for the same completed count unless the run state changed (for example meta-guidance was committed or stopping began). While merely waiting for subagents, print nothing unless there has been no user-visible output for at least 60 seconds; in that case print only `Evolution is active · <running_count> agents · 🖥️ UI → <dashboard.url>`.
 
-Fitness is always maximized. `best_fitness` MUST be the largest successful numeric fitness from `completed_tasks.jsonl`, or `convergence.diagnostics.current_best_fitness` when available. Do not infer direction from raw benchmark metrics such as loss, c3, runtime, or distance.
+Fitness is always maximized. `best_fitness` MUST be `convergence.diagnostics.current_best_fitness` from the latest `check_convergence` result (`—` while it is null). Do not infer direction from raw benchmark metrics such as loss, c3, runtime, or distance.
 
 ### Critical Constraints
 
@@ -277,9 +263,9 @@ The worker returns only its compact result contract. After it returns, set
 ### 3.1 Final Compact Progress Update
 
 After the scheduling loop exits (`action == "budget_exhausted`) and all still-running
-task-executors have finished, read `completed_tasks.jsonl` and emit one final
-compact progress line using the format below. Do not print a table or artifact
-paths.
+task-executors have finished, emit one final compact progress line using the
+format below, taking `best_fitness` from the latest `check_convergence`
+diagnostics. Do not print a table or artifact paths.
 
 ### 3.2 Final Convergence Check & Finalize
 

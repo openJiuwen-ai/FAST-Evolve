@@ -45,6 +45,16 @@ class Attempts(DBList):
     def __init__(self, run_id: str):
         super().__init__(paths.run_dir(run_id) / paths.ATTEMPTS, AttemptRecord)
 
+    @property
+    def successes(self) -> Dict[str, AttemptRecord]:
+        """task_id -> the attempt that entered SuccessDB.
+
+        A task has one such attempt at most (``record_attempt`` marks only the
+        first success), so its presence is the definition of "task succeeded".
+        Re-reads the file on every access.
+        """
+        return {a.task_id: a for a in self if a.entered_success_db}
+
     def find_by_task_id(self, task_id: str) -> Optional[AttemptRecord]:
         """Most recent attempt for a task, if any."""
         match = None

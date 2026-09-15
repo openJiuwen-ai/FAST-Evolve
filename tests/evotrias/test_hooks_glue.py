@@ -2,16 +2,34 @@
 
 from __future__ import annotations
 
-import json
 import os
 
 import pytest
 
 from evotrias import scheduler as sched
+from evotrias.db.attempts import AttemptRecord, Attempts
 from evotrias.enums import Agents
 from evotrias.hooks import broker
 from evotrias.hooks import hook_manager
 from evotrias.hooks.claude import permission_hooks as perm_glue, scheduler_hooks as sched_glue
+
+
+def _record_success(run_id: str, task_id: str, fitness: float) -> None:
+    """Stand in for the controller's record_attempt: one successful attempt on disk."""
+    Attempts(run_id).append(
+        AttemptRecord(
+            id="attempt_001",
+            run_id=run_id,
+            task_id=task_id,
+            subagent_id="agent",
+            artifact_ref=f"runs/{run_id}/tasks/{task_id}/attempts/attempt_001/solution.py",
+            parent_id=None,
+            inspiration_ids=[],
+            generation=0,
+            verification_result={"status": "success", "fitness": fitness},
+            entered_success_db=True,
+        )
+    )
 
 
 @pytest.fixture
@@ -22,7 +40,7 @@ def tmp_env(monkeypatch, tmp_path):
     # the temp repo so the path-building helpers stay untouched and no state
     # leaks into the real .evotrias/.
     monkeypatch.setattr(sched, "_STATE_DIR", repo / ".evotrias" / "state")
-    # runs/ workspace also lives under the repo root for completed_tasks.jsonl
+    # .evotrias/db (attempts.jsonl) is cwd-relative, so the temp repo is cwd.
     monkeypatch.chdir(repo)
     # Reset handler registry and re-import the glue modules so their
     # @register side effects repopulate the broker against a clean slate.
@@ -294,14 +312,11 @@ def test_configure_run_post_records_session_run(tmp_env):
     assert sched.lookup_run_by_session("sess-9") == "run-9"
 
 
-def test_subagent_stop_completes_task_from_jsonl(tmp_env):
+def test_subagent_stop_completes_task_from_recorded_success(tmp_env):
     sched.remember_session_run("sess-1", "run-W")
     sched.top_up_tasks("run-W", target=1, max_tasks=100)
     _start_executor("run-W", "agent-10")
-    # Write a completion record for task_001
-    os.makedirs("runs/run-W", exist_ok=True)
-    with open("runs/run-W/completed_tasks.jsonl", "w", encoding="utf-8") as f:
-        f.write(json.dumps({"task_id": "task_001", "fitness": 0.91, "status": "success", "artifact_ref": "x"}) + "\n")
+    _record_success("run-W", "task_001", 0.91)
     payload = {
         "session_id": "sess-1",
         "agent_id": "agent-10",

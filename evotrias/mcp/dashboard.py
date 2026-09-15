@@ -132,7 +132,6 @@ def build_snapshot(run_id: str, workspace_root: Path) -> Dict[str, Any]:
 
     run_state = _read_json(workspace_root / paths.run_dir(run_id) / paths.RUN_STATE, {})
     config = _read_json(workspace_root / paths.run_dir(run_id) / paths.CONFIG, {})
-    completed = _read_jsonl(public_run_dir / "completed_tasks.jsonl")
     # Task scheduling state (running/completed/failed and task→agent mapping)
     # comes from the evotrias task pool.
     task_pool = _read_json(
@@ -140,6 +139,7 @@ def build_snapshot(run_id: str, workspace_root: Path) -> Dict[str, Any]:
         {},
     )
     attempts = _read_jsonl(workspace_root / paths.run_dir(run_id) / paths.ATTEMPTS)
+    completed = _completions(attempts)
     notes_collection = _read_json(state_root / "notes.json", {})
     notes_events = _read_jsonl(state_root / "notes_events.jsonl")
     meta_state = _read_json(state_root / "meta_guidance" / "meta_guidance_state.json", {})
@@ -244,12 +244,13 @@ def build_snapshot(run_id: str, workspace_root: Path) -> Dict[str, Any]:
 def list_runs(current_run_id: str, workspace_root: Path) -> Dict[str, Any]:
     """Return a flat, newest-first index of persisted runs.
 
-    Agent Evolve stores every run directly under ``runs/``.  Keeping this
-    index flat mirrors that contract and lets one read-only dashboard inspect
-    history without mutating the active controller or starting extra servers.
+    A run exists once the controller has state for it under
+    ``.evotrias/db/runs/<run_id>/``; the agent workspace under ``runs/`` is
+    not consulted.  Keeping this index flat lets one read-only dashboard
+    inspect history without mutating the active controller.
     """
     workspace_root = Path(workspace_root).resolve()
-    runs_root = workspace_root / "runs"
+    runs_root = workspace_root / paths.DB_ROOT / "runs"
     entries: List[Dict[str, Any]] = []
     if not runs_root.is_dir():
         return {"current": current_run_id, "runs": entries}
@@ -264,8 +265,8 @@ def list_runs(current_run_id: str, workspace_root: Path) -> Dict[str, Any]:
             {},
         )
         run_state = _read_json(workspace_root / paths.run_dir(run_id) / paths.RUN_STATE, {})
-        completed = _read_jsonl(run_dir / "completed_tasks.jsonl")
         attempts = _read_jsonl(workspace_root / paths.run_dir(run_id) / paths.ATTEMPTS)
+        completed = _completions(attempts)
         successful_fitness = [
             value
             for item in completed
@@ -798,7 +799,7 @@ def _build_activity(
                 "status": "failed",
             }
         )
-    # Legacy source: completed_tasks.jsonl, deduped against the pool above.
+    # Per-task outcomes derived from attempts, deduped against the pool above.
     covered = set(pool_completed) | set(pool_failed)
     for row in completed[-30:]:
         task_id = str(row.get("task_id") or "")
@@ -896,12 +897,12 @@ def _controller_run_dir(workspace_root: Path, run_id: str) -> Path:
 
 
 def _available_run_id(run_id: str, workspace_root: Path) -> Optional[str]:
-    """Resolve a direct child of ``runs/`` without allowing path traversal."""
+    """Resolve a run that has controller state, without allowing path traversal."""
     requested = str(run_id).strip()
     safe = _safe_name(requested)
     if not requested or safe != requested:
         return None
-    run_dir = Path(workspace_root).resolve() / "runs" / safe
+    run_dir = Path(workspace_root).resolve() / paths.run_dir(safe)
     if not run_dir.is_dir() or run_dir.is_symlink():
         return None
     return safe
@@ -913,6 +914,35 @@ def _read_json(path: Path, default: Dict[str, Any]) -> Dict[str, Any]:
         return data if isinstance(data, dict) else default
     except (OSError, json.JSONDecodeError, UnicodeDecodeError):
         return default
+
+
+def _completions(attempts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """One outcome row per finished task, derived from the attempt log.
+
+    A task succeeded iff one of its attempts entered SuccessDB; otherwise its
+    last attempt stands for the failure.  Rows keep the shape the progress and
+    lineage builders expect: task_id, fitness, status, artifact_ref.
+    """
+    final: Dict[str, Dict[str, Any]] = {}
+    for attempt in attempts:
+        task_id = str(attempt.get("task_id") or "")
+        if not task_id:
+            continue
+        if attempt.get("entered_success_db") or task_id not in final or not final[task_id].get("entered_success_db"):
+            final[task_id] = attempt
+    rows = []
+    for task_id, attempt in final.items():
+        verification = attempt.get("verification_result") or {}
+        success = bool(attempt.get("entered_success_db"))
+        rows.append(
+            {
+                "task_id": task_id,
+                "fitness": verification.get("fitness") if success else None,
+                "status": "success" if success else "failure",
+                "artifact_ref": attempt.get("artifact_ref") or "",
+            }
+        )
+    return rows
 
 
 def _read_jsonl(path: Path) -> List[Dict[str, Any]]:

@@ -13,7 +13,7 @@ First, confirm these critical identifiers from the context:
 
 CRITICAL: If the injected context contains `CRITICAL: <reason>` (failed to 
 assign a task id), stop immediately and report the reason as your failure output 
-(see Step 6). Do not attempt to infer a task_id. Do not attempt to proceed without 
+(see Step 5). Do not attempt to infer a task_id. Do not attempt to proceed without 
 a task_id. If `task_id` or `run_id` are absent from the injected context, report 
 a failure with reason "missing task_id/run_id in injected context" — do not ask the user.
 
@@ -393,27 +393,7 @@ improve another attempt for this task.
 
 ---
 
-## Step 5: Append Completion Record
-
-Persist the task completion data to disk. Use the Bash tool to append one JSONL line to the run's completed tasks file:
-
-```bash
-printf '{"task_id":"%s","fitness":%s,"status":"%s","artifact_ref":"%s"}\n' \
-  "<task_id>" "<fitness_value>" "<status>" "<artifact_ref>" >> "runs/<run_id>/completed_tasks.jsonl"
-```
-
-Determine the values — **copy verbatim, no rounding, no path modification**:
-
-- `task_id`: the actual task_id for this task
-- `fitness_value`: if success, the **exact** numeric fitness string from the successful attempt's eval_result.json (do not round, do not truncate decimal places); if fail, use `-`
-- `status`: `success` if `attempt_succeeded == true`, otherwise `failure`
-- `artifact_ref`: the **exact** `artifact_ref` as-is — if success, the full artifact path from the successful attempt (e.g. `runs/<run_id>/tasks/<task_id>/attempts/attempt_001/solution.py`); if fail, the attempts directory path (e.g. `runs/<run_id>/tasks/<task_id>/attempts/`). Never abbreviate, never shorten, never modify the path in any way.
-
-After appending, proceed directly to Step 6.
-
----
-
-## Step 6: End
+## Step 5: End
 - On **success** (a verifier passed and you appended the completion record),
   report only this exact line:
   ```
@@ -440,15 +420,14 @@ Do NOT report any other details - success or failure, both count as completed.
 5. **Read Artifacts**: Always read parent and inspiration files before generating.
 6. **Record Every Attempt**: Always call `record_attempt` immediately after each verifier run, regardless of success or failure. The backend handles note request generation automatically.
 7. **Commit Returned Notes**: If `record_attempt` returns any `note_requests`, you MUST call `commit_generated_note` for each one and confirm `committed == true` before moving to the next attempt, Step 4, Step 5, or the final response.
-8. **Append Completion Record**: Always append a JSONL line to `runs/<run_id>/completed_tasks.jsonl` after the attempt loop has finished and all executed attempts have been recorded. Use Bash (not PowerShell) with `printf >>`.
-9. **Clear Output**: At the end, report only the success line `A task completed.` (on success) or a single ~200-character failure-reason line (on failure).
-10. **Same Parent/Inspirations**: Parent and inspirations are selected ONCE at the beginning - they NEVER change between attempts.
-11. **Debug, Don't Regenerate**: Attempts 2 and beyond are for DEBUGGING the previous attempt, not generating a brand new solution. Fix the specific errors while keeping the same overall approach.
-12. **Task-Level Success Wins**: If any earlier attempt for this task has `eval_result.json` with `"status": "success"`, the task is successful. Do not run or create any later attempt.
-13. **One Verifier Run Per Attempt**: Within a single attempt directory, write the artifact once and run the verifier once. A valid but suboptimal fitness is still success, not permission to keep editing the same attempt.
-14. **No Environment Probing**: Do not run arbitrary Bash commands to inspect installed packages, files, or runtime capabilities. Use only the benchmark verifier command for execution feedback.
-15. **NEVER READ VERIFIER SCRIPTS**: The task/benchmark skill may define a verifier or evaluator script (e.g. `verify.py` or `scripts/evaluator.py`). These scripts may contain secret answers or evaluation logic. You must NOT read, examine, or inspect them using any tool (Read, Grep, Glob, Bash `cat/head/tail/type`, etc.). The ONLY allowed interaction is **running them as a script** with the exact command specified in the task skill.
-16. **Use Initial Reference Only For Roots**: The resolved `initial_program_reference`, regardless of language or location, is a root-task baseline when no parent exists. Once parent selection returns a parent, evolve from the selected parent/inspirations instead.
-17. **Never Synthesize JSON With Bash**: If a missing `eval_result.json` must be created after verifier failure, use the Write tool only. Do not use Bash `cat`, heredoc, `echo`, `printf`, or Python one-liners to write JSON files.
-18. **Do Not Echo Exit Codes**: Run the verifier command exactly as specified by the benchmark skill. Do not append `; echo "EXIT_CODE=$?"` or any other shell trailer.
-19. **No Silent Core Fallback**: A solution must not hide failure of its claimed core strategy by returning a parent, baseline, or alternate result. Explicit dispatch is allowed only when the selector itself is the claimed strategy and the executed branch remains attributable.
+8. **Clear Output**: At the end, report only the success line `A task completed.` (on success) or a single ~200-character failure-reason line (on failure).
+9. **Same Parent/Inspirations**: Parent and inspirations are selected ONCE at the beginning - they NEVER change between attempts.
+10. **Debug, Don't Regenerate**: Attempts 2 and beyond are for DEBUGGING the previous attempt, not generating a brand new solution. Fix the specific errors while keeping the same overall approach.
+11. **Task-Level Success Wins**: If any earlier attempt for this task has `eval_result.json` with `"status": "success"`, the task is successful. Do not run or create any later attempt.
+12. **One Verifier Run Per Attempt**: Within a single attempt directory, write the artifact once and run the verifier once. A valid but suboptimal fitness is still success, not permission to keep editing the same attempt.
+13. **No Environment Probing**: Do not run arbitrary Bash commands to inspect installed packages, files, or runtime capabilities. Use only the benchmark verifier command for execution feedback.
+14. **NEVER READ VERIFIER SCRIPTS**: The task/benchmark skill may define a verifier or evaluator script (e.g. `verify.py` or `scripts/evaluator.py`). These scripts may contain secret answers or evaluation logic. You must NOT read, examine, or inspect them using any tool (Read, Grep, Glob, Bash `cat/head/tail/type`, etc.). The ONLY allowed interaction is **running them as a script** with the exact command specified in the task skill.
+15. **Use Initial Reference Only For Roots**: The resolved `initial_program_reference`, regardless of language or location, is a root-task baseline when no parent exists. Once parent selection returns a parent, evolve from the selected parent/inspirations instead.
+16. **Never Synthesize JSON With Bash**: If a missing `eval_result.json` must be created after verifier failure, use the Write tool only. Do not use Bash `cat`, heredoc, `echo`, `printf`, or Python one-liners to write JSON files.
+17. **Do Not Echo Exit Codes**: Run the verifier command exactly as specified by the benchmark skill. Do not append `; echo "EXIT_CODE=$?"` or any other shell trailer.
+18. **No Silent Core Fallback**: A solution must not hide failure of its claimed core strategy by returning a parent, baseline, or alternate result. Explicit dispatch is allowed only when the selector itself is the claimed strategy and the executed branch remains attributable.

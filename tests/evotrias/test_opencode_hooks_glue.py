@@ -7,16 +7,34 @@ Payload fixtures mirror structures captured from opencode 1.18.21
 from __future__ import annotations
 
 import importlib
-import json
 import os
 
 import pytest
 
 from evotrias import scheduler as sched
+from evotrias.db.attempts import AttemptRecord, Attempts
 from evotrias.enums import Agents
 from evotrias.hooks import broker
 from evotrias.hooks import hook_manager
 from evotrias.hooks.opencode import scheduler_hooks as oc_glue
+
+
+def _record_success(run_id: str, task_id: str, fitness: float) -> None:
+    """Stand in for the controller's record_attempt: one successful attempt on disk."""
+    Attempts(run_id).append(
+        AttemptRecord(
+            id="attempt_001",
+            run_id=run_id,
+            task_id=task_id,
+            subagent_id="agent",
+            artifact_ref=f"runs/{run_id}/tasks/{task_id}/attempts/attempt_001/solution.py",
+            parent_id=None,
+            inspiration_ids=[],
+            generation=0,
+            verification_result={"status": "success", "fitness": fitness},
+            entered_success_db=True,
+        )
+    )
 
 
 @pytest.fixture
@@ -133,10 +151,8 @@ def test_executor_full_chain_observed_order(tmp_env):
     assert snap["queued"] == {}
     assert snap["running"] == {"task_001": "ses_child"}
 
-    # 4. idle: terminal accounting from completed_tasks.jsonl.
-    os.makedirs("runs/run-Z", exist_ok=True)
-    with open("runs/run-Z/completed_tasks.jsonl", "w", encoding="utf-8") as f:
-        f.write(json.dumps({"task_id": "task_001", "fitness": 0.91}) + "\n")
+    # 4. idle: terminal accounting from the recorded successful attempt.
+    _record_success("run-Z", "task_001", 0.91)
     out = hook_manager.dispatch("opencode", "session.idle", _idle_payload())
     assert out is None
     snap = sched.pool_snapshot("run-Z")
@@ -171,7 +187,7 @@ def test_executor_full_chain_created_after_after(tmp_env):
     hook_manager.dispatch("opencode", "session.idle", _idle_payload())
     snap = sched.pool_snapshot("run-R")
     assert "task_001" in snap["failed"]
-    assert snap["failed"]["task_001"]["reason"] == "no completion record on session idle"
+    assert snap["failed"]["task_001"]["reason"] == "no successful attempt recorded on session idle"
 
 
 def test_non_executor_spawn_passes_through(tmp_env):
