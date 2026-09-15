@@ -73,13 +73,7 @@ def evolve_configure_run(
         "lineage_root_number": config.scheduler.lineage_root_number,
         "max_concurrent_tasks": config.scheduler.max_concurrent_tasks,
         "meta_evolve": _meta_evolve_config_ref(config),
-        "dashboard": _dashboard_ref(
-            run_id,
-            max_total_tasks=config.budget.max_total_tasks,
-            task_description=task_description,
-            meta_guidance_enabled=config.meta_evolve.enabled,
-            notes_feature_enabled=config.notes.enabled,
-        ),
+        "dashboard": _dashboard_ref(run_id),
     }
     if not first_time:
         response["reason"] = "Run already configured for this run_id; configuration locked."
@@ -213,25 +207,10 @@ def _meta_evolve_config_ref(config: Any) -> Dict[str, Any]:
     }
 
 
-def _dashboard_ref(
-    run_id: str,
-    *,
-    max_total_tasks: int,
-    task_description: str,
-    meta_guidance_enabled: bool,
-    notes_feature_enabled: bool,
-) -> Dict[str, Any]:
+def _dashboard_ref(run_id: str) -> Dict[str, Any]:
     """Start the optional UI without making observability run-critical."""
     try:
-        server = start_dashboard(
-            run_id,
-            max_total_tasks=max_total_tasks,
-            task_description=task_description,
-            feature_flags={
-                "meta_guidance": meta_guidance_enabled,
-                "notes": notes_feature_enabled,
-            },
-        )
+        server = start_dashboard(run_id)
     except (OSError, RuntimeError) as exc:
         return {
             "enabled": True,

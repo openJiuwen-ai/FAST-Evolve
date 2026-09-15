@@ -94,9 +94,6 @@ def start_dashboard(
     host: Optional[str] = None,
     public_host: Optional[str] = None,
     preferred_port: int = DEFAULT_DASHBOARD_PORT,
-    max_total_tasks: Optional[int] = None,
-    task_description: str = "",
-    feature_flags: Optional[Dict[str, bool]] = None,
 ) -> Optional[DashboardServer]:
     """Start or return the dashboard for ``run_id``.
 
@@ -123,16 +120,6 @@ def start_dashboard(
             preferred_port=preferred_port,
         ).start()
         _servers[key] = server
-
-    _write_dashboard_manifest(
-        root,
-        run_id,
-        url=server.url,
-        port=server.port,
-        max_total_tasks=max_total_tasks,
-        task_description=task_description,
-        feature_flags=feature_flags,
-    )
     return server
 
 
@@ -144,7 +131,7 @@ def build_snapshot(run_id: str, workspace_root: Path) -> Dict[str, Any]:
     state_root = _controller_run_dir(workspace_root, safe_run_id)
 
     run_state = _read_json(workspace_root / paths.run_dir(run_id) / paths.RUN_STATE, {})
-    manifest = _read_json(public_run_dir / "dashboard.json", {})
+    config = _read_json(workspace_root / paths.run_dir(run_id) / paths.CONFIG, {})
     completed = _read_jsonl(public_run_dir / "completed_tasks.jsonl")
     # Task scheduling state (running/completed/failed and task→agent mapping)
     # comes from the evotrias task pool.
@@ -185,7 +172,10 @@ def build_snapshot(run_id: str, workspace_root: Path) -> Dict[str, Any]:
         reverse=True,
     )
     guidance = _build_guidance(meta_state)
-    feature_flags = dict(manifest.get("features") or {})
+    feature_flags = {
+        "meta_guidance": (config.get("meta_evolve") or {}).get("enabled"),
+        "notes": (config.get("notes") or {}).get("enabled"),
+    }
     activity = _build_activity(
         attempts=attempts,
         completed=completed,
@@ -202,10 +192,10 @@ def build_snapshot(run_id: str, workspace_root: Path) -> Dict[str, Any]:
     numeric_completed = len(completed)
     success_count = sum(1 for row in completed if row.get("status") == "success")
     failed_count = sum(1 for row in completed if row.get("status") != "success")
-    max_total_tasks = _coerce_int(manifest.get("max_total_tasks"))
+    max_total_tasks = _coerce_int((config.get("budget") or {}).get("max_total_tasks"))
     if max_total_tasks is None:
         max_total_tasks = _coerce_int(diagnostics.get("max_total_tasks"))
-    started_at = run_state.get("created_at") or manifest.get("started_at")
+    started_at = run_state.get("created_at")
     updated_at = run_state.get("updated_at") or _latest_timestamp(
         [row.get("created_at") for row in attempts]
     )
@@ -218,9 +208,7 @@ def build_snapshot(run_id: str, workspace_root: Path) -> Dict[str, Any]:
         "run": {
             "id": run_id,
             "state": search_state,
-            "task_description": run_state.get("task_description")
-            or manifest.get("task_description")
-            or "",
+            "task_description": run_state.get("task_description") or "",
             "max_total_tasks": max_total_tasks,
             "completed_tasks": numeric_completed,
             "successful_tasks": success_count,
@@ -230,7 +218,6 @@ def build_snapshot(run_id: str, workspace_root: Path) -> Dict[str, Any]:
             "updated_at": updated_at,
             "elapsed_seconds": _elapsed_seconds(started_at, search_state),
             "stop_reason": run_state.get("stop_reason") or diagnostics.get("stop_reason"),
-            "dashboard_url": manifest.get("url"),
         },
         "progress": progress,
         "best": best,
@@ -272,7 +259,6 @@ def list_runs(current_run_id: str, workspace_root: Path) -> Dict[str, Any]:
             continue
         run_id = run_dir.name
         state_root = _controller_run_dir(workspace_root, run_id)
-        manifest = _read_json(run_dir / "dashboard.json", {})
         task_pool = _read_json(
             workspace_root / ".evotrias" / "state" / "runs" / run_id / "task_pool.json",
             {},
@@ -296,7 +282,6 @@ def list_runs(current_run_id: str, workspace_root: Path) -> Dict[str, Any]:
             [
                 run_state.get("updated_at"),
                 run_state.get("created_at"),
-                manifest.get("started_at"),
                 modified_at,
             ]
         )
@@ -317,11 +302,9 @@ def list_runs(current_run_id: str, workspace_root: Path) -> Dict[str, Any]:
                 "completed_tasks": len(completed),
                 "attempts": len(attempts),
                 "best_fitness": max(successful_fitness) if successful_fitness else None,
-                "started_at": run_state.get("created_at") or manifest.get("started_at"),
+                "started_at": run_state.get("created_at"),
                 "updated_at": updated_at,
-                "task_description": run_state.get("task_description")
-                or manifest.get("task_description")
-                or "",
+                "task_description": run_state.get("task_description") or "",
                 "is_launch_run": run_id == current_run_id,
             }
         )
@@ -922,37 +905,6 @@ def _available_run_id(run_id: str, workspace_root: Path) -> Optional[str]:
     if not run_dir.is_dir() or run_dir.is_symlink():
         return None
     return safe
-
-
-def _write_dashboard_manifest(
-    workspace_root: Path,
-    run_id: str,
-    *,
-    url: str,
-    port: int,
-    max_total_tasks: Optional[int],
-    task_description: str,
-    feature_flags: Optional[Dict[str, bool]],
-) -> None:
-    run_path = workspace_root / "runs" / _safe_name(run_id)
-    run_path.mkdir(parents=True, exist_ok=True)
-    path = run_path / "dashboard.json"
-    existing = _read_json(path, {})
-    payload = {
-        **existing,
-        "run_id": run_id,
-        "url": url,
-        "port": port,
-        "max_total_tasks": (
-            max_total_tasks if max_total_tasks is not None else existing.get("max_total_tasks")
-        ),
-        "task_description": task_description or existing.get("task_description") or "",
-        "features": dict(feature_flags or {}),
-        "started_at": existing.get("started_at") or _now_iso(),
-    }
-    tmp = path.with_suffix(".json.tmp")
-    tmp.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    tmp.replace(path)
 
 
 def _read_json(path: Path, default: Dict[str, Any]) -> Dict[str, Any]:

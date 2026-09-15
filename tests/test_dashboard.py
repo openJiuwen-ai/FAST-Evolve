@@ -8,6 +8,7 @@ from urllib.parse import quote
 
 import pytest
 
+from evotrias.db.config import Config
 import evotrias.mcp.dashboard as dashboard_module
 import evotrias.mcp.public_tools as public_tools_module
 from evotrias.mcp.dashboard import DashboardServer, build_snapshot, list_runs
@@ -35,14 +36,11 @@ def _seed_run(tmp_path: Path, monkeypatch):
     state = controller_root / RUN_ID
 
     _write_json(
-        public / "dashboard.json",
+        tmp_path / ".evotrias" / "db" / "runs" / RUN_ID / "config.json",
         {
-            "run_id": RUN_ID,
-            "url": "http://127.0.0.1:4000",
-            "max_total_tasks": 50,
-            "task_description": "Improve the benchmark candidate.",
-            "features": {"meta_guidance": True, "notes": False},
-            "started_at": "2026-07-15T01:00:00+00:00",
+            "budget": {"max_total_tasks": 50},
+            "meta_evolve": {"enabled": True},
+            "notes": {"enabled": False},
         },
     )
     _write_json(
@@ -147,14 +145,6 @@ def _seed_history_run(tmp_path: Path):
     state = tmp_path / ".agent_evolve" / "controller" / run_id
     artifact = f"runs/{run_id}/tasks/task_001/attempts/attempt_001/solution.py"
     _write_json(
-        public / "dashboard.json",
-        {
-            "run_id": run_id,
-            "task_description": "An older persisted run.",
-            "started_at": "2026-07-14T01:01:01+00:00",
-        },
-    )
-    _write_json(
         tmp_path / ".evotrias" / "state" / "runs" / run_id / "task_pool.json",
         {"run_id": run_id, "pending": [], "running": {}, "completed": {}, "failed": {}},
     )
@@ -186,6 +176,7 @@ def _seed_history_run(tmp_path: Path):
         tmp_path / ".evotrias" / "db" / "runs" / run_id / "run_state.json",
         {
             "search_state": "stopped",
+            "task_description": "An older persisted run.",
             "created_at": "2026-07-14T01:01:01+00:00",
             "updated_at": "2026-07-14T01:03:00+00:00",
         },
@@ -273,7 +264,7 @@ def test_recent_activity_links_to_evotrias_state_machine(tmp_path, monkeypatch):
     assert "did not compile" in failed_row["detail"]
 
 
-def test_configure_run_passes_current_feature_flags_to_dashboard(tmp_path, monkeypatch):
+def test_configure_run_freezes_feature_flags_into_config(tmp_path, monkeypatch):
     run_id = "feature_flags_20260722010101"
     captured = {}
 
@@ -282,8 +273,8 @@ def test_configure_run_passes_current_feature_flags_to_dashboard(tmp_path, monke
         port = 4567
 
     def fake_start_dashboard(*args, **kwargs):
-        captured["run_id"] = args[0]
-        captured["features"] = kwargs["feature_flags"]
+        captured["args"] = args
+        captured["kwargs"] = kwargs
         return FakeDashboardServer()
 
     monkeypatch.chdir(tmp_path)
@@ -301,10 +292,11 @@ def test_configure_run_passes_current_feature_flags_to_dashboard(tmp_path, monke
         public_tools_module._controllers.pop(run_id, None)
 
     assert result["meta_evolve"]["enabled"] is False
-    assert captured == {
-        "run_id": run_id,
-        "features": {"meta_guidance": False, "notes": False},
-    }
+    config = Config(run_id)
+    assert config.meta_evolve.enabled is False
+    assert config.notes.enabled is False
+    # The dashboard reads flags from config.json itself; nothing is passed in.
+    assert captured == {"args": (run_id,), "kwargs": {}}
 
 
 def test_list_runs_returns_flat_history_for_named_and_legacy_ids(tmp_path, monkeypatch):
