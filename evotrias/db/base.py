@@ -2,8 +2,9 @@
 
 Two shapes cover every persisted file:
 
-* ``DBList`` -- an append-only JSONL event log.  Iterating re-reads the file;
-  ``append`` writes one line.
+* ``DBList`` -- an append-only JSONL event log with a dataclass schema.
+  ``append`` takes a schema instance and writes one line; iterating re-reads
+  the file and yields schema instances.
 * ``DBObject`` -- a JSON snapshot backed by a dataclass.  Subclasses declare
   fields (all with defaults); constructing loads, leaving a ``with`` block
   writes the whole object back atomically.
@@ -95,26 +96,28 @@ def _dataclass_from_dict(cls: type, data: Dict[str, Any]) -> Any:
 
 
 class DBList:
-    """Append-only JSONL log. Subclasses may override ``_encode``/``_decode``."""
+    """Append-only JSONL log whose rows are instances of ``schema``.
 
-    def __init__(self, path: Path):
+    One plain dataclass constrains both sides: ``append`` only accepts it,
+    iteration rebuilds it from each line (unknown keys ignored, missing keys
+    take the dataclass defaults).
+    """
+
+    def __init__(self, path: Path, schema: type):
         self._path = Path(path)
+        self._schema = schema
 
     def __iter__(self) -> Iterator[Any]:
         for row in read_jsonl(self._path):
-            yield self._decode(row)
+            yield _dataclass_from_dict(self._schema, row)
 
     def __len__(self) -> int:
         return len(read_jsonl(self._path))
 
     def append(self, item: Any) -> None:
-        append_jsonl(self._path, self._encode(item))
-
-    def _encode(self, item: Any) -> Dict[str, Any]:
-        return item
-
-    def _decode(self, row: Dict[str, Any]) -> Any:
-        return row
+        if not isinstance(item, self._schema):
+            raise TypeError(f"{type(self).__name__}.append expects {self._schema.__name__}, got {type(item).__name__}")
+        append_jsonl(self._path, dataclasses.asdict(item))
 
 
 class DBObject:

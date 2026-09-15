@@ -1,21 +1,17 @@
-"""SuccessDB and attempt log persistence.
+"""SuccessDB persistence.
 
 ``SuccessDB`` is the reusable success pool.  Parent selection and inspiration
 selection only read from this pool, so failed attempts cannot become parents.
-``AttemptLog`` is the broader audit trail: it records all completed attempts,
-including failures and invalid candidates.
+The broader audit trail of every attempt lives in ``evotrias.db.attempts``.
 """
 
 from __future__ import annotations
 
 from typing import Dict, List, Optional
 
-from evotrias.db.models import AttemptRecord, SuccessRecord
+from evotrias.db.models import SuccessRecord
 from evotrias.mcp.storage import (
-    append_jsonl,
-    attempts_log_path,
     read_json,
-    read_jsonl,
     success_db_path,
     write_json_atomic,
 )
@@ -104,41 +100,3 @@ class SuccessDB:
         if parent is None:
             return 0
         return parent.generation + 1
-
-
-class AttemptLog:
-    """Append-only JSONL audit log for final task attempts."""
-
-    def __init__(self, run_id: str):
-        self.run_id = run_id
-        self.path = attempts_log_path(run_id)
-
-    def append(self, attempt: AttemptRecord) -> None:
-        """Append a completed attempt to the run log."""
-        append_jsonl(self.path, attempt.to_dict())
-
-    def count(self) -> int:
-        """Return how many final attempts have been recorded."""
-        if not self.path.exists():
-            return 0
-        with self.path.open("r", encoding="utf-8") as handle:
-            return sum(1 for line in handle if line.strip())
-
-    def get_all(self) -> List[dict]:
-        """Return all attempt rows in append order."""
-        return read_jsonl(self.path)
-
-    def find_by_task_id(self, task_id: str) -> Optional[dict]:
-        """Return the most recent attempt row for a task id, if present."""
-        match = None
-        for row in read_jsonl(self.path):
-            if row.get("task_id") == task_id:
-                match = row
-        return match
-
-    def find_by_task_attempt(self, task_id: str, attempt_id: str) -> Optional[dict]:
-        """Return one attempt row by task id and attempt id."""
-        for row in read_jsonl(self.path):
-            if row.get("task_id") == task_id and row.get("id") == attempt_id:
-                return row
-        return None

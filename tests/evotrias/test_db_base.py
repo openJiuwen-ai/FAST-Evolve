@@ -98,40 +98,41 @@ def test_read_jsonl_missing_file_returns_empty(tmp_path, log):
 # --- DBList -----------------------------------------------------------------
 
 
+@dataclass
+class _Event:
+    kind: str
+    value: int = 0
+    note: str = ""
+
+
 def test_dblist_missing_file_is_empty(tmp_path, log):
-    log_store = base.DBList(tmp_path / "events.jsonl")
+    log_store = base.DBList(tmp_path / "events.jsonl", _Event)
     assert list(log_store) == []
     assert len(log_store) == 0
 
 
-def test_dblist_append_then_iterate(tmp_path, log):
-    log_store = base.DBList(tmp_path / "events.jsonl")
-    log_store.append({"n": 1})
-    log_store.append({"n": 2})
-    assert list(log_store) == [{"n": 1}, {"n": 2}]
+def test_dblist_append_then_iterate_yields_schema_instances(tmp_path, log):
+    log_store = base.DBList(tmp_path / "events.jsonl", _Event)
+    log_store.append(_Event("start", 1))
+    log_store.append(_Event("stop", 2, note="done"))
+    got = list(log_store)
+    assert got == [_Event("start", 1), _Event("stop", 2, note="done")]
+    assert all(isinstance(item, _Event) for item in got)
     assert len(log_store) == 2
 
 
-@dataclass
-class _Event:
-    kind: str
-    value: int
+def test_dblist_append_rejects_non_schema(tmp_path, log):
+    log_store = base.DBList(tmp_path / "events.jsonl", _Event)
+    with pytest.raises(TypeError, match="expects _Event"):
+        log_store.append({"kind": "start"})
+    assert not (tmp_path / "events.jsonl").exists()
 
 
-class _TypedList(base.DBList):
-    def _encode(self, item):
-        return {"kind": item.kind, "value": item.value}
-
-    def _decode(self, row):
-        return _Event(kind=row["kind"], value=row["value"])
-
-
-def test_dblist_subclass_codec_round_trips_dataclass(tmp_path, log):
-    log_store = _TypedList(tmp_path / "events.jsonl")
-    log_store.append(_Event("start", 1))
-    [got] = list(log_store)
-    assert isinstance(got, _Event)
-    assert got == _Event("start", 1)
+def test_dblist_iter_ignores_unknown_keys_and_fills_defaults(tmp_path, log):
+    path = tmp_path / "events.jsonl"
+    base.append_jsonl(path, {"kind": "old", "retired": True})
+    [got] = list(base.DBList(path, _Event))
+    assert got == _Event("old")
 
 
 # --- DBObject ---------------------------------------------------------------

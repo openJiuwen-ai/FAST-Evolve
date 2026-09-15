@@ -4,7 +4,8 @@ import json
 
 from evotrias.mcp.controller import EvolutionController
 from evotrias.mcp.meta_guidance import MetaGuidanceManager
-from evotrias.mcp.storage import attempts_log_path, notes_path, read_jsonl
+from evotrias.db.attempts import Attempts
+from evotrias.mcp.storage import notes_path, read_jsonl
 from evotrias.db.config import Config, MetaEvolveConfig
 from evotrias.db.models import SuccessRecord
 
@@ -159,7 +160,7 @@ def test_retries_do_not_consume_task_budget(tmp_path, monkeypatch):
             max_attempts=3,
         )
 
-    assert controller.attempt_log.count() == 3
+    assert len(controller.attempt_log) == 3
     assert controller._task_count() == 1
     assert controller._progress() == 1 / 3
     assert controller.check_convergence(concurrency=1)["action"] == "continue"
@@ -625,12 +626,12 @@ def test_attempt_records_meta_guidance_and_report_summary(tmp_path, monkeypatch)
         attempt_id="attempt_001",
         max_attempts=3,
     )
-    attempts = read_jsonl(attempts_log_path(controller.run_id))
+    attempts = list(Attempts(controller.run_id))
     controller.meta_guidance.load()
 
     assert record["entered_success_db"] is True
-    assert attempts[-1]["meta_guidance_id"] == "mg_0001"
-    assert attempts[-1]["anchor_parent_id"] == "success_0000"
+    assert attempts[-1].meta_guidance_id == "mg_0001"
+    assert attempts[-1].anchor_parent_id == "success_0000"
     tried = controller.meta_guidance.state["tried_guidance"][0]
     assert tried["outcome"] == "new_best"
     assert tried["outcomes"][0]["anchor_fitness"] == 1.0

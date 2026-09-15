@@ -139,7 +139,7 @@ def build_snapshot(run_id: str, workspace_root: Path) -> Dict[str, Any]:
         workspace_root / ".evotrias" / "state" / "runs" / safe_run_id / "task_pool.json",
         {},
     )
-    attempts = _read_jsonl(state_root / "attempts.jsonl")
+    attempts = _read_jsonl(workspace_root / paths.run_dir(run_id) / paths.ATTEMPTS)
     notes_collection = _read_json(state_root / "notes.json", {})
     notes_events = _read_jsonl(state_root / "notes_events.jsonl")
     meta_state = _read_json(state_root / "meta_guidance" / "meta_guidance_state.json", {})
@@ -265,7 +265,7 @@ def list_runs(current_run_id: str, workspace_root: Path) -> Dict[str, Any]:
         )
         run_state = _read_json(workspace_root / paths.run_dir(run_id) / paths.RUN_STATE, {})
         completed = _read_jsonl(run_dir / "completed_tasks.jsonl")
-        attempts = _read_jsonl(state_root / "attempts.jsonl")
+        attempts = _read_jsonl(workspace_root / paths.run_dir(run_id) / paths.ATTEMPTS)
         successful_fitness = [
             value
             for item in completed

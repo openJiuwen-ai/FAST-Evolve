@@ -37,11 +37,6 @@ def success_db_path(run_id: str) -> Path:
     return run_dir(run_id) / "success_db.json"
 
 
-def attempts_log_path(run_id: str) -> Path:
-    """Return the JSONL file that stores all final attempts."""
-    return run_dir(run_id) / "attempts.jsonl"
-
-
 def task_contexts_path(run_id: str) -> Path:
     """Return the JSON file that stores pre-record task selection context."""
     return run_dir(run_id) / "task_contexts.json"

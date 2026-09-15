@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
@@ -17,7 +18,8 @@ from evotrias import scheduler
 
 from evotrias.db.config import Config
 from evotrias.logger import logger
-from evotrias.db.models import AttemptRecord, SuccessRecord
+from evotrias.db.attempts import AttemptRecord, Attempts
+from evotrias.db.models import SuccessRecord
 from evotrias.db.run_state import RunState
 from evotrias.enums import SearchState
 from evotrias.mcp.budget_guard import RunBudgetGuard
@@ -28,7 +30,7 @@ from evotrias.mcp.meta_guidance import MetaGuidanceManager
 from evotrias.mcp.notes import NotesManager
 from evotrias.mcp.parent_selector import LineageAwareParentSelector
 from evotrias.mcp.state_store import TaskContextStore
-from evotrias.mcp.success_db import AttemptLog, SuccessDB
+from evotrias.mcp.success_db import SuccessDB
 from evotrias.mcp.run_report import write_run_report
 
 
@@ -98,7 +100,7 @@ class EvolutionController:
         if not self.config.created_at:
             logger.warning(f"run {run_id}: no config.json yet, controller is using defaults")
         self.db = SuccessDB(run_id)
-        self.attempt_log = AttemptLog(run_id)
+        self.attempt_log = Attempts(run_id)
         self.notes = NotesManager(run_id, self.config.notes)
         self.meta_guidance = MetaGuidanceManager(run_id, self.config.meta_evolve)
         self.task_contexts = TaskContextStore(run_id)
@@ -278,7 +280,7 @@ class EvolutionController:
         )
         existing_attempt = self.attempt_log.find_by_task_attempt(task_id, resolved_attempt_id)
         if existing_attempt is not None:
-            existing_ref = existing_attempt.get("verification_result_ref")
+            existing_ref = existing_attempt.verification_result_ref
             if existing_ref and existing_ref != verification_result_ref:
                 raise ValueError(
                     "Attempt log already contains this task/attempt with a different verification_result_ref."
@@ -288,10 +290,11 @@ class EvolutionController:
                 if self.config.notes.enabled
                 else []
             )
+            existing_row = asdict(existing_attempt)
             return _record_response_from_attempt(
-                existing_attempt,
+                existing_row,
                 note_requests=note_requests,
-                relative_delta_to_parent=_relative_delta_to_parent(existing_attempt, self.db),
+                relative_delta_to_parent=_relative_delta_to_parent(existing_row, self.db),
             )
 
         subagent_id = str(verification_result.get("subagent_id") or "")
@@ -394,7 +397,7 @@ class EvolutionController:
                 best_fitness_after=best_after,
             )
         if self.config.notes.enabled:
-            all_attempts = self.attempt_log.get_all()
+            all_attempts = [asdict(a) for a in self.attempt_log]
             note_requests = self.notes.build_note_requests(
                 attempt=attempt,
                 all_attempt_rows=all_attempts,
@@ -403,9 +406,9 @@ class EvolutionController:
             )
         else:
             note_requests = []
-        relative_delta = _relative_delta_to_parent(attempt.to_dict(), self.db)
+        relative_delta = _relative_delta_to_parent(asdict(attempt), self.db)
         return _record_response_from_attempt(
-            attempt.to_dict(),
+            asdict(attempt),
             note_requests=note_requests,
             relative_delta_to_parent=relative_delta,
         )
@@ -462,7 +465,7 @@ class EvolutionController:
         self._load_state()
         run_state = RunState(self.run_id)
         total_tasks = self._task_count()
-        total_attempts = self.attempt_log.count()
+        total_attempts = len(self.attempt_log)
         total_success = len(self.db.get_all())
         elapsed_seconds = run_state.elapsed_seconds()
         reason = self.budget_guard.exhaustion_reason(
@@ -578,7 +581,7 @@ class EvolutionController:
         with RunState(self.run_id) as run_state:
             run_state.search_state = SearchState.STOPPED.value
             run_state.stop_reason = stop_reason or run_state.stop_reason or "manual_finalize"
-            run_state.last_checked_attempt_count = self.attempt_log.count()
+            run_state.last_checked_attempt_count = len(self.attempt_log)
         self._load_state()
         return write_run_report(
             run_id=self.run_id,
@@ -618,12 +621,10 @@ class EvolutionController:
     def _task_count(self) -> int:
         """Return the number of unique tasks registered in this run.
 
-        AttemptLog intentionally retains every retry for Notes and diagnostics,
+        Attempts intentionally retains every retry for Notes and diagnostics,
         so its row count must not be used as the task-budget counter.
         """
-        attempt_task_ids = {
-            str(row["task_id"]) for row in self.attempt_log.get_all() if row.get("task_id")
-        }
+        attempt_task_ids = {a.task_id for a in self.attempt_log if a.task_id}
         return max(self.task_contexts.count(), len(attempt_task_ids))
 
     def _parent_ref(self, parent_id: Optional[str]) -> Dict[str, Any]:

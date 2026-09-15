@@ -85,7 +85,7 @@ def _seed_run(tmp_path: Path, monkeypatch):
                 },
             }
         )
-    _write_jsonl(state / "attempts.jsonl", attempts)
+    _write_jsonl(tmp_path / ".evotrias" / "db" / "runs" / RUN_ID / "attempts.jsonl", attempts)
     _write_json(
         tmp_path / ".evotrias" / "db" / "runs" / RUN_ID / "run_state.json",
         {
@@ -160,7 +160,7 @@ def _seed_history_run(tmp_path: Path):
         ],
     )
     _write_jsonl(
-        state / "attempts.jsonl",
+        tmp_path / ".evotrias" / "db" / "runs" / run_id / "attempts.jsonl",
         [
             {
                 "id": "attempt_001",

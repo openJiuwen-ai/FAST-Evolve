@@ -116,37 +116,6 @@ class LineageStats:
 
 
 @dataclass
-class AttemptRecord:
-    """A completed task attempt, successful or not.
-
-    Attempts are broader than SuccessRecords.  Every final task result should be
-    recorded as an attempt for audit and future policy evidence.  Only attempts
-    with successful verification and a valid fitness enter SuccessDB.
-    """
-
-    id: str
-    run_id: str
-    task_id: str
-    subagent_id: str
-    artifact_ref: str
-    parent_id: Optional[str]
-    inspiration_ids: List[str]
-    generation: Optional[int]
-    verification_result: Dict[str, Any]
-    meta_guidance_id: Optional[str] = None
-    anchor_parent_id: Optional[str] = None
-    verification_result_ref: Optional[str] = None
-    sketch: Optional[str] = None
-    entered_success_db: bool = False
-    success_record_id: Optional[str] = None
-    created_at: str = field(default_factory=utc_now_iso)
-
-    def to_dict(self) -> Dict[str, Any]:
-        """Serialize the attempt to JSONL-compatible data."""
-        return asdict(self)
-
-
-@dataclass
 class TaskContext:
     """Pre-record mapping from one task to selected evolutionary context.
 

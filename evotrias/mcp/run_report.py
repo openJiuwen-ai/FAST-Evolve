@@ -16,10 +16,10 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from evotrias.mcp.lineage_tree import LineageTree
+from evotrias.db.attempts import Attempts
 from evotrias.db.models import SuccessRecord
 from evotrias.db.run_state import RunState
 from evotrias.mcp.storage import (
-    attempts_log_path,
     meta_guidance_state_path,
     meta_guidance_uses_path,
     read_json,
@@ -44,7 +44,7 @@ def write_run_report(
     """
     db.load()
     lineage_tree.rebuild(db)
-    attempts = read_jsonl(attempts_log_path(run_id))
+    attempts = [asdict(a) for a in Attempts(run_id)]
     records = db.get_all()
 
     report_dir = Path("runs") / _safe_name(run_id)

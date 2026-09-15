@@ -8,13 +8,15 @@ validates and annotates with deterministic metadata.
 from __future__ import annotations
 
 import hashlib
+from dataclasses import asdict
 import json
 import math
 import random
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
 from evotrias.db.config import NotesConfig
-from evotrias.db.models import AttemptRecord, SuccessRecord
+from evotrias.db.attempts import AttemptRecord
+from evotrias.db.models import SuccessRecord
 from evotrias.utils.time import utc_now_iso
 from evotrias.mcp.storage import (
     append_jsonl,
@@ -136,7 +138,7 @@ class NotesManager:
             row for row in all_attempt_rows if str(row.get("task_id")) == attempt.task_id
         ]
         task_attempts = sorted(task_attempts, key=lambda row: str(row.get("id") or ""))
-        status = _attempt_status(attempt.to_dict())
+        status = _attempt_status(asdict(attempt))
         attempt_number = _attempt_number(attempt.id)
         current_round = _task_number(attempt.task_id)
         completed_task_count = _completed_task_count_before(
@@ -179,7 +181,7 @@ class NotesManager:
 
         if status == "success" and attempt.parent_id:
             parent = db.get(attempt.parent_id)
-            child_fitness = _extract_attempt_fitness(attempt.to_dict())
+            child_fitness = _extract_attempt_fitness(asdict(attempt))
             if parent is not None and child_fitness is not None:
                 relative_delta = _relative_delta(child_fitness, parent.fitness)
                 previous_best = _best_fitness_excluding_attempt(
@@ -417,7 +419,7 @@ class NotesManager:
             "kind": trigger_kind,
             "relative_delta": relative_delta,
             "threshold": threshold,
-            "child_fitness": _extract_attempt_fitness(attempt.to_dict()),
+            "child_fitness": _extract_attempt_fitness(asdict(attempt)),
             "parent_fitness": parent.fitness if parent else None,
         }
         if trigger_extra:
