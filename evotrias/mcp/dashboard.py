@@ -140,8 +140,8 @@ def build_snapshot(run_id: str, workspace_root: Path) -> Dict[str, Any]:
     )
     attempts = _read_jsonl(workspace_root / paths.run_dir(run_id) / paths.ATTEMPTS)
     completed = _completions(attempts)
-    notes_collection = _read_json(state_root / "notes.json", {})
-    notes_events = _read_jsonl(state_root / "notes_events.jsonl")
+    notes_rows = _read_jsonl(workspace_root / paths.run_dir(run_id) / paths.NOTES)
+    notes_events = _read_jsonl(workspace_root / paths.run_dir(run_id) / paths.NOTES_EVENTS)
     meta_state = _read_json(state_root / "meta_guidance" / "meta_guidance_state.json", {})
     meta_uses = _read_jsonl(state_root / "meta_guidance" / "meta_guidance_uses.jsonl")
 
@@ -167,7 +167,7 @@ def build_snapshot(run_id: str, workspace_root: Path) -> Dict[str, Any]:
     )
 
     notes = sorted(
-        [dict(note) for note in notes_collection.get("notes") or []],
+        [dict(note) for note in notes_rows],
         key=lambda note: str(note.get("created_at") or ""),
         reverse=True,
     )
@@ -831,13 +831,14 @@ def _build_activity(
             }
         )
     for event in note_events[-12:]:
-        if event.get("event") == "note_committed":
+        if event.get("event_type") == "note_committed":
             continue
+        payload = event.get("payload") or {}
         events.append(
             {
                 "kind": "system",
-                "title": str(event.get("event") or "Notes event").replace("_", " ").title(),
-                "detail": event.get("reason") or "Notes policy updated.",
+                "title": str(event.get("event_type") or "Notes event").replace("_", " ").title(),
+                "detail": payload.get("reason") or "Notes policy updated.",
                 "timestamp": event.get("created_at") or event.get("timestamp"),
             }
         )

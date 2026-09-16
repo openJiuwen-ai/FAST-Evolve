@@ -32,21 +32,6 @@ def run_dir(run_id: str) -> Path:
     return controller_root() / _safe_name(run_id)
 
 
-def notes_path(run_id: str) -> Path:
-    """Return the run-local Notes JSON file."""
-    return run_dir(run_id) / "notes.json"
-
-
-def note_requests_path(run_id: str) -> Path:
-    """Return the append-only run-local note request log."""
-    return run_dir(run_id) / "note_requests.jsonl"
-
-
-def notes_events_path(run_id: str) -> Path:
-    """Return the append-only run-local notes event log."""
-    return run_dir(run_id) / "notes_events.jsonl"
-
-
 def meta_guidance_dir(run_id: str) -> Path:
     """Return the directory for meta-guidance state."""
     return run_dir(run_id) / "meta_guidance"

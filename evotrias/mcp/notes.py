@@ -8,27 +8,18 @@ validates and annotates with deterministic metadata.
 from __future__ import annotations
 
 import hashlib
-from dataclasses import asdict
 import json
 import math
 import random
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
+from evotrias.db.attempts import AttemptRecord, Attempts
 from evotrias.db.config import NotesConfig
-from evotrias.db.attempts import AttemptRecord
-from evotrias.utils.time import utc_now_iso
-from evotrias.mcp.storage import (
-    append_jsonl,
-    note_requests_path,
-    notes_events_path,
-    notes_path,
-    read_json,
-    read_jsonl,
-    write_json_atomic,
-)
+from evotrias.db.note_requests import NoteRequest, NoteRequests
+from evotrias.db.notes import Note, NoteRefs, Notes, NoteSource, NoteTrigger
+from evotrias.db.notes_events import NotesEvent, NotesEvents
 from evotrias.mcp.success_pool import SuccessPool, SuccessRecord
 
-SCHEMA_VERSION = "notes_run_local"
 NOTE_TYPES = {"error", "negative", "positive"}
 POSITIVE_DUPLICATE_FITNESS_TOL = 1e-6
 DEFAULT_DELTA_THRESHOLD = 0.05
@@ -41,9 +32,9 @@ class NotesManager:
     def __init__(self, run_id: str, config: NotesConfig):
         self.run_id = run_id
         self.config = config
-        self.notes_file = notes_path(run_id)
-        self.requests_file = note_requests_path(run_id)
-        self.events_file = notes_events_path(run_id)
+        self.notes = Notes(run_id)
+        self.requests = NoteRequests(run_id)
+        self.events = NotesEvents(run_id)
 
     def get_prompt(
         self,
@@ -53,16 +44,14 @@ class NotesManager:
         inspiration_ids: Sequence[str],
     ) -> Dict[str, Any]:
         """Return a ready-to-inject notes prompt for one generation task."""
-        collection = self._load_collection()
-        notes = list(collection.get("notes") or [])
-        active = [n for n in notes if n.get("note_type") in NOTE_TYPES]
+        active = [n for n in self.notes if n.note_type in NOTE_TYPES]
 
-        error_notes = [n for n in active if n.get("note_type") == "error"]
-        error_notes = sorted(error_notes, key=lambda n: str(n.get("created_at") or ""))[
+        error_notes = [n for n in active if n.note_type == "error"]
+        error_notes = sorted(error_notes, key=lambda n: n.created_at)[
             -self.config.error_prompt_limit:
         ]
 
-        pos_neg_notes = [n for n in active if n.get("note_type") in {"positive", "negative"}]
+        pos_neg_notes = [n for n in active if n.note_type in {"positive", "negative"}]
         anchor_ids = {item for item in [parent_id, *inspiration_ids] if item}
         matched = [n for n in pos_neg_notes if _note_matches_ids(n, anchor_ids)]
         selected_pos_neg = list(matched)
@@ -79,39 +68,34 @@ class NotesManager:
         selected = [*error_notes, *selected_pos_neg]
         prompt = _render_notes_prompt(selected) if selected else ""
         counts = {
-            "error": sum(1 for n in selected if n.get("note_type") == "error"),
-            "positive": sum(1 for n in selected if n.get("note_type") == "positive"),
-            "negative": sum(1 for n in selected if n.get("note_type") == "negative"),
+            "error": sum(1 for n in selected if n.note_type == "error"),
+            "positive": sum(1 for n in selected if n.note_type == "positive"),
+            "negative": sum(1 for n in selected if n.note_type == "negative"),
             "matched_pos_neg": len(matched),
             "random_fill": len(random_fill),
         }
         return {
             "available": bool(selected),
             "prompt": prompt,
-            "selected_note_ids": [str(n.get("note_id")) for n in selected],
+            "selected_note_ids": [n.note_id for n in selected],
             "counts": counts,
         }
 
     def summarize_for_meta_guidance(self, *, limit_per_type: int = 5) -> Dict[str, Any]:
         """Return compact run-local Notes context for meta-guidance generation."""
-        collection = self._load_collection()
-        notes = [
-            note
-            for note in collection.get("notes") or []
-            if note.get("note_type") in NOTE_TYPES
-        ]
+        notes = [note for note in self.notes if note.note_type in NOTE_TYPES]
         groups = {
             note_type: [
                 _note_summary(note)
                 for note in notes
-                if note.get("note_type") == note_type
+                if note.note_type == note_type
             ][-limit_per_type:]
             for note_type in ("positive", "negative", "error")
         }
         return {
             "enabled": True,
             "counts": {
-                note_type: sum(1 for note in notes if note.get("note_type") == note_type)
+                note_type: sum(1 for note in notes if note.note_type == note_type)
                 for note_type in ("positive", "negative", "error")
             },
             **groups,
@@ -122,26 +106,23 @@ class NotesManager:
         self,
         *,
         attempt: AttemptRecord,
-        all_attempt_rows: Sequence[Dict[str, Any]],
+        attempts: Attempts,
         db: SuccessPool,
         max_attempts: int = 3,
     ) -> List[Dict[str, Any]]:
         """Create note requests triggered by one recorded attempt."""
-        existing_ids = {
-            str(row.get("note_request_id"))
-            for row in read_jsonl(self.requests_file)
-            if row.get("note_request_id")
-        }
-        requests: List[Dict[str, Any]] = []
-        task_attempts = [
-            row for row in all_attempt_rows if str(row.get("task_id")) == attempt.task_id
-        ]
-        task_attempts = sorted(task_attempts, key=lambda row: str(row.get("id") or ""))
-        status = _attempt_status(asdict(attempt))
+        all_attempts = list(attempts)  # one read; the helpers below iterate it several times
+        existing_ids = {request.note_request_id for request in self.requests}
+        requests: List[NoteRequest] = []
+        task_attempts = sorted(
+            (row for row in all_attempts if row.task_id == attempt.task_id),
+            key=lambda row: row.id,
+        )
+        status = _attempt_status(attempt)
         attempt_number = _attempt_number(attempt.id)
         current_round = _task_number(attempt.task_id)
         completed_task_count = _completed_task_count_before(
-            all_attempt_rows, current_task_id=attempt.task_id
+            all_attempts, current_task_id=attempt.task_id
         )
 
         if current_round <= self.config.warmup_tasks:
@@ -162,7 +143,7 @@ class NotesManager:
             failed_before = [
                 row
                 for row in task_attempts
-                if _attempt_number(str(row.get("id"))) < attempt_number
+                if _attempt_number(row.id) < attempt_number
                 and _attempt_status(row) != "success"
             ]
             if failed_before:
@@ -171,25 +152,25 @@ class NotesManager:
                     trigger_kind="failed_to_success",
                     attempt=attempt,
                     db=db,
-                    failed_attempt_rows=failed_before,
+                    failed_attempts=failed_before,
                     relative_delta=None,
                     threshold=None,
                 )
-                if request["note_request_id"] not in existing_ids:
+                if request.note_request_id not in existing_ids:
                     requests.append(request)
 
         if status == "success" and attempt.parent_id:
             parent = db.get(attempt.parent_id)
-            child_fitness = _extract_attempt_fitness(asdict(attempt))
+            child_fitness = _extract_attempt_fitness(attempt)
             if parent is not None and child_fitness is not None:
                 relative_delta = _relative_delta(child_fitness, parent.fitness)
                 previous_best = _best_fitness_excluding_attempt(
-                    all_attempt_rows,
+                    all_attempts,
                     exclude_task_id=attempt.task_id,
                     exclude_attempt_id=attempt.id,
                 )
                 positive_history, negative_history = _material_delta_histories(
-                    all_attempt_rows=all_attempt_rows,
+                    all_attempts=all_attempts,
                     db=db,
                     exclude_task_id=attempt.task_id,
                     exclude_attempt_id=attempt.id,
@@ -237,7 +218,7 @@ class NotesManager:
                             trigger_kind=str(positive_gate["trigger_kind"]),
                             attempt=attempt,
                             db=db,
-                            failed_attempt_rows=[],
+                            failed_attempts=[],
                             relative_delta=relative_delta,
                             threshold=positive_gate["parent_delta_threshold"],
                             trigger_extra={
@@ -248,7 +229,7 @@ class NotesManager:
                                 "duplicate_positive_plateau": False,
                             },
                         )
-                        if request["note_request_id"] not in existing_ids:
+                        if request.note_request_id not in existing_ids:
                             requests.append(request)
                 elif relative_delta <= -negative_threshold:
                     request = self._make_request(
@@ -256,11 +237,11 @@ class NotesManager:
                         trigger_kind="material_regression",
                         attempt=attempt,
                         db=db,
-                        failed_attempt_rows=[],
+                        failed_attempts=[],
                         relative_delta=relative_delta,
                         threshold=negative_threshold,
                     )
-                    if request["note_request_id"] not in existing_ids:
+                    if request.note_request_id not in existing_ids:
                         requests.append(request)
 
         if status != "success" and attempt_number >= max_attempts:
@@ -273,31 +254,31 @@ class NotesManager:
                     trigger_kind="all_failed",
                     attempt=attempt,
                     db=db,
-                    failed_attempt_rows=task_attempts,
+                    failed_attempts=task_attempts,
                     relative_delta=None,
                     threshold=None,
                 )
-                if request["note_request_id"] not in existing_ids:
+                if request.note_request_id not in existing_ids:
                     requests.append(request)
 
         for request in requests:
-            append_jsonl(self.requests_file, request)
+            self.requests.append(request)
             self._append_event(
                 "request_created",
                 {
-                    "note_request_id": request["note_request_id"],
-                    "note_type": request["note_type"],
+                    "note_request_id": request.note_request_id,
+                    "note_type": request.note_type,
                     "task_id": attempt.task_id,
                     "attempt_id": attempt.id,
                 },
             )
-        return [_public_request(row) for row in requests]
+        return [_public_request(request) for request in requests]
 
     def commit_generated_note(
         self, note_request_id: str, generated_note_json: Any
     ) -> Dict[str, Any]:
         """Validate and commit one generated note."""
-        request = self._get_request(note_request_id)
+        request = self.requests.get(note_request_id)
         if request is None:
             return {
                 "committed": False,
@@ -323,76 +304,51 @@ class NotesManager:
             )
             return {"committed": False, "retryable": True, "reason": error}
 
-        collection = self._load_collection()
-        notes = list(collection.get("notes") or [])
-        note_id = str(request["note_id"])
-        if any(existing.get("note_id") == note_id for existing in notes):
+        note_id = request.note_id
+        if self.notes.get(note_id) is not None:
             return {
                 "committed": True,
                 "note_id": note_id,
-                "notes_path": str(self.notes_file),
                 "already_committed": True,
             }
 
-        committed = {
-            "note_id": note_id,
-            "note_type": request["note_type"],
-            "title": note["title"].strip(),
-            "lesson": note["lesson"].strip(),
-            "actionable_guidance": note["actionable_guidance"].strip(),
-            "evidence_summary": note["evidence_summary"].strip(),
-            "confidence": note.get("confidence", "medium"),
-            "source": dict(request.get("source") or {}),
-            "trigger": dict(request.get("trigger") or {}),
-            "refs": dict(request.get("refs") or {}),
-            "created_at": utc_now_iso(),
-        }
-        notes.append(committed)
-        collection["notes"] = notes
-        collection["updated_at"] = utc_now_iso()
-        self._save_collection(collection)
+        self.notes.append(
+            Note(
+                note_id=note_id,
+                note_type=request.note_type,
+                title=note["title"].strip(),
+                lesson=note["lesson"].strip(),
+                actionable_guidance=note["actionable_guidance"].strip(),
+                evidence_summary=note["evidence_summary"].strip(),
+                confidence=note.get("confidence", "medium"),
+                source=request.source,
+                trigger=request.trigger,
+                refs=request.refs,
+            )
+        )
         self._append_event(
             "note_committed",
             {"note_request_id": note_request_id, "note_id": note_id},
         )
-        return {
-            "committed": True,
-            "note_id": note_id,
-            "notes_path": str(self.notes_file),
-        }
+        return {"committed": True, "note_id": note_id}
 
     def public_requests_for_attempt(self, task_id: str, attempt_id: str) -> List[Dict[str, Any]]:
         """Return existing public requests for a task/attempt pair."""
-        committed_note_ids = {
-            str(note.get("note_id"))
-            for note in (self._load_collection().get("notes") or [])
-            if note.get("note_id")
-        }
-        requests = []
-        for row in read_jsonl(self.requests_file):
-            if row.get("task_id") != task_id or row.get("attempt_id") != attempt_id:
-                continue
-            if row.get("note_id") in committed_note_ids:
-                continue
-            requests.append(_public_request(row))
-        return requests
+        committed_note_ids = {note.note_id for note in self.notes}
+        return [
+            _public_request(request)
+            for request in self.requests
+            if request.task_id == task_id
+            and request.attempt_id == attempt_id
+            and request.note_id not in committed_note_ids
+        ]
 
     def _positive_evidence_exists_near(self, fitness: float) -> bool:
         """Return whether a positive note/request already covers this fitness band."""
-        collection = self._load_collection()
-        for note in collection.get("notes") or []:
-            if note.get("note_type") != "positive":
+        for item in (*self.notes, *self.requests):
+            if item.note_type != "positive":
                 continue
-            trigger = dict(note.get("trigger") or {})
-            child_fitness = _coerce_float(trigger.get("child_fitness"))
-            if child_fitness is not None and _fitness_near(child_fitness, fitness):
-                return True
-
-        for request in read_jsonl(self.requests_file):
-            if request.get("note_type") != "positive":
-                continue
-            trigger = dict(request.get("trigger") or {})
-            child_fitness = _coerce_float(trigger.get("child_fitness"))
+            child_fitness = item.trigger.child_fitness
             if child_fitness is not None and _fitness_near(child_fitness, fitness):
                 return True
         return False
@@ -404,66 +360,58 @@ class NotesManager:
         trigger_kind: str,
         attempt: AttemptRecord,
         db: SuccessPool,
-        failed_attempt_rows: Sequence[Dict[str, Any]],
+        failed_attempts: Sequence[AttemptRecord],
         relative_delta: Optional[float],
         threshold: Optional[float],
         trigger_extra: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+    ) -> NoteRequest:
         parent = db.get(attempt.parent_id)
         inspirations = [record for record in (db.get(i) for i in attempt.inspiration_ids) if record]
         suffix = trigger_kind if note_type == "error" else note_type
-        note_request_id = f"note_req_{attempt.task_id}_{attempt.id}_{suffix}"
-        note_id = f"note_{attempt.task_id}_{attempt.id}_{suffix}"
-        trigger = {
-            "kind": trigger_kind,
-            "relative_delta": relative_delta,
-            "threshold": threshold,
-            "child_fitness": _extract_attempt_fitness(asdict(attempt)),
-            "parent_fitness": parent.fitness if parent else None,
-        }
-        if trigger_extra:
-            trigger.update(trigger_extra)
-        source = {
-            "run_id": self.run_id,
-            "task_id": attempt.task_id,
-            "attempt_id": attempt.id,
-            "success_record_id": attempt.success_record_id,
-            "parent_success_record_id": attempt.parent_id,
-            "inspiration_success_record_ids": list(attempt.inspiration_ids),
-        }
-        refs = {
-            "child_artifact_ref": attempt.artifact_ref,
-            "parent_artifact_ref": parent.artifact_ref if parent else "",
-            "inspiration_artifact_refs": [record.artifact_ref for record in inspirations],
-            "verification_result_ref": attempt.verification_result_ref,
-            "failed_attempt_refs": [
-                str(row.get("artifact_ref") or "") for row in failed_attempt_rows
-            ],
-            "failed_verification_result_refs": [
-                str(row.get("verification_result_ref") or "") for row in failed_attempt_rows
-            ],
-        }
-        request = {
-            "note_request_id": note_request_id,
-            "note_id": note_id,
-            "run_id": self.run_id,
-            "task_id": attempt.task_id,
-            "attempt_id": attempt.id,
-            "note_type": note_type,
-            "trigger": trigger,
-            "source": source,
-            "refs": refs,
-            "analysis_prompt": _analysis_prompt(
+        return NoteRequest(
+            note_request_id=f"note_req_{attempt.task_id}_{attempt.id}_{suffix}",
+            note_id=f"note_{attempt.task_id}_{attempt.id}_{suffix}",
+            run_id=self.run_id,
+            task_id=attempt.task_id,
+            attempt_id=attempt.id,
+            note_type=note_type,
+            trigger=NoteTrigger(
+                kind=trigger_kind,
+                relative_delta=relative_delta,
+                threshold=threshold,
+                child_fitness=_extract_attempt_fitness(attempt),
+                parent_fitness=parent.fitness if parent else None,
+                extra=dict(trigger_extra or {}),
+            ),
+            source=NoteSource(
+                run_id=self.run_id,
+                task_id=attempt.task_id,
+                attempt_id=attempt.id,
+                success_record_id=attempt.success_record_id,
+                parent_success_record_id=attempt.parent_id,
+                inspiration_success_record_ids=list(attempt.inspiration_ids),
+            ),
+            refs=NoteRefs(
+                child_artifact_ref=attempt.artifact_ref,
+                parent_artifact_ref=parent.artifact_ref if parent else "",
+                inspiration_artifact_refs=[record.artifact_ref for record in inspirations],
+                verification_result_ref=attempt.verification_result_ref,
+                failed_attempt_refs=[row.artifact_ref or "" for row in failed_attempts],
+                failed_verification_result_refs=[
+                    row.verification_result_ref or "" for row in failed_attempts
+                ],
+            ),
+            analysis_prompt=_analysis_prompt(
                 note_type=note_type,
                 trigger_kind=trigger_kind,
                 attempt=attempt,
                 parent=parent,
                 inspirations=inspirations,
-                failed_attempt_rows=failed_attempt_rows,
+                failed_attempts=failed_attempts,
                 relative_delta=relative_delta,
                 threshold=threshold,
             ),
-            "expected_schema": {
+            expected_schema={
                 "required": [
                     "title",
                     "lesson",
@@ -473,73 +421,34 @@ class NotesManager:
                 ],
                 "confidence_values": ["low", "medium", "high"],
             },
-            "created_at": utc_now_iso(),
-        }
-        return request
-
-    def _get_request(self, note_request_id: str) -> Optional[Dict[str, Any]]:
-        match = None
-        for row in read_jsonl(self.requests_file):
-            if row.get("note_request_id") == note_request_id:
-                match = row
-        return match
-
-    def _load_collection(self) -> Dict[str, Any]:
-        data = read_json(
-            self.notes_file,
-            {
-                "schema_version": SCHEMA_VERSION,
-                "run_id": self.run_id,
-                "created_at": utc_now_iso(),
-                "updated_at": utc_now_iso(),
-                "notes": [],
-            },
         )
-        data.setdefault("schema_version", SCHEMA_VERSION)
-        data.setdefault("run_id", self.run_id)
-        data.setdefault("notes", [])
-        return data
-
-    def _save_collection(self, collection: Dict[str, Any]) -> None:
-        write_json_atomic(self.notes_file, collection)
 
     def _append_event(self, event_type: str, payload: Dict[str, Any]) -> None:
-        append_jsonl(
-            self.events_file,
-            {
-                "event_type": event_type,
-                "run_id": self.run_id,
-                "created_at": utc_now_iso(),
-                **payload,
-            },
-        )
+        self.events.append(NotesEvent(event_type=event_type, run_id=self.run_id, payload=payload))
 
 
-def _public_request(request: Dict[str, Any]) -> Dict[str, Any]:
+def _public_request(request: NoteRequest) -> Dict[str, Any]:
     return {
-        "note_request_id": request["note_request_id"],
-        "note_type": request["note_type"],
-        "analysis_prompt": request["analysis_prompt"],
-        "expected_schema": request["expected_schema"],
+        "note_request_id": request.note_request_id,
+        "note_type": request.note_type,
+        "analysis_prompt": request.analysis_prompt,
+        "expected_schema": request.expected_schema,
     }
 
 
-def _note_matches_ids(note: Dict[str, Any], ids: Iterable[str]) -> bool:
+def _note_matches_ids(note: Note, ids: Iterable[str]) -> bool:
     anchor_ids = {str(item) for item in ids if item}
     if not anchor_ids:
         return False
-    source = dict(note.get("source") or {})
-    direct = {
-        str(source.get("success_record_id") or ""),
-        str(source.get("parent_success_record_id") or ""),
-    }
-    inspirations = {str(item) for item in source.get("inspiration_success_record_ids") or []}
+    source = note.source
+    direct = {source.success_record_id or "", source.parent_success_record_id or ""}
+    inspirations = set(source.inspiration_success_record_ids)
     return bool(anchor_ids & (direct | inspirations))
 
 
 def _stable_sample(
-    items: Sequence[Dict[str, Any]], *, limit: int, seed_parts: Sequence[str]
-) -> List[Dict[str, Any]]:
+    items: Sequence[Note], *, limit: int, seed_parts: Sequence[str]
+) -> List[Note]:
     if limit <= 0 or not items:
         return []
     seed_text = "|".join(seed_parts)
@@ -550,11 +459,11 @@ def _stable_sample(
     return pool[:limit]
 
 
-def _render_notes_prompt(notes: Sequence[Dict[str, Any]]) -> str:
+def _render_notes_prompt(notes: Sequence[Note]) -> str:
     groups = {
-        "error": [n for n in notes if n.get("note_type") == "error"],
-        "positive": [n for n in notes if n.get("note_type") == "positive"],
-        "negative": [n for n in notes if n.get("note_type") == "negative"],
+        "error": [n for n in notes if n.note_type == "error"],
+        "positive": [n for n in notes if n.note_type == "positive"],
+        "negative": [n for n in notes if n.note_type == "negative"],
     }
     lines = [
         "## Run-local evolution notes",
@@ -581,43 +490,40 @@ def _render_notes_prompt(notes: Sequence[Dict[str, Any]]) -> str:
             continue
         lines.extend(["", headings[note_type], ""])
         for idx, note in enumerate(bucket, start=1):
-            source = dict(note.get("source") or {})
-            trigger = dict(note.get("trigger") or {})
-            source_label = _source_label(source, trigger)
+            source_label = _source_label(note.source, note.trigger)
             lines.extend(
                 [
                     f"{idx}. [{source_label}]",
-                    f"Title: {_short(note.get('title'))}",
-                    f"Lesson: {_short(note.get('lesson'))}",
-                    f"Guidance: {_short(note.get('actionable_guidance'))}",
+                    f"Title: {_short(note.title)}",
+                    f"Lesson: {_short(note.lesson)}",
+                    f"Guidance: {_short(note.actionable_guidance)}",
                 ]
             )
     return "\n".join(lines).strip()
 
 
-def _note_summary(note: Dict[str, Any]) -> Dict[str, Any]:
-    trigger = dict(note.get("trigger") or {})
+def _note_summary(note: Note) -> Dict[str, Any]:
     return {
-        "note_id": str(note.get("note_id") or ""),
-        "note_type": str(note.get("note_type") or ""),
-        "title": _short(note.get("title"), 120),
-        "lesson": _short(note.get("lesson"), 240),
-        "actionable_guidance": _short(note.get("actionable_guidance"), 240),
-        "confidence": str(note.get("confidence") or "medium"),
+        "note_id": note.note_id,
+        "note_type": note.note_type,
+        "title": _short(note.title, 120),
+        "lesson": _short(note.lesson, 240),
+        "actionable_guidance": _short(note.actionable_guidance, 240),
+        "confidence": note.confidence or "medium",
         "trigger": {
-            "kind": trigger.get("kind"),
-            "relative_delta": trigger.get("relative_delta"),
-            "child_fitness": trigger.get("child_fitness"),
-            "parent_fitness": trigger.get("parent_fitness"),
+            "kind": note.trigger.kind,
+            "relative_delta": note.trigger.relative_delta,
+            "child_fitness": note.trigger.child_fitness,
+            "parent_fitness": note.trigger.parent_fitness,
         },
     }
 
 
-def _source_label(source: Dict[str, Any], trigger: Dict[str, Any]) -> str:
-    task_id = source.get("task_id") or "unknown_task"
-    attempt_id = source.get("attempt_id") or "unknown_attempt"
-    delta = trigger.get("relative_delta")
-    parent = source.get("parent_success_record_id")
+def _source_label(source: NoteSource, trigger: NoteTrigger) -> str:
+    task_id = source.task_id or "unknown_task"
+    attempt_id = source.attempt_id or "unknown_attempt"
+    delta = trigger.relative_delta
+    parent = source.parent_success_record_id
     if isinstance(delta, (int, float)) and parent:
         return f"{task_id} / {attempt_id}, {delta * 100:+.1f}% vs parent {parent}"
     return f"{task_id} / {attempt_id}"
@@ -630,7 +536,7 @@ def _analysis_prompt(
     attempt: AttemptRecord,
     parent: Optional[SuccessRecord],
     inspirations: Sequence[SuccessRecord],
-    failed_attempt_rows: Sequence[Dict[str, Any]],
+    failed_attempts: Sequence[AttemptRecord],
     relative_delta: Optional[float],
     threshold: Optional[float],
 ) -> str:
@@ -713,9 +619,9 @@ def _analysis_prompt(
             ]
         )
 
-    failed_refs = [str(row.get("artifact_ref") or "") for row in failed_attempt_rows]
+    failed_refs = [row.artifact_ref or "" for row in failed_attempts]
     failed_result_refs = [
-        str(row.get("verification_result_ref") or "") for row in failed_attempt_rows
+        row.verification_result_ref or "" for row in failed_attempts
     ]
     if trigger_kind == "all_failed":
         title = "Trigger: all attempts for this task failed verification."
@@ -822,15 +728,12 @@ def _validate_generated_note(note: Dict[str, Any]) -> Optional[str]:
     return None
 
 
-def _attempt_status(row: Dict[str, Any]) -> str:
-    verification = dict(row.get("verification_result") or {})
-    return str(verification.get("status") or "").lower()
+def _attempt_status(attempt: AttemptRecord) -> str:
+    return str((attempt.verification_result or {}).get("status") or "").lower()
 
 
-def _extract_attempt_fitness(row: Dict[str, Any]) -> Optional[float]:
-    verification = dict(row.get("verification_result") or {})
-    value = verification.get("fitness")
-    return _coerce_float(value)
+def _extract_attempt_fitness(attempt: AttemptRecord) -> Optional[float]:
+    return _coerce_float((attempt.verification_result or {}).get("fitness"))
 
 
 def _coerce_float(value: Any) -> Optional[float]:
@@ -843,25 +746,20 @@ def _coerce_float(value: Any) -> Optional[float]:
 
 
 def _completed_task_count_before(
-    all_attempt_rows: Sequence[Dict[str, Any]],
+    all_attempts: Sequence[AttemptRecord],
     current_task_id: Optional[str] = None,
 ) -> int:
-    task_ids = {
-        str(row.get("task_id"))
-        for row in all_attempt_rows
-        if row.get("task_id") and str(row.get("task_id")) != str(current_task_id)
-    }
-    return len(task_ids)
+    return len({row.task_id for row in all_attempts if row.task_id and row.task_id != current_task_id})
 
 
 def _best_fitness_excluding_attempt(
-    all_attempt_rows: Sequence[Dict[str, Any]],
+    all_attempts: Sequence[AttemptRecord],
     *,
     exclude_task_id: Optional[str],
     exclude_attempt_id: Optional[str],
 ) -> Optional[float]:
     values: List[float] = []
-    for row in all_attempt_rows:
+    for row in all_attempts:
         if _same_attempt(
             row,
             task_id=exclude_task_id,
@@ -877,14 +775,14 @@ def _best_fitness_excluding_attempt(
 
 
 def _same_attempt(
-    row: Dict[str, Any],
+    row: AttemptRecord,
     *,
     task_id: Optional[str],
     attempt_id: Optional[str],
 ) -> bool:
     if not task_id or not attempt_id:
         return False
-    return str(row.get("task_id")) == str(task_id) and str(row.get("id")) == str(attempt_id)
+    return row.task_id == task_id and row.id == attempt_id
 
 
 def _positive_gate(
@@ -952,14 +850,14 @@ def _material_delta_threshold(values: Sequence[float], *, q: float, cfg: NotesCo
 
 def _material_delta_histories(
     *,
-    all_attempt_rows: Sequence[Dict[str, Any]],
+    all_attempts: Sequence[AttemptRecord],
     db: SuccessPool,
     exclude_task_id: Optional[str],
     exclude_attempt_id: Optional[str],
 ) -> tuple[List[float], List[float]]:
     positive: List[float] = []
     negative: List[float] = []
-    for row in all_attempt_rows:
+    for row in all_attempts:
         if _same_attempt(
             row,
             task_id=exclude_task_id,
@@ -968,8 +866,7 @@ def _material_delta_histories(
             continue
         if _attempt_status(row) != "success":
             continue
-        parent_id = row.get("parent_id")
-        parent = db.get(str(parent_id)) if parent_id else None
+        parent = db.get(row.parent_id) if row.parent_id else None
         fitness = _extract_attempt_fitness(row)
         if parent is None or fitness is None:
             continue

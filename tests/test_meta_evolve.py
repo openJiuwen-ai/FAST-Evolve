@@ -6,7 +6,9 @@ from evotrias.mcp.controller import EvolutionController
 from evotrias.mcp.success_pool import SuccessPool
 from evotrias.mcp.meta_guidance import MetaGuidanceManager
 from evotrias.db.attempts import AttemptRecord, Attempts
-from evotrias.mcp.storage import notes_path
+from evotrias.db.note_requests import NoteRequest, NoteRequests
+from evotrias.db.notes import Note, Notes, NoteTrigger
+from evotrias.db.notes_events import NotesEvents
 from evotrias.db.config import Config, MetaEvolveConfig
 from evotrias.db.task_contexts import TaskContexts
 from evotrias.utils.time import utc_now_iso
@@ -230,6 +232,34 @@ def test_second_success_for_same_task_does_not_reenter_pool(tmp_path, monkeypatc
     pool = SuccessPool(controller.run_id)
     assert [r.id for r in pool.get_all()] == ["task_001"]
     assert pool.get("task_001").fitness == 1.0
+
+
+def test_commit_generated_note_is_idempotent_per_request(tmp_path, monkeypatch):
+    controller = _controller(tmp_path, monkeypatch)
+    NoteRequests(controller.run_id).append(
+        NoteRequest(
+            note_request_id="note_req_task_001_attempt_001_positive",
+            note_id="note_task_001_attempt_001_positive",
+            run_id=controller.run_id,
+            task_id="task_001",
+            attempt_id="attempt_001",
+            note_type="positive",
+        )
+    )
+    generated = {
+        "title": "Keep the stable update",
+        "lesson": "It improved fitness.",
+        "actionable_guidance": "Reuse it.",
+        "evidence_summary": "Seen once.",
+        "confidence": "medium",
+    }
+    first = controller.commit_generated_note("note_req_task_001_attempt_001_positive", generated)
+    second = controller.commit_generated_note("note_req_task_001_attempt_001_positive", generated)
+
+    assert first == {"committed": True, "note_id": "note_task_001_attempt_001_positive"}
+    assert second["committed"] is True and second["already_committed"] is True
+    assert [n.note_id for n in Notes(controller.run_id)] == ["note_task_001_attempt_001_positive"]
+    assert [e.event_type for e in NotesEvents(controller.run_id)] == ["note_committed"]
 
 def test_commit_guidance_uses_canonical_best_anchor(tmp_path, monkeypatch):
     controller = _controller(tmp_path, monkeypatch)
@@ -703,32 +733,22 @@ def test_next_meta_request_includes_guidance_outcomes_and_notes(tmp_path, monkey
         attempt_id="attempt_001",
         max_attempts=3,
     )
-    notes_file = notes_path(controller.run_id)
-    notes_file.parent.mkdir(parents=True, exist_ok=True)
-    notes_file.write_text(
-        json.dumps(
-            {
-                "schema_version": "notes_run_local",
-                "notes": [
-                    {
-                        "note_id": "note_positive_1",
-                        "note_type": "positive",
-                        "title": "Preserve useful vectorization",
-                        "lesson": "Vectorized candidate generation helped earlier attempts.",
-                        "actionable_guidance": "Keep vectorized scoring when changing the search family.",
-                        "evidence_summary": "Observed in a previous successful task.",
-                        "confidence": "medium",
-                        "trigger": {
-                            "kind": "material_improvement",
-                            "relative_delta": 0.05,
-                            "child_fitness": 1.0,
-                            "parent_fitness": 0.95,
-                        },
-                    }
-                ],
-            }
-        ),
-        encoding="utf-8",
+    Notes(controller.run_id).append(
+        Note(
+            note_id="note_positive_1",
+            note_type="positive",
+            title="Preserve useful vectorization",
+            lesson="Vectorized candidate generation helped earlier attempts.",
+            actionable_guidance="Keep vectorized scoring when changing the search family.",
+            evidence_summary="Observed in a previous successful task.",
+            confidence="medium",
+            trigger=NoteTrigger(
+                kind="material_improvement",
+                relative_delta=0.05,
+                child_fitness=1.0,
+                parent_fitness=0.95,
+            ),
+        )
     )
 
     second = controller.check_convergence(concurrency=1)

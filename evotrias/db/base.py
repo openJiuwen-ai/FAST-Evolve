@@ -90,9 +90,10 @@ def append_jsonl(path: Path, row: Dict[str, Any]) -> None:
 
 
 def _dataclass_from_dict(cls: type, data: Dict[str, Any]) -> Any:
-    """Build a plain dataclass from a dict, ignoring unknown keys."""
+    """Build a dataclass from a dict, ignoring unknown keys and rebuilding nested dataclass fields."""
+    hints = typing.get_type_hints(cls)
     known = {f.name for f in dataclasses.fields(cls)}
-    return cls(**{k: v for k, v in data.items() if k in known})
+    return cls(**{k: _rebuild(hints.get(k), v) for k, v in data.items() if k in known})
 
 
 def _rebuild(hint: Any, value: Any) -> Any:
@@ -116,7 +117,7 @@ class DBList:
 
     One plain dataclass constrains both sides: ``append`` only accepts it,
     iteration rebuilds it from each line (unknown keys ignored, missing keys
-    take the dataclass defaults).
+    take the dataclass defaults, nested dataclass fields rebuilt one level).
     """
 
     def __init__(self, path: Path, schema: type):

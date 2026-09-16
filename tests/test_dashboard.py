@@ -104,19 +104,17 @@ def _seed_run(tmp_path: Path, monkeypatch):
         tmp_path / ".evotrias" / "db" / "runs" / RUN_ID / "task_contexts.json",
         {"tasks": {"task_003": {"parent_id": "task_002", "inspiration_ids": ["task_001"]}}},
     )
-    _write_json(
-        state / "notes.json",
-        {
-            "notes": [
-                {
-                    "note_id": "note_positive_1",
-                    "note_type": "positive",
-                    "title": "Keep the stable update",
-                    "lesson": "It improved fitness.",
-                    "created_at": "2026-07-15T01:02:30+00:00",
-                }
-            ]
-        },
+    _write_jsonl(
+        tmp_path / ".evotrias" / "db" / "runs" / RUN_ID / "notes.jsonl",
+        [
+            {
+                "note_id": "note_positive_1",
+                "note_type": "positive",
+                "title": "Keep the stable update",
+                "lesson": "It improved fitness.",
+                "created_at": "2026-07-15T01:02:30+00:00",
+            }
+        ],
     )
     _write_json(
         state / "meta_guidance" / "meta_guidance_state.json",

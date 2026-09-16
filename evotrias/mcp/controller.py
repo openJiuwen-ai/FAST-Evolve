@@ -367,10 +367,9 @@ class EvolutionController:
                 best_fitness_after=best_after,
             )
         if self.config.notes.enabled:
-            all_attempts = [asdict(a) for a in self.attempt_log]
             note_requests = self.notes.build_note_requests(
                 attempt=attempt,
-                all_attempt_rows=all_attempts,
+                attempts=self.attempt_log,
                 db=self.success_pool,
                 max_attempts=max_attempts,
             )

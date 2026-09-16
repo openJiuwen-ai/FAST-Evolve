@@ -320,3 +320,17 @@ def test_dbobject_dict_of_dataclass_round_trips(tmp_path, log):
     reloaded = _Registry(path)
     assert reloaded.entries == {"a": _Inner(x=1, y="one"), "b": _Inner(x=2)}
     assert all(isinstance(v, _Inner) for v in reloaded.entries.values())
+
+
+@dataclass
+class _Row:
+    name: str
+    inner: _Inner = field(default_factory=_Inner)
+
+
+def test_dblist_rebuilds_nested_dataclass_fields(tmp_path, log):
+    log_store = base.DBList(tmp_path / "rows.jsonl", _Row)
+    log_store.append(_Row("a", _Inner(x=3, y="three")))
+    [got] = list(log_store)
+    assert isinstance(got.inner, _Inner)
+    assert got.inner == _Inner(x=3, y="three")
