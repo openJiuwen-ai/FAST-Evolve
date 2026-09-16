@@ -41,7 +41,7 @@ value confirmed at configure time.
 Public responses are intentionally compact:
 
 - parent/inspiration calls return ids, `artifact_ref`, compact `fitness`, and evaluator `metrics` for diagnostic comparison
-- attempt recording returns `entered_success_db` and `success_record_id`
+- attempt recording returns `in_success_pool` and `success_record_id`
 - convergence returns `action`: `continue`, `request_meta_guidance`, or `budget_exhausted`
 - meta-guidance request/commit/prompt tools keep guidance state in MCP instead of task-executor memory
 - a stateless `meta-guidance-generator` receives only `run_id` and `request_id`,

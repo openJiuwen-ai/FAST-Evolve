@@ -82,7 +82,7 @@ def _seed_run(tmp_path: Path, monkeypatch):
                     "fitness": row["fitness"],
                     "metrics": {"accuracy_score": row["fitness"], "bad": float("nan")},
                 },
-                "entered_success_db": True,
+                "in_success_pool": True,
             }
         )
     _write_jsonl(tmp_path / ".evotrias" / "db" / "runs" / RUN_ID / "attempts.jsonl", attempts)
@@ -158,7 +158,7 @@ def _seed_history_run(tmp_path: Path):
                 "created_at": "2026-07-14T01:02:00+00:00",
                 "generation": 0,
                 "verification_result": {"status": "success", "fitness": 0.2},
-                "entered_success_db": True,
+                "in_success_pool": True,
             }
         ],
     )

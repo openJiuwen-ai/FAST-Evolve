@@ -1,7 +1,7 @@
 """Filesystem helpers for controller-owned state.
 
 The MCP server does not manage artifacts, logs, or the host agent's run
-workspace.  It only owns a small SuccessDB and attempt log for each ``run_id``.
+workspace.  It only owns the controller state files for each ``run_id``.
 Artifact paths and log paths are treated as opaque references and are stored as
 strings inside records.
 """
@@ -30,11 +30,6 @@ def controller_root() -> Path:
 def run_dir(run_id: str) -> Path:
     """Return the state directory for one search run."""
     return controller_root() / _safe_name(run_id)
-
-
-def success_db_path(run_id: str) -> Path:
-    """Return the JSON file that stores successful reusable records."""
-    return run_dir(run_id) / "success_db.json"
 
 
 def notes_path(run_id: str) -> Path:

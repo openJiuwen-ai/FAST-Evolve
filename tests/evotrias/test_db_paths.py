@@ -14,7 +14,6 @@ _LOCKS = [paths.HOOK_QUEUE_LOCK, paths.LOGS_LOCK]
 _RUN_FILES = [
     paths.RUN_STATE,
     paths.TASK_CONTEXTS,
-    paths.SUCCESS_DB,
     paths.ATTEMPTS,
     paths.NOTES,
     paths.NOTE_REQUESTS,

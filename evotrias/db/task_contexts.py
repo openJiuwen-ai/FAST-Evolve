@@ -35,7 +35,7 @@ class TaskContext:
     missing_parent_context: bool = False
     recorded: bool = False
     verification_result_ref: Optional[str] = None
-    entered_success_db: Optional[bool] = None
+    in_success_pool: Optional[bool] = None
     success_record_id: Optional[str] = None
     created_at: str = field(default_factory=utc_now_iso)
 

@@ -16,8 +16,7 @@ from typing import Dict, Optional
 
 from evotrias.mcp.lineage_tree import LineageTree
 from evotrias.db.config import ParentSelectionConfig
-from evotrias.db.models import SuccessRecord
-from evotrias.mcp.success_db import SuccessDB
+from evotrias.mcp.success_pool import SuccessPool, SuccessRecord
 
 
 class LineageAwareParentSelector:
@@ -36,7 +35,7 @@ class LineageAwareParentSelector:
 
     def select(
         self,
-        db: SuccessDB,
+        success_pool: SuccessPool,
         progress: float,
     ) -> Optional[SuccessRecord]:
         """Select a parent record and increment its selection count.
@@ -46,15 +45,13 @@ class LineageAwareParentSelector:
         whether to roll this count back for failed batches; the MCP MVP keeps
         the simpler optimistic update.
         """
-        if db.is_empty():
+        if success_pool.is_empty():
             return None
 
-        self.lineage_tree.rebuild(db)
-        records = db.get_all()
+        self.lineage_tree.rebuild(success_pool)
+        records = success_pool.get_all()
         if len(records) == 1:
-            record = records[0]
-            db.increment_selection(record.id)
-            return record
+            return records[0]
 
         tau = self._anneal(self.tau_start, self.tau_end, progress)
         c_local = self._anneal(self.c_local_start, self.c_local_end, progress)
@@ -63,16 +60,10 @@ class LineageAwareParentSelector:
         # Stage 1 chooses which evolutionary branch deserves this attempt.
         lineage_id = self._select_lineage(tau, p_exploit)
         if lineage_id is None:
-            best = db.get_best_record()
-            if best:
-                db.increment_selection(best.id)
-            return best
+            return success_pool.get_best_record()
 
         # Stage 2 chooses the concrete parent within the selected branch.
-        record = self._select_within_lineage(db, lineage_id, c_local)
-        if record:
-            db.increment_selection(record.id)
-        return record
+        return self._select_within_lineage(success_pool, lineage_id, c_local)
 
     def _select_lineage(self, tau: float, p_exploit: float) -> Optional[str]:
         """Choose a lineage using softmax deserved share and deficit feedback."""
@@ -124,12 +115,12 @@ class LineageAwareParentSelector:
 
     def _select_within_lineage(
         self,
-        db: SuccessDB,
+        success_pool: SuccessPool,
         lineage_id: str,
         c_local: float,
     ) -> Optional[SuccessRecord]:
         """Choose one record within a lineage using rank quality plus UCB."""
-        all_records = db.get_all()
+        all_records = success_pool.get_all()
         lineage_records = [
             record
             for record in all_records

@@ -1,9 +1,9 @@
-"""Lineage forest rebuilt from SuccessDB parent links.
+"""Lineage forest rebuilt from SuccessPool parent links.
 
 The controller does not persist a separate graph.  It rebuilds this lightweight
 forest from ``SuccessRecord.parent_id`` whenever it needs to make a decision.
 Each root represents an initial successful candidate or a record whose parent
-is not present in the current SuccessDB.
+is not present in the current SuccessPool.
 """
 
 from __future__ import annotations
@@ -12,8 +12,8 @@ import math
 from collections import deque
 from typing import Dict, List, Optional, Set
 
-from evotrias.db.models import LineageStats, SuccessRecord
-from evotrias.mcp.success_db import SuccessDB
+from evotrias.db.models import LineageStats
+from evotrias.mcp.success_pool import SuccessPool, SuccessRecord
 
 
 class LineageTree:
@@ -27,7 +27,7 @@ class LineageTree:
         self._lineage_stats: Dict[str, LineageStats] = {}
         self._record_map: Dict[str, SuccessRecord] = {}
 
-    def rebuild(self, db: SuccessDB) -> None:
+    def rebuild(self, db: SuccessPool) -> None:
         """Rebuild roots, child edges, lineage ownership, depth, and stats."""
         self._roots.clear()
         self._children.clear()
@@ -43,7 +43,7 @@ class LineageTree:
         record_ids = {record.id for record in records}
         self._record_map = {record.id: record for record in records}
 
-        # Roots are records without a known parent in this SuccessDB snapshot.
+        # Roots are records without a known parent in this SuccessPool snapshot.
         for record in records:
             if record.parent_id is None or record.parent_id not in record_ids:
                 self._roots.append(record.id)

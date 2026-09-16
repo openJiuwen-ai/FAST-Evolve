@@ -16,7 +16,6 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence
 
 from evotrias.db.config import NotesConfig
 from evotrias.db.attempts import AttemptRecord
-from evotrias.db.models import SuccessRecord
 from evotrias.utils.time import utc_now_iso
 from evotrias.mcp.storage import (
     append_jsonl,
@@ -27,7 +26,7 @@ from evotrias.mcp.storage import (
     read_jsonl,
     write_json_atomic,
 )
-from evotrias.mcp.success_db import SuccessDB
+from evotrias.mcp.success_pool import SuccessPool, SuccessRecord
 
 SCHEMA_VERSION = "notes_run_local"
 NOTE_TYPES = {"error", "negative", "positive"}
@@ -124,7 +123,7 @@ class NotesManager:
         *,
         attempt: AttemptRecord,
         all_attempt_rows: Sequence[Dict[str, Any]],
-        db: SuccessDB,
+        db: SuccessPool,
         max_attempts: int = 3,
     ) -> List[Dict[str, Any]]:
         """Create note requests triggered by one recorded attempt."""
@@ -404,7 +403,7 @@ class NotesManager:
         note_type: str,
         trigger_kind: str,
         attempt: AttemptRecord,
-        db: SuccessDB,
+        db: SuccessPool,
         failed_attempt_rows: Sequence[Dict[str, Any]],
         relative_delta: Optional[float],
         threshold: Optional[float],
@@ -954,7 +953,7 @@ def _material_delta_threshold(values: Sequence[float], *, q: float, cfg: NotesCo
 def _material_delta_histories(
     *,
     all_attempt_rows: Sequence[Dict[str, Any]],
-    db: SuccessDB,
+    db: SuccessPool,
     exclude_task_id: Optional[str],
     exclude_attempt_id: Optional[str],
 ) -> tuple[List[float], List[float]]:

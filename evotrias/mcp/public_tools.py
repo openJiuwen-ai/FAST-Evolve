@@ -25,7 +25,7 @@ def _controller(run_id: str) -> EvolutionController:
     """Return the cached controller for a run id.
 
     Controllers are lightweight facades over disk-backed state.  They still
-    reload SuccessDB on each operation, so this cache is a convenience rather
+    rebuild the success pool on each operation, so this cache is a convenience rather
     than the source of truth.
     """
     controller = _controllers.get(run_id)
@@ -113,7 +113,7 @@ def evolve_record_attempt(
 
     The controller reads the JSON result, restores parent/inspiration ids from
     task context, records the attempt, adds successful attempts with top-level
-    numeric fitness to SuccessDB, and returns any Notes requests.
+    numeric fitness to the success pool, and returns any Notes requests.
     """
     return _controller(run_id).record_attempt(
         task_id=task_id,

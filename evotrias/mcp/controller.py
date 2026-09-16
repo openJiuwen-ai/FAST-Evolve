@@ -1,7 +1,7 @@
 """Internal facade for the Evolution Controller MCP.
 
 The public tools expose a deliberately small schema.  This controller owns the
-larger local state needed to make that possible: SuccessDB, attempt log, task
+larger local state needed to make that possible: SuccessPool, attempt log, task
 context cache, run state, lineage indexes, and the three strategy solvers.
 """
 
@@ -19,7 +19,6 @@ from evotrias import scheduler
 from evotrias.db.config import Config
 from evotrias.logger import logger
 from evotrias.db.attempts import AttemptRecord, Attempts
-from evotrias.db.models import SuccessRecord
 from evotrias.db.run_state import RunState
 from evotrias.db.task_contexts import TaskContext, TaskContexts
 from evotrias.enums import SearchState
@@ -30,7 +29,7 @@ from evotrias.mcp.lineage_tree import LineageTree
 from evotrias.mcp.meta_guidance import MetaGuidanceManager
 from evotrias.mcp.notes import NotesManager
 from evotrias.mcp.parent_selector import LineageAwareParentSelector
-from evotrias.mcp.success_db import SuccessDB
+from evotrias.mcp.success_pool import SuccessPool
 from evotrias.mcp.run_report import write_run_report
 
 
@@ -99,12 +98,12 @@ class EvolutionController:
         self.config = Config(run_id)
         if not self.config.created_at:
             logger.warning(f"run {run_id}: no config.json yet, controller is using defaults")
-        self.db = SuccessDB(run_id)
+        self.success_pool = SuccessPool(run_id)
         self.attempt_log = Attempts(run_id)
         self.notes = NotesManager(run_id, self.config.notes)
         self.meta_guidance = MetaGuidanceManager(run_id, self.config.meta_evolve)
         self.lineage_tree = LineageTree()
-        self.lineage_tree.rebuild(self.db)
+        self.lineage_tree.rebuild(self.success_pool)
         self.parent_selector = LineageAwareParentSelector(
             self.config.parent_selection,
             self.lineage_tree,
@@ -140,12 +139,12 @@ class EvolutionController:
                 # tasks are minted strictly after that), so this task is a root:
                 # it explores its own direction from scratch. Return no parent
                 # (select_inspirations then returns none) even when early roots
-                # already populated SuccessDB, and skip meta-guidance.
+                # already populated SuccessPool, and skip meta-guidance.
                 context.parent_id = None
                 context.parent_selected = True
                 return self._parent_ref(None)
 
-            current_best = self.db.get_canonical_best_record()
+            current_best = self.success_pool.get_canonical_best_record()
             guidance = (
                 self.meta_guidance.assign_for_task(
                     task_id,
@@ -156,7 +155,7 @@ class EvolutionController:
                 else None
             )
             if guidance is not None:
-                parent = self.db.get(str(guidance.get("anchor_parent_id")))
+                parent = self.success_pool.get(str(guidance.get("anchor_parent_id")))
                 if parent is not None:
                     context.meta_guidance_id = str(guidance.get("guidance_id"))
                     context.anchor_parent_id = str(guidance.get("anchor_parent_id"))
@@ -165,14 +164,12 @@ class EvolutionController:
 
             if guidance is None:
                 parent = self.parent_selector.select(
-                    self.db,
+                    self.success_pool,
                     self._progress(),
                 )
 
             context.parent_id = parent.id if parent is not None else None
             context.parent_selected = True
-        if guidance is not None and context.parent_id:
-            self.db.increment_selection(context.parent_id)
         return self._parent_ref(context.parent_id)
 
     def select_inspirations(self, task_id: str) -> Dict[str, Any]:
@@ -198,13 +195,13 @@ class EvolutionController:
                 context.inspirations_selected = True
                 return {"inspirations": []}
 
-            parent = self.db.get(context.parent_id)
+            parent = self.success_pool.get(context.parent_id)
             if parent is None:
-                raise ValueError(f"Cached parent {context.parent_id!r} is not present in SuccessDB.")
+                raise ValueError(f"Cached parent {context.parent_id!r} is not present in SuccessPool.")
 
             inspirations = self.inspiration_selector.select(
                 parent,
-                self.db,
+                self.success_pool,
                 self._progress(),
             )
             context.inspiration_ids = [
@@ -291,57 +288,32 @@ class EvolutionController:
             return _record_response_from_attempt(
                 existing_row,
                 note_requests=note_requests,
-                relative_delta_to_parent=_relative_delta_to_parent(existing_row, self.db),
+                relative_delta_to_parent=_relative_delta_to_parent(existing_row, self.success_pool),
             )
 
         subagent_id = str(verification_result.get("subagent_id") or "")
         parent_id = context.parent_id if context.parent_selected else None
         inspiration_ids = list(context.inspiration_ids)
-        generation = self.db.infer_next_generation(parent_id)
+        generation = self.success_pool.infer_next_generation(parent_id)
 
         status = str(verification_result.get("status", "")).lower()
         fitness = _extract_fitness(verification_result)
         verification_metrics = dict(verification_result.get("metrics") or {})
-        best_before = _best_fitness(self.db)
-        entered_success_db = False
+        best_before = _best_fitness(self.success_pool)
+        in_success_pool = False
         success_record_id = None
 
         if status == "success" and fitness is not None:
             success_record_id = task_id
-            if self.db.get(success_record_id) is not None:
-                entered_success_db = True
-            else:
-                metrics = verification_metrics
-                profile = dict(verification_result.get("profile") or {})
-                if not profile:
-                    profile = metrics
-                record = SuccessRecord(
-                    id=success_record_id,
-                    run_id=self.run_id,
-                    fitness=fitness,
-                    parent_id=parent_id,
-                    generation=generation,
-                    artifact_ref=resolved_artifact_ref,
-                    sketch=str(
-                        verification_result.get("summary")
-                        or verification_result.get("feedback")
-                        or ""
-                    ),
-                    profile=profile,
-                    metrics=metrics,
-                    task_id=task_id,
-                    subagent_id=subagent_id,
-                    verification_result_ref=verification_result_ref,
-                    metadata={
-                        "attempt_id": resolved_attempt_id,
-                        "inspiration_ids": inspiration_ids,
-                        "evaluator_version": verification_result.get("evaluator_version"),
-                        "log_ref": verification_result.get("log_ref"),
-                        "summary_ref": verification_result.get("summary_ref"),
-                        "report_ref": verification_result.get("report_ref"),
-                    },
+            if task_id in self.success_pool:
+                # The pool keeps one record per task; a later success for the
+                # same task is logged but does not enter the pool again.
+                logger.warning(
+                    f"run {self.run_id}: task {task_id} succeeded again on attempt "
+                    f"{resolved_attempt_id} after already entering the success pool"
                 )
-                entered_success_db = self.db.add(record)
+            else:
+                in_success_pool = True
 
         attempt = AttemptRecord(
             id=resolved_attempt_id,
@@ -357,8 +329,8 @@ class EvolutionController:
             anchor_parent_id=context.anchor_parent_id,
             verification_result_ref=verification_result_ref,
             sketch=str(verification_result.get("summary") or ""),
-            entered_success_db=entered_success_db,
-            success_record_id=success_record_id if entered_success_db else None,
+            in_success_pool=in_success_pool,
+            success_record_id=success_record_id if in_success_pool else None,
         )
         self.attempt_log.append(attempt)
 
@@ -367,24 +339,24 @@ class EvolutionController:
                 saved = contexts.get(task_id, create=True)
                 saved.recorded = True
                 saved.verification_result_ref = verification_result_ref
-                saved.entered_success_db = entered_success_db
-                saved.success_record_id = success_record_id if entered_success_db else None
+                saved.in_success_pool = in_success_pool
+                saved.success_record_id = success_record_id if in_success_pool else None
 
-        self.db.load()
-        best_after = _best_fitness(self.db)
+        self.success_pool = SuccessPool(self.run_id)
+        best_after = _best_fitness(self.success_pool)
         final_task_attempt = (
             status == "success" or _attempt_number(resolved_attempt_id) >= max_attempts
         )
         if final_task_attempt:
             anchor_record = (
-                self.db.get(context.anchor_parent_id) if context.anchor_parent_id else None
+                self.success_pool.get(context.anchor_parent_id) if context.anchor_parent_id else None
             )
             self.meta_guidance.record_attempt_outcome(
                 task_id=task_id,
                 attempt_id=resolved_attempt_id,
                 valid_result=status == "success" and fitness is not None,
-                entered_success_db=entered_success_db,
-                success_record_id=success_record_id if entered_success_db else None,
+                in_success_pool=in_success_pool,
+                success_record_id=success_record_id if in_success_pool else None,
                 fitness=fitness,
                 anchor_fitness=anchor_record.fitness if anchor_record is not None else None,
                 metrics=verification_metrics,
@@ -399,12 +371,12 @@ class EvolutionController:
             note_requests = self.notes.build_note_requests(
                 attempt=attempt,
                 all_attempt_rows=all_attempts,
-                db=self.db,
+                db=self.success_pool,
                 max_attempts=max_attempts,
             )
         else:
             note_requests = []
-        relative_delta = _relative_delta_to_parent(asdict(attempt), self.db)
+        relative_delta = _relative_delta_to_parent(asdict(attempt), self.success_pool)
         return _record_response_from_attempt(
             asdict(attempt),
             note_requests=note_requests,
@@ -464,7 +436,7 @@ class EvolutionController:
         run_state = RunState(self.run_id)
         total_tasks = self._task_count()
         total_attempts = len(self.attempt_log)
-        total_success = len(self.db.get_all())
+        total_success = len(self.success_pool.get_all())
         elapsed_seconds = run_state.elapsed_seconds()
         reason = self.budget_guard.exhaustion_reason(
             total_tasks=total_tasks,
@@ -472,10 +444,10 @@ class EvolutionController:
         )
         budget_exhausted = bool(reason)
         if budget_exhausted:
-            self.plateau_detector.mark_stopped(reason, self.db, self.lineage_tree)
+            self.plateau_detector.mark_stopped(reason, self.success_pool, self.lineage_tree)
         else:
             self.plateau_detector.evaluate(
-                self.db,
+                self.success_pool,
                 self.lineage_tree,
                 total_success=total_success,
             )
@@ -496,7 +468,7 @@ class EvolutionController:
                 current_best_fitness=current_best,
             ):
                 request = self.meta_guidance.ensure_pending_request(
-                    db=self.db,
+                    db=self.success_pool,
                     task_description=run_state.task_description,
                     diagnostics=diagnostics,
                     lineages=self._lineage_summaries(),
@@ -573,7 +545,7 @@ class EvolutionController:
 
         Finalization is intentionally idempotent.  Repeated calls regenerate the
         same report files from current persisted state without changing
-        SuccessDB or attempt history.
+        SuccessPool or attempt history.
         """
         self._load_state()
         with RunState(self.run_id) as run_state:
@@ -583,21 +555,21 @@ class EvolutionController:
         self._load_state()
         return write_run_report(
             run_id=self.run_id,
-            db=self.db,
+            db=self.success_pool,
             lineage_tree=self.lineage_tree,
             run_state=RunState(self.run_id),
         )
 
     def _load_state(self) -> None:
         """Reload all disk-backed state needed for a decision."""
-        self.db.load()
+        self.success_pool = SuccessPool(self.run_id)
         run_state = RunState(self.run_id)
         self.plateau_detector.restore_state(
             run_state.search_state,
             stop_reason=run_state.stop_reason,
             diagnostics=run_state.diagnostics,
         )
-        self.lineage_tree.rebuild(self.db)
+        self.lineage_tree.rebuild(self.success_pool)
 
     def _in_root_phase(self) -> bool:
         """True until all ``lineage_root_number`` roots have finished.
@@ -633,7 +605,7 @@ class EvolutionController:
                 "fitness": None,
                 "metrics": {},
             }
-        record = self.db.get(parent_id)
+        record = self.success_pool.get(parent_id)
         return {
             "parent_id": parent_id,
             "artifact_ref": record.artifact_ref if record else None,
@@ -645,7 +617,7 @@ class EvolutionController:
         """Return compact public inspiration payloads in cached order."""
         inspirations = []
         for inspiration_id in inspiration_ids:
-            record = self.db.get(inspiration_id)
+            record = self.success_pool.get(inspiration_id)
             if record is None:
                 continue
             inspirations.append(
@@ -699,8 +671,8 @@ def _extract_fitness(verification_result: Dict[str, Any]) -> Optional[float]:
         return None
 
 
-def _best_fitness(db: SuccessDB) -> Optional[float]:
-    best = db.get_canonical_best_record()
+def _best_fitness(success_pool: SuccessPool) -> Optional[float]:
+    best = success_pool.get_canonical_best_record()
     return best.fitness if best else None
 
 
@@ -725,9 +697,9 @@ def _attempt_number(attempt_id: str) -> int:
         return 1
 
 
-def _relative_delta_to_parent(row: Dict[str, Any], db: SuccessDB) -> Optional[float]:
+def _relative_delta_to_parent(row: Dict[str, Any], success_pool: SuccessPool) -> Optional[float]:
     parent_id = row.get("parent_id")
-    parent = db.get(str(parent_id)) if parent_id else None
+    parent = success_pool.get(str(parent_id)) if parent_id else None
     if parent is None:
         return None
     verification_result = dict(row.get("verification_result") or {})
@@ -745,12 +717,12 @@ def _record_response_from_attempt(
     relative_delta_to_parent: Optional[float],
 ) -> Dict[str, Any]:
     """Return the public attempt-recording payload for Notes."""
-    entered = bool(row.get("entered_success_db"))
+    entered = bool(row.get("in_success_pool"))
     verification_result = dict(row.get("verification_result") or {})
     return {
         "recorded": True,
         "attempt_id": row.get("id"),
-        "entered_success_db": entered,
+        "in_success_pool": entered,
         "success_record_id": row.get("success_record_id") if entered else None,
         "fitness": _extract_fitness(verification_result),
         "relative_delta_to_parent": relative_delta_to_parent,

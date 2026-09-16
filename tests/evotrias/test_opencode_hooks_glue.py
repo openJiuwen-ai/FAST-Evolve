@@ -32,7 +32,7 @@ def _record_success(run_id: str, task_id: str, fitness: float) -> None:
             inspiration_ids=[],
             generation=0,
             verification_result={"status": "success", "fitness": fitness},
-            entered_success_db=True,
+            in_success_pool=True,
         )
     )
 

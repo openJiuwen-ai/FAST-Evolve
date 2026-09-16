@@ -3,12 +3,13 @@ from __future__ import annotations
 import json
 
 from evotrias.mcp.controller import EvolutionController
+from evotrias.mcp.success_pool import SuccessPool
 from evotrias.mcp.meta_guidance import MetaGuidanceManager
-from evotrias.db.attempts import Attempts
-from evotrias.mcp.storage import notes_path, read_jsonl
+from evotrias.db.attempts import AttemptRecord, Attempts
+from evotrias.mcp.storage import notes_path
 from evotrias.db.config import Config, MetaEvolveConfig
 from evotrias.db.task_contexts import TaskContexts
-from evotrias.db.models import SuccessRecord
+from evotrias.utils.time import utc_now_iso
 
 
 def _controller(
@@ -39,16 +40,42 @@ def _controller(
     return controller
 
 
+def _add_success(
+    controller: EvolutionController,
+    task_id: str,
+    *,
+    fitness=1.0,
+    parent_id=None,
+    artifact_ref=None,
+    metrics=None,
+    created_at=None,
+):
+    """Record one attempt that entered the success pool; the pool is rebuilt from it."""
+    Attempts(controller.run_id).append(
+        AttemptRecord(
+            id="attempt_001",
+            run_id=controller.run_id,
+            task_id=task_id,
+            subagent_id="agent",
+            artifact_ref=artifact_ref or f"{task_id}.py",
+            parent_id=parent_id,
+            inspiration_ids=[],
+            generation=0,
+            verification_result={"status": "success", "fitness": fitness, "metrics": metrics or {}},
+            in_success_pool=True,
+            created_at=created_at or utc_now_iso(),
+        )
+    )
+
+
 def _add_successes(controller: EvolutionController, *, fitness=1.0, count=5):
     for index in range(count):
-        controller.db.add(
-            SuccessRecord(
-                id=f"success_{index:04d}",
-                run_id=controller.run_id,
-                fitness=fitness,
-                artifact_ref=f"artifact_{index}.py",
-                created_at=f"2026-01-01T00:00:0{index}+00:00",
-            )
+        _add_success(
+            controller,
+            f"success_{index:04d}",
+            fitness=fitness,
+            artifact_ref=f"artifact_{index}.py",
+            created_at=f"2026-01-01T00:00:0{index}+00:00",
         )
     controller._load_state()
 
@@ -168,6 +195,42 @@ def test_retries_do_not_consume_task_budget(tmp_path, monkeypatch):
     assert controller.check_convergence(concurrency=1)["action"] == "continue"
 
 
+
+def test_second_success_for_same_task_does_not_reenter_pool(tmp_path, monkeypatch):
+    monkeypatch.setenv("AGENT_EVOLVE_NOTES_ENABLED", "0")
+    controller = _controller(tmp_path, monkeypatch, max_total_tasks=5)
+
+    def record(attempt_id: str, fitness: float):
+        result_path = tmp_path / f"{attempt_id}.json"
+        result_path.write_text(
+            json.dumps(
+                {
+                    "status": "success",
+                    "artifact_ref": f"runs/run_meta_test/{attempt_id}/candidate.py",
+                    "fitness": fitness,
+                }
+            ),
+            encoding="utf-8",
+        )
+        return controller.record_attempt(
+            task_id="task_001",
+            attempt_id=attempt_id,
+            verification_result_ref=str(result_path),
+            max_attempts=3,
+        )
+
+    first = record("attempt_001", 1.0)
+    second = record("attempt_002", 2.0)
+
+    assert first["in_success_pool"] is True
+    assert second["in_success_pool"] is False
+    assert second["success_record_id"] is None
+    flags = [a.in_success_pool for a in Attempts(controller.run_id)]
+    assert flags == [True, False]
+    pool = SuccessPool(controller.run_id)
+    assert [r.id for r in pool.get_all()] == ["task_001"]
+    assert pool.get("task_001").fitness == 1.0
+
 def test_commit_guidance_uses_canonical_best_anchor(tmp_path, monkeypatch):
     controller = _controller(tmp_path, monkeypatch)
     _add_successes(controller, fitness=1.0)
@@ -203,40 +266,21 @@ def test_commit_guidance_uses_canonical_best_anchor(tmp_path, monkeypatch):
 
 def test_parent_and_inspirations_expose_persisted_metrics(tmp_path, monkeypatch):
     controller = _controller(tmp_path, monkeypatch)
-    controller.db.add(
-        SuccessRecord(
-            id="parent",
-            run_id=controller.run_id,
-            fitness=2.0,
-            artifact_ref="parent.py",
-            metrics={"total_cost": 10.0, "scenario": {"a": 4.0}},
-            created_at="2026-01-01T00:00:00+00:00",
-        )
-    )
-    controller.db.add(
-        SuccessRecord(
-            id="inspiration",
-            run_id=controller.run_id,
-            fitness=1.0,
-            parent_id="parent",
-            artifact_ref="inspiration.py",
-            metrics={"total_cost": 12.0},
-            created_at="2026-01-01T00:00:01+00:00",
-        )
-    )
+    _add_success(controller, "parent", fitness=2.0, artifact_ref="parent.py", metrics={"total_cost": 10.0, "scenario": {"a": 4.0}}, created_at="2026-01-01T00:00:00+00:00")
+    _add_success(controller, "inspiration", fitness=1.0, parent_id="parent", artifact_ref="inspiration.py", metrics={"total_cost": 12.0}, created_at="2026-01-01T00:00:01+00:00")
     controller._load_state()
 
     monkeypatch.setattr(
         controller.parent_selector,
         "select",
-        lambda db, progress: db.get("parent"),
+        lambda pool, progress: pool.get("parent"),
     )
     monkeypatch.setattr(
         controller.inspiration_selector,
         "select",
-        lambda parent, db, progress: [
+        lambda parent, pool, progress: [
             {**parent.to_inspiration(), "is_parent": True},
-            {**db.get("inspiration").to_inspiration(), "is_parent": False},
+            {**pool.get("inspiration").to_inspiration(), "is_parent": False},
         ],
     )
 
@@ -295,25 +339,9 @@ def test_meta_guidance_request_includes_current_best_artifact_excerpt(tmp_path, 
     controller = _controller(tmp_path, monkeypatch)
     artifact = tmp_path / "candidate.py"
     artifact.write_text("def solve():\n    return 'current-best-route'\n", encoding="utf-8")
-    controller.db.add(
-        SuccessRecord(
-            id="success_with_code",
-            run_id=controller.run_id,
-            fitness=1.0,
-            artifact_ref=str(artifact),
-            created_at="2026-01-01T00:00:00+00:00",
-        )
-    )
+    _add_success(controller, "success_with_code", fitness=1.0, artifact_ref=str(artifact), created_at="2026-01-01T00:00:00+00:00")
     for index in range(1, 5):
-        controller.db.add(
-            SuccessRecord(
-                id=f"success_without_code_{index}",
-                run_id=controller.run_id,
-                fitness=1.0,
-                artifact_ref=f"missing_{index}.py",
-                created_at=f"2026-01-01T00:00:0{index}+00:00",
-            )
-        )
+        _add_success(controller, f"success_without_code_{index}", fitness=1.0, artifact_ref=f"missing_{index}.py", created_at=f"2026-01-01T00:00:0{index}+00:00")
     controller._load_state()
 
     convergence = controller.check_convergence(concurrency=1)
@@ -427,15 +455,7 @@ def test_active_guidance_uses_latest_best_parent(tmp_path, monkeypatch):
     )
 
     first_parent = controller.select_parent("task_151")
-    controller.db.add(
-        SuccessRecord(
-            id="success_new_best",
-            run_id=controller.run_id,
-            fitness=2.0,
-            artifact_ref="new_best.py",
-            created_at="2026-01-01T00:01:00+00:00",
-        )
-    )
+    _add_success(controller, "success_new_best", fitness=2.0, artifact_ref="new_best.py", created_at="2026-01-01T00:01:00+00:00")
     controller._load_state()
     second_parent = controller.select_parent("task_152")
     controller.meta_guidance.load()
@@ -563,15 +583,7 @@ def test_pending_request_is_cleared_after_new_best(tmp_path, monkeypatch):
     first = controller.check_convergence(concurrency=1)
     assert first["action"] == "request_meta_guidance"
 
-    controller.db.add(
-        SuccessRecord(
-            id="success_new_best",
-            run_id=controller.run_id,
-            fitness=2.0,
-            artifact_ref="new_best.py",
-            created_at="2026-01-01T00:01:00+00:00",
-        )
-    )
+    _add_success(controller, "success_new_best", fitness=2.0, artifact_ref="new_best.py", created_at="2026-01-01T00:01:00+00:00")
     controller._load_state()
     after_improvement = controller.check_convergence(concurrency=1)
     request = controller.get_meta_guidance_request(first["request_id"])
@@ -631,7 +643,7 @@ def test_attempt_records_meta_guidance_and_report_summary(tmp_path, monkeypatch)
     attempts = list(Attempts(controller.run_id))
     controller.meta_guidance.load()
 
-    assert record["entered_success_db"] is True
+    assert record["in_success_pool"] is True
     assert attempts[-1].meta_guidance_id == "mg_0001"
     assert attempts[-1].anchor_parent_id == "success_0000"
     tried = controller.meta_guidance.state["tried_guidance"][0]
@@ -804,15 +816,7 @@ def test_guidance_can_improve_its_anchor_without_creating_global_best(tmp_path, 
         },
     )
     controller.select_parent("task_501")
-    controller.db.add(
-        SuccessRecord(
-            id="concurrent_best",
-            run_id=controller.run_id,
-            fitness=2.0,
-            artifact_ref="concurrent_best.py",
-            created_at="2026-01-01T00:01:00+00:00",
-        )
-    )
+    _add_success(controller, "concurrent_best", fitness=2.0, artifact_ref="concurrent_best.py", created_at="2026-01-01T00:01:00+00:00")
     controller._load_state()
 
     result_path = tmp_path / "improved_anchor.json"

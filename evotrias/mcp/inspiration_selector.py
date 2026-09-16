@@ -14,8 +14,7 @@ from typing import List, Optional, Set
 
 from evotrias.mcp.lineage_tree import LineageTree
 from evotrias.db.config import InspirationSelectionConfig
-from evotrias.db.models import SuccessRecord
-from evotrias.mcp.success_db import SuccessDB
+from evotrias.mcp.success_pool import SuccessPool, SuccessRecord
 
 
 class LineageBoltzmannInspirationSelector:
@@ -32,7 +31,7 @@ class LineageBoltzmannInspirationSelector:
     def select(
         self,
         parent: SuccessRecord,
-        db: SuccessDB,
+        db: SuccessPool,
         progress: float,
         sample_num: Optional[int] = None,
     ) -> List[dict]:

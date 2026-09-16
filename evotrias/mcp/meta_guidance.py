@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from evotrias.db.config import MetaEvolveConfig
-from evotrias.db.models import SuccessRecord
 from evotrias.utils.time import utc_now_iso
 from evotrias.mcp.storage import (
     append_jsonl,
@@ -23,7 +22,7 @@ from evotrias.mcp.storage import (
     read_json,
     write_json_atomic,
 )
-from evotrias.mcp.success_db import SuccessDB
+from evotrias.mcp.success_pool import SuccessPool, SuccessRecord
 
 
 class MetaGuidanceManager:
@@ -88,7 +87,7 @@ class MetaGuidanceManager:
     def ensure_pending_request(
         self,
         *,
-        db: SuccessDB,
+        db: SuccessPool,
         task_description: str,
         diagnostics: Dict[str, Any],
         lineages: List[Dict[str, Any]],
@@ -290,7 +289,7 @@ class MetaGuidanceManager:
         task_id: str,
         attempt_id: str,
         valid_result: bool,
-        entered_success_db: bool,
+        in_success_pool: bool,
         success_record_id: Optional[str],
         fitness: Optional[float],
         anchor_fitness: Optional[float],
@@ -346,7 +345,7 @@ class MetaGuidanceManager:
             "task_id": task_id,
             "attempt_id": attempt_id,
             "valid_result": valid_result,
-            "entered_success_db": entered_success_db,
+            "in_success_pool": in_success_pool,
             "success_record_id": success_record_id,
             "fitness": fitness,
             "anchor_parent_id": assignment.get("anchor_parent_id"),
@@ -369,7 +368,7 @@ class MetaGuidanceManager:
                 "status": "recorded",
                 "attempt_id": attempt_id,
                 "valid_result": valid_result,
-                "entered_success_db": entered_success_db,
+                "in_success_pool": in_success_pool,
                 "success_record_id": success_record_id,
                 "fitness": fitness,
                 "anchor_fitness": actual_anchor_fitness,
@@ -674,7 +673,7 @@ def _classify_guidance_outcome(guidance: Dict[str, Any]) -> str:
 def _is_valid_guidance_outcome(outcome: Dict[str, Any]) -> bool:
     if "valid_result" in outcome:
         return bool(outcome.get("valid_result"))
-    return bool(outcome.get("entered_success_db"))
+    return bool(outcome.get("in_success_pool"))
 
 
 def _is_no_effect_guidance_outcome(outcome: Dict[str, Any]) -> bool:

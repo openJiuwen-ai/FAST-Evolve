@@ -919,7 +919,7 @@ def _read_json(path: Path, default: Dict[str, Any]) -> Dict[str, Any]:
 def _completions(attempts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """One outcome row per finished task, derived from the attempt log.
 
-    A task succeeded iff one of its attempts entered SuccessDB; otherwise its
+    A task succeeded iff one of its attempts entered the success pool; otherwise its
     last attempt stands for the failure.  Rows keep the shape the progress and
     lineage builders expect: task_id, fitness, status, artifact_ref.
     """
@@ -928,12 +928,12 @@ def _completions(attempts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         task_id = str(attempt.get("task_id") or "")
         if not task_id:
             continue
-        if attempt.get("entered_success_db") or task_id not in final or not final[task_id].get("entered_success_db"):
+        if attempt.get("in_success_pool") or task_id not in final or not final[task_id].get("in_success_pool"):
             final[task_id] = attempt
     rows = []
     for task_id, attempt in final.items():
         verification = attempt.get("verification_result") or {}
-        success = bool(attempt.get("entered_success_db"))
+        success = bool(attempt.get("in_success_pool"))
         rows.append(
             {
                 "task_id": task_id,

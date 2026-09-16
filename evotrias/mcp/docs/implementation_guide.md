@@ -51,7 +51,7 @@
 |------|----------|----------|
 | `select_parent` | `run_id`, `task_id` | `parent_id`, `artifact_ref`, `fitness` |
 | `select_inspirations` | `run_id`, `task_id` | 额外 inspirations 的 id/ref/fitness，不重复返回 parent |
-| `record_attempt` | `run_id`, `task_id`, `verification_result_ref` | `entered_success_db`, `success_record_id` |
+| `record_attempt` | `run_id`, `task_id`, `verification_result_ref` | `in_success_pool`, `success_record_id` |
 | `check_convergence` | `run_id` | `action` |
 | `finalize_run` | `run_id`, 可选 `stop_reason` | `report_ref`, `summary_ref` |
 
@@ -481,7 +481,7 @@ generation
 verification_result
 verification_result_ref
 sketch
-entered_success_db
+in_success_pool
 success_record_id
 created_at
 ```
@@ -1211,7 +1211,7 @@ result.fitness 可以转成 float
 
 ```json
 {
-  "entered_success_db": true,
+  "in_success_pool": true,
   "success_record_id": "task_007"
 }
 ```
@@ -1220,7 +1220,7 @@ result.fitness 可以转成 float
 
 ```json
 {
-  "entered_success_db": false,
+  "in_success_pool": false,
   "success_record_id": null
 }
 ```
@@ -1229,7 +1229,7 @@ result.fitness 可以转成 float
 
 ```json
 {
-  "entered_success_db": false,
+  "in_success_pool": false,
   "success_record_id": null
 }
 ```
@@ -1238,7 +1238,7 @@ result.fitness 可以转成 float
 
 ```json
 {
-  "entered_success_db": true,
+  "in_success_pool": true,
   "success_record_id": "task_007"
 }
 ```

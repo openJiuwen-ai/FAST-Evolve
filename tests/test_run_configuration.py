@@ -12,7 +12,7 @@ import pytest
 
 from evotrias.mcp import public_tools as public_tools_module
 from evotrias.mcp.controller import EvolutionController
-from evotrias.db.models import SuccessRecord
+from evotrias.db.attempts import AttemptRecord, Attempts
 from evotrias.db.config import Config
 from evotrias import scheduler as sched
 
@@ -176,7 +176,7 @@ def test_check_convergence_rejects_non_positive_concurrency(run_env):
 def test_root_tasks_get_no_parent_even_after_early_root_success(run_env):
     # max_concurrent_tasks=2, lineage_root_number=3: task_003 is minted after
     # task_001 already succeeded, yet it is still a root — no parent, no
-    # inspirations, regardless of SuccessDB content.
+    # inspirations, regardless of success pool content.
     public_tools_module.evolve_configure_run(
         RUN_ID, max_total_tasks=30, lineage_root_number=3, max_concurrent_tasks=2
     )
@@ -187,8 +187,19 @@ def test_root_tasks_get_no_parent_even_after_early_root_success(run_env):
     ] == 2
     task_1 = _start_one_task(RUN_ID, "agent_0")
     task_2 = _start_one_task(RUN_ID, "agent_1")
-    controller.db.add(
-        SuccessRecord(id=task_1, run_id=RUN_ID, fitness=1.0, artifact_ref="a.py")
+    Attempts(RUN_ID).append(
+        AttemptRecord(
+            id="attempt_001",
+            run_id=RUN_ID,
+            task_id=task_1,
+            subagent_id="agent",
+            artifact_ref="a.py",
+            parent_id=None,
+            inspiration_ids=[],
+            generation=0,
+            verification_result={"status": "success", "fitness": 1.0},
+            in_success_pool=True,
+        )
     )
     sched.complete_task(RUN_ID, task_1, fitness=1.0)
 

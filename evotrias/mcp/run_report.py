@@ -17,7 +17,6 @@ from typing import Any, Dict, List, Optional
 
 from evotrias.mcp.lineage_tree import LineageTree
 from evotrias.db.attempts import Attempts
-from evotrias.db.models import SuccessRecord
 from evotrias.db.run_state import RunState
 from evotrias.mcp.storage import (
     meta_guidance_state_path,
@@ -26,7 +25,7 @@ from evotrias.mcp.storage import (
     read_jsonl,
     write_json_atomic,
 )
-from evotrias.mcp.success_db import SuccessDB
+from evotrias.mcp.success_pool import SuccessPool, SuccessRecord
 
 REPORT_FILENAME = "run_summary.md"
 SUMMARY_FILENAME = "run_summary.json"
@@ -34,7 +33,7 @@ SUMMARY_FILENAME = "run_summary.json"
 
 def write_run_report(
     run_id: str,
-    db: SuccessDB,
+    db: SuccessPool,
     lineage_tree: LineageTree,
     run_state: RunState,
 ) -> Dict[str, str]:
@@ -42,7 +41,6 @@ def write_run_report(
 
     Returns only path-like refs so public MCP calls stay compact.
     """
-    db.load()
     lineage_tree.rebuild(db)
     attempts = [asdict(a) for a in Attempts(run_id)]
     records = db.get_all()
@@ -82,7 +80,7 @@ def _build_summary(
     best = max(records, key=lambda record: record.fitness) if records else None
     top_records = sorted(records, key=lambda record: record.fitness, reverse=True)[:5]
     failed_attempts = [
-        attempt for attempt in attempts if not bool(attempt.get("entered_success_db"))
+        attempt for attempt in attempts if not bool(attempt.get("in_success_pool"))
     ]
     success_count = len(records)
     attempt_count = len(attempts)
@@ -146,7 +144,7 @@ def _attempt_summary(attempt: Dict[str, Any]) -> Dict[str, Any]:
         "task_id": attempt.get("task_id"),
         "status": result.get("status"),
         "fitness": result.get("fitness"),
-        "entered_success_db": bool(attempt.get("entered_success_db")),
+        "in_success_pool": bool(attempt.get("in_success_pool")),
         "success_record_id": attempt.get("success_record_id"),
         "parent_id": attempt.get("parent_id"),
         "meta_guidance_id": attempt.get("meta_guidance_id"),
@@ -495,7 +493,7 @@ def _meta_evolve_table(meta: Dict[str, Any]) -> List[str]:
 
 def _attempts_table(rows: List[Dict[str, Any]]) -> List[str]:
     lines = [
-        "| Task | Status | Entered SuccessDB | Fitness | Artifact | Verifier Result |",
+        "| Task | Status | Entered SuccessPool | Fitness | Artifact | Verifier Result |",
         "|---|---|---|---:|---|---|",
     ]
     if not rows:
@@ -504,7 +502,7 @@ def _attempts_table(rows: List[Dict[str, Any]]) -> List[str]:
     for row in rows:
         lines.append(
             f"| {row.get('task_id') or ''} | {row.get('status') or ''} | "
-            f"{row.get('entered_success_db')} | {_format_optional_float(row.get('fitness'))} | "
+            f"{row.get('in_success_pool')} | {_format_optional_float(row.get('fitness'))} | "
             f"`{row.get('artifact_ref') or ''}` | `{row.get('verification_result_ref') or ''}` |"
         )
     return lines

@@ -11,9 +11,8 @@ from typing import List, Optional
 
 from evotrias.mcp.lineage_tree import LineageTree
 from evotrias.db.config import PlateauConfig
-from evotrias.db.models import SuccessRecord
 from evotrias.enums import SearchState
-from evotrias.mcp.success_db import SuccessDB
+from evotrias.mcp.success_pool import SuccessPool, SuccessRecord
 
 
 class FitnessPlateauDetector:
@@ -51,11 +50,11 @@ class FitnessPlateauDetector:
 
     def evaluate(
         self,
-        db: SuccessDB,
+        db: SuccessPool,
         lineage_tree: LineageTree,
         total_success: int,
     ) -> None:
-        """Update the current search state from the SuccessDB snapshot."""
+        """Update the current search state from the SuccessPool snapshot."""
         if self._state == SearchState.STOPPED and self._stop_reason:
             self._diagnostics = self._build_diagnostics(db, lineage_tree)
             self._diagnostics["state"] = self._state.value
@@ -86,7 +85,7 @@ class FitnessPlateauDetector:
     def mark_stopped(
         self,
         reason: str,
-        db: SuccessDB,
+        db: SuccessPool,
         lineage_tree: LineageTree,
     ) -> None:
         """Record a hard-budget stop without treating plateau as convergence."""
@@ -101,7 +100,7 @@ class FitnessPlateauDetector:
         """Return the most recent diagnostic snapshot."""
         return dict(self._diagnostics)
 
-    def _build_diagnostics(self, db: SuccessDB, lineage_tree: LineageTree) -> dict:
+    def _build_diagnostics(self, db: SuccessPool, lineage_tree: LineageTree) -> dict:
         """Compute plateau inputs plus useful current search context."""
         records = db.get_all()
         best_history = self._best_fitness_history(records)

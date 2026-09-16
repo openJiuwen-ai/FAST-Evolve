@@ -44,11 +44,11 @@ def test_missing_file_is_empty():
 def test_append_then_iterate_yields_records_in_order():
     log = Attempts(RUN_ID)
     log.append(_attempt("task_001", "attempt_001"))
-    log.append(_attempt("task_001", "attempt_002", entered_success_db=True))
+    log.append(_attempt("task_001", "attempt_002", in_success_pool=True))
     got = list(log)
     assert [a.id for a in got] == ["attempt_001", "attempt_002"]
     assert all(isinstance(a, AttemptRecord) for a in got)
-    assert got[1].entered_success_db is True
+    assert got[1].in_success_pool is True
     assert got[1].verification_result == {"status": "success", "fitness": 1.0}
     assert (paths.run_dir(RUN_ID) / paths.ATTEMPTS).exists()
 
@@ -89,8 +89,8 @@ def test_successes_maps_task_id_to_its_success_attempt():
     log = Attempts(RUN_ID)
     assert log.successes == {}
     log.append(_attempt("task_001", "attempt_001", verification_result={"status": "failure"}))
-    log.append(_attempt("task_001", "attempt_002", entered_success_db=True))
-    log.append(_attempt("task_002", "attempt_001"))  # finished, never entered SuccessDB
+    log.append(_attempt("task_001", "attempt_002", in_success_pool=True))
+    log.append(_attempt("task_002", "attempt_001"))  # finished, never entered the success pool
     successes = log.successes
     assert set(successes) == {"task_001"}
     assert successes["task_001"].id == "attempt_002"

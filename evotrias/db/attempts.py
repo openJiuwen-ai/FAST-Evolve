@@ -1,7 +1,7 @@
 """Every final task attempt, persisted as ``attempts.jsonl``.
 
 Written once per attempt by ``record_attempt``; the first-hand record that
-``SuccessDB`` and the run report are derived from.
+``SuccessPool`` and the run report are derived from.
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ class AttemptRecord:
 
     Attempts are broader than SuccessRecords.  Every final task result should be
     recorded as an attempt for audit and future policy evidence.  Only attempts
-    with successful verification and a valid fitness enter SuccessDB.
+    with successful verification and a valid fitness enter the success pool.
     """
 
     id: str
@@ -36,7 +36,7 @@ class AttemptRecord:
     anchor_parent_id: Optional[str] = None
     verification_result_ref: Optional[str] = None
     sketch: Optional[str] = None
-    entered_success_db: bool = False
+    in_success_pool: bool = False
     success_record_id: Optional[str] = None
     created_at: str = field(default_factory=utc_now_iso)
 
@@ -47,13 +47,13 @@ class Attempts(DBList):
 
     @property
     def successes(self) -> Dict[str, AttemptRecord]:
-        """task_id -> the attempt that entered SuccessDB.
+        """task_id -> the attempt that entered the success pool.
 
         A task has one such attempt at most (``record_attempt`` marks only the
         first success), so its presence is the definition of "task succeeded".
         Re-reads the file on every access.
         """
-        return {a.task_id: a for a in self if a.entered_success_db}
+        return {a.task_id: a for a in self if a.in_success_pool}
 
     def find_by_task_id(self, task_id: str) -> Optional[AttemptRecord]:
         """Most recent attempt for a task, if any."""
