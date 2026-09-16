@@ -17,14 +17,10 @@ from typing import Any, Dict, List, Optional
 
 from evotrias.mcp.lineage_tree import LineageTree
 from evotrias.db.attempts import Attempts
+from evotrias.db.meta_guidance_events import MetaGuidanceEvents
+from evotrias.db.meta_guidance_state import MetaGuidanceState
 from evotrias.db.run_state import RunState
-from evotrias.mcp.storage import (
-    meta_guidance_state_path,
-    meta_guidance_uses_path,
-    read_json,
-    read_jsonl,
-    write_json_atomic,
-)
+from evotrias.mcp.storage import write_json_atomic
 from evotrias.mcp.success_pool import SuccessPool, SuccessRecord
 
 REPORT_FILENAME = "run_summary.md"
@@ -182,42 +178,28 @@ def _lineage_statistics(lineage_tree: LineageTree) -> List[Dict[str, Any]]:
 
 
 def _meta_evolve_summary(run_id: str, *, enabled: Optional[bool] = None) -> Dict[str, Any]:
-    state = read_json(
-        meta_guidance_state_path(run_id),
-        {
-            "watching": None,
-            "pending_request": None,
-            "active_guidance": [],
-            "tried_guidance": [],
-            "task_assignments": {},
-        },
-    )
-    uses = read_jsonl(meta_guidance_uses_path(run_id))
-    active = list(state.get("active_guidance") or [])
-    tried = list(state.get("tried_guidance") or [])
-    assignments = dict(state.get("task_assignments") or {})
+    state = MetaGuidanceState(run_id)
+    guidance = [*state.active_guidance, *state.tried_guidance]
     return {
         "enabled": enabled,
-        "watching": state.get("watching"),
-        "has_pending_request": state.get("pending_request") is not None,
-        "active_guidance_count": len(active),
-        "tried_guidance_count": len(tried),
-        "assigned_task_count": len(assignments),
-        "use_events": len(uses),
-        "new_best_from_guidance": sum(
-            1 for item in [*active, *tried] if item.get("created_new_best")
-        ),
+        "watching": asdict(state.watching) if state.watching else None,
+        "has_pending_request": state.pending_request is not None,
+        "active_guidance_count": len(state.active_guidance),
+        "tried_guidance_count": len(state.tried_guidance),
+        "assigned_task_count": len(state.task_assignments),
+        "use_events": sum(1 for e in MetaGuidanceEvents(run_id) if e.event_type in {"assigned", "recorded"}),
+        "new_best_from_guidance": sum(1 for item in guidance if item.created_new_best),
         "guidance": [
             {
-                "guidance_id": item.get("guidance_id"),
-                "idea": item.get("idea"),
-                "uses": item.get("uses"),
-                "max_uses": item.get("max_uses"),
-                "status": item.get("status"),
-                "outcome": item.get("outcome"),
-                "anchor_parent_id": item.get("anchor_parent_id"),
+                "guidance_id": item.guidance_id,
+                "idea": item.idea,
+                "uses": item.uses,
+                "max_uses": item.max_uses,
+                "status": item.status,
+                "outcome": item.outcome,
+                "anchor_parent_id": item.anchor_parent_id,
             }
-            for item in [*active, *tried]
+            for item in guidance
         ],
     }
 

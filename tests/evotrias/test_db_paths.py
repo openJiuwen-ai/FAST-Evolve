@@ -19,7 +19,7 @@ _RUN_FILES = [
     paths.NOTE_REQUESTS,
     paths.NOTES_EVENTS,
     paths.META_GUIDANCE_STATE,
-    paths.META_GUIDANCE_USES,
+    paths.META_GUIDANCE_EVENTS,
     paths.TASK_POOL,
     paths.AGENT_INDEX,
     paths.RUN_SUMMARY_MD,

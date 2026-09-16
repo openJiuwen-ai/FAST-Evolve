@@ -1,8 +1,12 @@
-"""Lightweight meta-guidance lifecycle management.
+"""Meta-guidance lifecycle for the Evolution Controller MCP.
 
-The MCP owns deterministic state and attribution.  It does not call an LLM;
-a dedicated, stateless meta-guidance worker generates structured guidance only
-when a pending request is returned by the controller.
+Meta-guidance is a lightweight meta-evolve loop: when the search plateaus,
+the controller asks a dedicated agent for a few distinct strategy ideas,
+hands each idea to a task, and records how those tasks fared so the next
+request can avoid repeating what did not work.
+
+State lives in ``MetaGuidanceState`` (source of truth); every lifecycle step
+is also appended to ``MetaGuidanceEvents`` so one file tells the whole story.
 """
 
 from __future__ import annotations
@@ -10,19 +14,22 @@ from __future__ import annotations
 import json
 import math
 from collections.abc import Mapping, Sequence
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from evotrias.db.config import MetaEvolveConfig
-from evotrias.utils.time import utc_now_iso
-from evotrias.mcp.storage import (
-    append_jsonl,
-    meta_guidance_state_path,
-    meta_guidance_uses_path,
-    read_json,
-    write_json_atomic,
+from evotrias.db.meta_guidance_events import MetaGuidanceEvent, MetaGuidanceEvents
+from evotrias.db.meta_guidance_state import (
+    Assignment,
+    Guidance,
+    MetaGuidanceState,
+    PendingRequest,
+    RequestProgress,
+    Watching,
 )
 from evotrias.mcp.success_pool import SuccessPool, SuccessRecord
+from evotrias.utils.time import utc_now_iso
 
 
 class MetaGuidanceManager:
@@ -31,36 +38,38 @@ class MetaGuidanceManager:
     def __init__(self, run_id: str, config: MetaEvolveConfig):
         self.run_id = run_id
         self.config = config
-        self.state_file = meta_guidance_state_path(run_id)
-        self.uses_file = meta_guidance_uses_path(run_id)
-        self.state: Dict[str, Any] = {}
-        self.load()
-
-    def load(self) -> None:
-        """Refresh state from disk."""
-        self.state = read_json(self.state_file, self._empty_state())
-
-    def save(self) -> None:
-        """Persist state."""
-        write_json_atomic(self.state_file, self.state)
+        self.events = MetaGuidanceEvents(run_id)
 
     def reset_watching(self) -> None:
         """Clear WATCHING marker and any uncommitted request when plateau ends."""
-        self.load()
-        self.state["watching"] = None
-        self.state["pending_request"] = None
-        self.save()
+        with MetaGuidanceState(self.run_id) as state:
+            watching = state.watching
+            had_pending = state.pending_request is not None
+            state.watching = None
+            state.pending_request = None
+        if watching is not None:
+            self._append_event(
+                "watching_reset",
+                {
+                    "started_task_count": watching.started_task_count,
+                    "best_fitness": watching.best_fitness,
+                    "had_pending_request": had_pending,
+                },
+            )
 
     def note_watching(self, *, task_count: int, current_best_fitness: Optional[float]) -> None:
         """Record the first WATCHING point for the current plateau."""
-        self.load()
-        if self.state.get("watching") is None:
-            self.state["watching"] = {
-                "started_task_count": int(task_count),
-                "best_fitness": current_best_fitness,
-                "created_at": utc_now_iso(),
-            }
-            self.save()
+        if MetaGuidanceState(self.run_id).watching is not None:
+            return
+        with MetaGuidanceState(self.run_id) as state:
+            state.watching = Watching(
+                started_task_count=int(task_count),
+                best_fitness=current_best_fitness,
+            )
+        self._append_event(
+            "watching_started",
+            {"started_task_count": int(task_count), "best_fitness": current_best_fitness},
+        )
 
     def should_request_guidance(
         self,
@@ -68,19 +77,17 @@ class MetaGuidanceManager:
         current_best_fitness: Optional[float],
     ) -> bool:
         """Return whether the current plateau can request guidance."""
-        self.load()
         if not self.config.enabled:
             return False
-        if self.state.get("active_guidance"):
+        state = MetaGuidanceState(self.run_id)
+        if state.active_guidance:
             return False
-        if self.state.get("pending_request") is not None:
+        if state.pending_request is not None:
             return True
-        watching = self.state.get("watching") or {}
-        started = watching.get("started_task_count")
-        if started is None or current_best_fitness is None:
+        watching = state.watching
+        if watching is None or current_best_fitness is None:
             return False
-        start_best = watching.get("best_fitness")
-        if start_best is not None and current_best_fitness > float(start_best):
+        if watching.best_fitness is not None and current_best_fitness > float(watching.best_fitness):
             return False
         return True
 
@@ -95,65 +102,69 @@ class MetaGuidanceManager:
         task_count: int,
     ) -> Optional[Dict[str, Any]]:
         """Create or return the current pending request."""
-        self.load()
-        pending = self.state.get("pending_request")
-        if pending is not None:
-            return dict(pending)
+        existing = MetaGuidanceState(self.run_id).pending_request
+        if existing is not None:
+            return asdict(existing)
 
         anchor = db.get_canonical_best_record()
         if anchor is None:
             return None
 
-        request_number = int(self.state["next_request_index"])
-        self.state["next_request_index"] = request_number + 1
-        request = {
-            "request_id": self._next_id("mgr", request_number),
-            "state": "pending",
-            "created_at": utc_now_iso(),
-            "created_at_task_count": int(task_count),
-            "task_description": task_description,
-            "current_best": _record_ref(anchor, include_artifact_excerpt=True),
-            "progress": {
-                "best_fitness_history": [],
-                "completed_since_watching": self._completed_since_watching(task_count),
-                "best_at_watching_start": (self.state.get("watching") or {}).get("best_fitness"),
+        with MetaGuidanceState(self.run_id) as state:
+            request_number = state.next_request_index
+            state.next_request_index = request_number + 1
+            completed_since_watching = _completed_since_watching(state, task_count)
+            request = PendingRequest(
+                request_id=state.next_id("mgr", request_number),
+                created_at_task_count=int(task_count),
+                task_description=task_description,
+                current_best=_record_ref(anchor, include_artifact_excerpt=True),
+                progress=RequestProgress(
+                    completed_since_watching=completed_since_watching,
+                    best_at_watching_start=state.watching.best_fitness if state.watching else None,
+                    current_best_fitness=anchor.fitness,
+                    diagnostics=dict(diagnostics or {}),
+                ),
+                lineages=lineages,
+                notes_summary=notes_summary
+                or {"enabled": False, "positive": [], "negative": [], "error": [], "errors": []},
+                guidance_history=_guidance_history(state),
+                failed_guidance=_failed_guidance(state),
+                generation_instructions=_generation_instructions(),
+                constraints=[
+                    "Do not bypass the evaluator.",
+                    "Keep the benchmark output contract.",
+                    "Do not modify verifier/evaluator source or use it to hard-code evaluator-specific shortcuts.",
+                    "You may inspect current_best.artifact_ref or the provided artifact_excerpt; this is candidate code.",
+                ],
+            )
+            state.pending_request = request
+        self._append_event(
+            "request_created",
+            {
+                "request_id": request.request_id,
+                "created_at_task_count": request.created_at_task_count,
                 "current_best_fitness": anchor.fitness,
-                "diagnostics": dict(diagnostics or {}),
+                "completed_since_watching": completed_since_watching,
             },
-            "lineages": lineages,
-            "notes_summary": notes_summary
-            or {"enabled": False, "positive": [], "negative": [], "error": [], "errors": []},
-            "guidance_history": self._guidance_history(),
-            "failed_guidance": self._failed_guidance(),
-            "generation_instructions": _generation_instructions(),
-            "constraints": [
-                "Do not bypass the evaluator.",
-                "Keep the benchmark output contract.",
-                "Do not modify verifier/evaluator source or use it to hard-code evaluator-specific shortcuts.",
-                "You may inspect current_best.artifact_ref or the provided artifact_excerpt; this is candidate code.",
-            ],
-        }
-        self.state["pending_request"] = request
-        self.save()
-        return dict(request)
+        )
+        return asdict(request)
 
     def get_request(self, request_id: Optional[str] = None) -> Dict[str, Any]:
         """Return the pending request payload for the meta-guidance worker."""
-        self.load()
-        pending = self.state.get("pending_request")
+        pending = MetaGuidanceState(self.run_id).pending_request
         if pending is None:
             return {"available": False, "reason": "no_pending_meta_guidance_request"}
-        if request_id and pending.get("request_id") != request_id:
+        if request_id and pending.request_id != request_id:
             return {"available": False, "reason": "meta_guidance_request_not_found"}
-        return {"available": True, **dict(pending)}
+        return {"available": True, **asdict(pending)}
 
     def commit_guidance(self, request_id: str, guidance_json: Any) -> Dict[str, Any]:
         """Validate and activate guidance generated by the meta-guidance worker."""
-        self.load()
         if not self.config.enabled:
             return {"committed": False, "reason": "meta_guidance_disabled"}
-        pending = self.state.get("pending_request")
-        if pending is None or pending.get("request_id") != request_id:
+        pending = MetaGuidanceState(self.run_id).pending_request
+        if pending is None or pending.request_id != request_id:
             return {"committed": False, "reason": "pending_request_not_found"}
 
         raw_guidance = _extract_guidance_list(guidance_json)
@@ -166,15 +177,15 @@ class MetaGuidanceManager:
                 "max": self.config.guidance_num_to_generate,
             }
 
-        anchor_id = str((pending.get("current_best") or {}).get("record_id") or "")
+        anchor_id = str(pending.current_best.get("record_id") or "")
         if not anchor_id:
             return {"committed": False, "reason": "missing_anchor_parent"}
 
-        active = list(self.state.get("active_guidance") or [])
-        created: List[Dict[str, Any]] = []
+        # Validate everything before touching state so a rejected batch leaves
+        # the pending request intact for a retry.
+        validated_items: List[Dict[str, Any]] = []
         seen_approach_types = set()
-        start_index = int(self.state["next_guidance_index"])
-        for offset, item in enumerate(raw_guidance):
+        for item in raw_guidance:
             validated = _validate_guidance_item(item)
             if isinstance(validated, str):
                 return {"committed": False, "reason": validated}
@@ -186,35 +197,43 @@ class MetaGuidanceManager:
                 max_uses = int(validated.get("max_uses") or self.config.guidance_max_uses)
             except (TypeError, ValueError):
                 return {"committed": False, "reason": "invalid_max_uses"}
-            max_uses = max(1, min(max_uses, self.config.guidance_max_uses))
-            guidance = {
-                **validated,
-                "guidance_id": self._next_id("mg", start_index + offset),
-                "request_id": request_id,
-                "anchor_parent_id": anchor_id,
-                "creation_anchor_parent_id": anchor_id,
-                "max_uses": max_uses,
-                "uses": 0,
-                "status": "active",
-                "created_at": utc_now_iso(),
-                "created_at_task_count": pending.get("created_at_task_count"),
-                "best_fitness_at_creation": (pending.get("current_best") or {}).get("fitness"),
-                "has_valid_result": False,
-                "improved_anchor": False,
-                "created_new_best": False,
-                "outcomes": [],
-            }
-            active.append(guidance)
-            created.append(guidance)
+            validated["max_uses"] = max(1, min(max_uses, self.config.guidance_max_uses))
+            validated_items.append(validated)
 
-        self.state["active_guidance"] = active
-        self.state["next_guidance_index"] = start_index + len(created)
-        self.state["pending_request"] = None
-        self.save()
+        with MetaGuidanceState(self.run_id) as state:
+            start_index = state.next_guidance_index
+            created: List[Guidance] = []
+            for offset, validated in enumerate(validated_items):
+                guidance = Guidance(
+                    **validated,
+                    guidance_id=state.next_id("mg", start_index + offset),
+                    request_id=request_id,
+                    anchor_parent_id=anchor_id,
+                    creation_anchor_parent_id=anchor_id,
+                    created_at_task_count=pending.created_at_task_count,
+                    best_fitness_at_creation=pending.current_best.get("fitness"),
+                )
+                state.active_guidance.append(guidance)
+                created.append(guidance)
+            state.next_guidance_index = start_index + len(created)
+            state.pending_request = None
+
+        for guidance in created:
+            self._append_event(
+                "guidance_committed",
+                {
+                    "request_id": request_id,
+                    "guidance_id": guidance.guidance_id,
+                    "idea": guidance.idea,
+                    "approach_type": guidance.approach_type,
+                    "anchor_parent_id": anchor_id,
+                    "max_uses": guidance.max_uses,
+                },
+            )
         return {
             "committed": True,
             "request_id": request_id,
-            "guidance_ids": [item["guidance_id"] for item in created],
+            "guidance_ids": [item.guidance_id for item in created],
             "anchor_parent_id": anchor_id,
         }
 
@@ -225,61 +244,52 @@ class MetaGuidanceManager:
         anchor_fitness: Optional[float] = None,
     ) -> Optional[Dict[str, Any]]:
         """Assign one active guidance item to a task, consuming one use."""
-        self.load()
-        assignments = self.state.setdefault("task_assignments", {})
-        existing_id = (assignments.get(task_id) or {}).get("guidance_id")
-        if existing_id:
-            guidance = self._active_by_id(existing_id) or self._tried_by_id(existing_id)
+        state = MetaGuidanceState(self.run_id)
+        existing = state.task_assignments.get(task_id)
+        if existing is not None:
+            guidance = state.active_by_id(existing.guidance_id) or _tried_by_id(state, existing.guidance_id)
             if guidance is None:
                 return None
-            return self._with_assignment_anchor(guidance, assignments.get(task_id) or {})
+            return _with_assignment_anchor(guidance, existing)
 
         if not self.config.enabled:
             return None
 
-        active = self.state.get("active_guidance") or []
-        for guidance in active:
-            if int(guidance.get("uses", 0)) >= int(guidance.get("max_uses", 1)):
-                continue
-            actual_anchor_id = str(anchor_parent_id or guidance["anchor_parent_id"])
-            guidance["uses"] = int(guidance.get("uses", 0)) + 1
-            assignment = {
-                "task_id": task_id,
-                "guidance_id": guidance["guidance_id"],
-                "anchor_parent_id": actual_anchor_id,
-                "anchor_fitness": _coerce_float(anchor_fitness),
-                "creation_anchor_parent_id": guidance.get(
-                    "creation_anchor_parent_id",
-                    guidance["anchor_parent_id"],
-                ),
-                "status": "assigned",
-                "assigned_at": utc_now_iso(),
-            }
-            assignments[task_id] = assignment
-            self.save()
-            append_jsonl(self.uses_file, assignment)
-            return self._with_assignment_anchor(guidance, assignment)
-        return None
+        with MetaGuidanceState(self.run_id) as state:
+            for guidance in state.active_guidance:
+                if guidance.uses >= guidance.max_uses:
+                    continue
+                guidance.uses += 1
+                assignment = Assignment(
+                    task_id=task_id,
+                    guidance_id=guidance.guidance_id,
+                    anchor_parent_id=str(anchor_parent_id or guidance.anchor_parent_id),
+                    anchor_fitness=_coerce_float(anchor_fitness),
+                    creation_anchor_parent_id=guidance.creation_anchor_parent_id
+                    or guidance.anchor_parent_id,
+                )
+                state.task_assignments[task_id] = assignment
+                break
+            else:
+                return None
+        self._append_event("assigned", asdict(assignment))
+        return _with_assignment_anchor(guidance, assignment)
 
     def prompt_for_task(self, task_id: str) -> Dict[str, Any]:
         """Return a ready-to-inject prompt for a task's assigned guidance."""
-        self.load()
-        assignment = (self.state.get("task_assignments") or {}).get(task_id) or {}
-        guidance_id = assignment.get("guidance_id")
-        if not guidance_id:
+        state = MetaGuidanceState(self.run_id)
+        assignment = state.task_assignments.get(task_id)
+        if assignment is None:
             return {"available": False, "reason": "no_active_guidance"}
-        guidance = self._active_by_id(guidance_id) or self._tried_by_id(guidance_id)
+        guidance = state.active_by_id(assignment.guidance_id) or _tried_by_id(state, assignment.guidance_id)
         if guidance is None:
             return {"available": False, "reason": "assigned_guidance_not_found"}
         return {
             "available": True,
-            "guidance_id": guidance["guidance_id"],
-            "anchor_parent_id": assignment.get("anchor_parent_id") or guidance["anchor_parent_id"],
-            "anchor_fitness": assignment.get("anchor_fitness"),
-            "creation_anchor_parent_id": guidance.get(
-                "creation_anchor_parent_id",
-                guidance["anchor_parent_id"],
-            ),
+            "guidance_id": guidance.guidance_id,
+            "anchor_parent_id": assignment.anchor_parent_id or guidance.anchor_parent_id,
+            "anchor_fitness": assignment.anchor_fitness,
+            "creation_anchor_parent_id": guidance.creation_anchor_parent_id or guidance.anchor_parent_id,
             "prompt": _render_guidance_prompt(guidance),
         }
 
@@ -299,222 +309,181 @@ class MetaGuidanceManager:
         anchor_metrics: Optional[Dict[str, Any]] = None,
     ) -> None:
         """Record the outcome of an attempt that used guidance."""
-        self.load()
-        assignment = (self.state.get("task_assignments") or {}).get(task_id)
-        if not assignment:
-            return
-        guidance = self._active_by_id(str(assignment.get("guidance_id")))
-        if guidance is None:
-            return
+        with MetaGuidanceState(self.run_id) as state:
+            assignment = state.task_assignments.get(task_id)
+            if assignment is None:
+                return
+            guidance = state.active_by_id(assignment.guidance_id)
+            if guidance is None:
+                return
 
-        valid_result = bool(valid_result and fitness is not None)
-        actual_anchor_fitness = _coerce_float(assignment.get("anchor_fitness"))
-        if actual_anchor_fitness is None:
-            actual_anchor_fitness = _coerce_float(anchor_fitness)
-        assignment["anchor_fitness"] = actual_anchor_fitness
-        delta_vs_anchor = (
-            fitness - actual_anchor_fitness
-            if valid_result and actual_anchor_fitness is not None
-            else None
-        )
-        relative_delta_vs_anchor = (
-            delta_vs_anchor / max(abs(actual_anchor_fitness), 1e-9)
-            if delta_vs_anchor is not None and actual_anchor_fitness is not None
-            else None
-        )
-        improved_anchor = bool(delta_vs_anchor is not None and delta_vs_anchor > 0)
-        metrics_changed = not _values_equivalent(metrics or {}, anchor_metrics or {})
-        no_effect = bool(
-            valid_result
-            and delta_vs_anchor is not None
-            and _numbers_equivalent(delta_vs_anchor, 0.0)
-            and not metrics_changed
-        )
-        created_new_best = (
-            valid_result
-            and fitness is not None
-            and (best_fitness_before is None or fitness > best_fitness_before)
-        )
-        if valid_result:
-            guidance["has_valid_result"] = True
-        if improved_anchor:
-            guidance["improved_anchor"] = True
-        if created_new_best:
-            guidance["created_new_best"] = True
-        outcome = {
-            "task_id": task_id,
-            "attempt_id": attempt_id,
-            "valid_result": valid_result,
-            "in_success_pool": in_success_pool,
-            "success_record_id": success_record_id,
-            "fitness": fitness,
-            "anchor_parent_id": assignment.get("anchor_parent_id"),
-            "anchor_fitness": actual_anchor_fitness,
-            "delta_vs_anchor": delta_vs_anchor,
-            "relative_delta_vs_anchor": relative_delta_vs_anchor,
-            "improved_anchor": improved_anchor,
-            "metrics_changed": metrics_changed,
-            "no_effect": no_effect,
-            "best_fitness_before": best_fitness_before,
-            "best_fitness_after": best_fitness_after,
-            "created_new_best": created_new_best,
-        }
-        outcomes = list(guidance.get("outcomes") or [])
-        outcomes.append(outcome)
-        guidance["outcomes"] = outcomes
+            valid_result = bool(valid_result and fitness is not None)
+            actual_anchor_fitness = assignment.anchor_fitness
+            if actual_anchor_fitness is None:
+                actual_anchor_fitness = _coerce_float(anchor_fitness)
+            delta_vs_anchor = (
+                fitness - actual_anchor_fitness
+                if valid_result and actual_anchor_fitness is not None
+                else None
+            )
+            relative_delta_vs_anchor = (
+                delta_vs_anchor / max(abs(actual_anchor_fitness), 1e-9)
+                if delta_vs_anchor is not None and actual_anchor_fitness is not None
+                else None
+            )
+            improved_anchor = bool(delta_vs_anchor is not None and delta_vs_anchor > 0)
+            metrics_changed = not _values_equivalent(metrics or {}, anchor_metrics or {})
+            no_effect = bool(
+                valid_result
+                and delta_vs_anchor is not None
+                and _numbers_equivalent(delta_vs_anchor, 0.0)
+                and not metrics_changed
+            )
+            created_new_best = (
+                valid_result
+                and fitness is not None
+                and (best_fitness_before is None or fitness > best_fitness_before)
+            )
+            if valid_result:
+                guidance.has_valid_result = True
+            if improved_anchor:
+                guidance.improved_anchor = True
+            if created_new_best:
+                guidance.created_new_best = True
+            guidance.outcomes.append(
+                {
+                    "task_id": task_id,
+                    "attempt_id": attempt_id,
+                    "valid_result": valid_result,
+                    "in_success_pool": in_success_pool,
+                    "success_record_id": success_record_id,
+                    "fitness": fitness,
+                    "anchor_parent_id": assignment.anchor_parent_id,
+                    "anchor_fitness": actual_anchor_fitness,
+                    "delta_vs_anchor": delta_vs_anchor,
+                    "relative_delta_vs_anchor": relative_delta_vs_anchor,
+                    "improved_anchor": improved_anchor,
+                    "metrics_changed": metrics_changed,
+                    "no_effect": no_effect,
+                    "best_fitness_before": best_fitness_before,
+                    "best_fitness_after": best_fitness_after,
+                    "created_new_best": created_new_best,
+                }
+            )
 
-        assignment.update(
-            {
-                "status": "recorded",
-                "attempt_id": attempt_id,
-                "valid_result": valid_result,
-                "in_success_pool": in_success_pool,
-                "success_record_id": success_record_id,
-                "fitness": fitness,
-                "anchor_fitness": actual_anchor_fitness,
-                "delta_vs_anchor": delta_vs_anchor,
-                "relative_delta_vs_anchor": relative_delta_vs_anchor,
-                "improved_anchor": improved_anchor,
-                "metrics_changed": metrics_changed,
-                "no_effect": no_effect,
-                "best_fitness_before": best_fitness_before,
-                "best_fitness_after": best_fitness_after,
-                "created_new_best": created_new_best,
-                "recorded_at": utc_now_iso(),
-            }
-        )
-        append_jsonl(self.uses_file, dict(assignment))
-        self._archive_exhausted_if_ready(guidance["guidance_id"])
-        self.save()
+            assignment.status = "recorded"
+            assignment.attempt_id = attempt_id
+            assignment.valid_result = valid_result
+            assignment.in_success_pool = in_success_pool
+            assignment.success_record_id = success_record_id
+            assignment.fitness = fitness
+            assignment.anchor_fitness = actual_anchor_fitness
+            assignment.delta_vs_anchor = delta_vs_anchor
+            assignment.relative_delta_vs_anchor = relative_delta_vs_anchor
+            assignment.improved_anchor = improved_anchor
+            assignment.metrics_changed = metrics_changed
+            assignment.no_effect = no_effect
+            assignment.best_fitness_before = best_fitness_before
+            assignment.best_fitness_after = best_fitness_after
+            assignment.created_new_best = created_new_best
+            assignment.recorded_at = utc_now_iso()
+
+            archived = _archive_exhausted_if_ready(state, guidance.guidance_id)
+
+        self._append_event("recorded", asdict(assignment))
+        if archived is not None:
+            self._append_event(
+                "guidance_archived",
+                {
+                    "guidance_id": archived.guidance_id,
+                    "outcome": archived.outcome,
+                    "uses": archived.uses,
+                    "outcome_summary": archived.outcome_summary,
+                },
+            )
 
     def stats(self) -> Dict[str, Any]:
         """Return compact meta-guidance diagnostics."""
-        self.load()
-        active = list(self.state.get("active_guidance") or [])
-        tried = list(self.state.get("tried_guidance") or [])
+        state = MetaGuidanceState(self.run_id)
         return {
             "enabled": self.config.enabled,
-            "has_pending_request": self.state.get("pending_request") is not None,
-            "active_count": len(active),
-            "active_with_remaining": len(self._active_with_remaining()),
-            "tried_count": len(tried),
-            "watching": self.state.get("watching"),
+            "has_pending_request": state.pending_request is not None,
+            "active_count": len(state.active_guidance),
+            "active_with_remaining": sum(1 for g in state.active_guidance if g.uses < g.max_uses),
+            "tried_count": len(state.tried_guidance),
+            "watching": asdict(state.watching) if state.watching else None,
         }
 
-    def _archive_exhausted_if_ready(self, guidance_id: str) -> None:
-        assignments = self.state.get("task_assignments") or {}
-        active = list(self.state.get("active_guidance") or [])
-        guidance = next((item for item in active if item.get("guidance_id") == guidance_id), None)
-        if guidance is None:
-            return
-        if int(guidance.get("uses", 0)) < int(guidance.get("max_uses", 1)):
-            return
-        assigned = [item for item in assignments.values() if item.get("guidance_id") == guidance_id]
-        if any(item.get("status") == "assigned" for item in assigned):
-            return
+    def _append_event(self, event_type: str, payload: Dict[str, Any]) -> None:
+        self.events.append(MetaGuidanceEvent(event_type=event_type, run_id=self.run_id, payload=payload))
 
-        outcome = _classify_guidance_outcome(guidance)
-        archived = {
-            **guidance,
-            "status": "exhausted",
-            "outcome": outcome,
-            "outcome_summary": _guidance_outcome_summary(guidance),
-        }
-        self.state["active_guidance"] = [
-            item for item in active if item.get("guidance_id") != guidance_id
-        ]
-        tried = list(self.state.get("tried_guidance") or [])
-        tried.append(archived)
-        self.state["tried_guidance"] = tried
 
-    def _active_by_id(self, guidance_id: str) -> Optional[Dict[str, Any]]:
-        for item in self.state.get("active_guidance") or []:
-            if item.get("guidance_id") == guidance_id:
-                return item
+def _archive_exhausted_if_ready(state: MetaGuidanceState, guidance_id: str) -> Optional[Guidance]:
+    """Move a fully used guidance from active to tried; return it if archived."""
+    guidance = state.active_by_id(guidance_id)
+    if guidance is None or guidance.uses < guidance.max_uses:
+        return None
+    if any(a.guidance_id == guidance_id and a.status == "assigned" for a in state.task_assignments.values()):
         return None
 
-    def _tried_by_id(self, guidance_id: str) -> Optional[Dict[str, Any]]:
-        for item in self.state.get("tried_guidance") or []:
-            if item.get("guidance_id") == guidance_id:
-                return item
-        return None
+    guidance.status = "exhausted"
+    guidance.outcome = _classify_guidance_outcome(guidance)
+    guidance.outcome_summary = _guidance_outcome_summary(guidance)
+    state.active_guidance = [g for g in state.active_guidance if g.guidance_id != guidance_id]
+    state.tried_guidance.append(guidance)
+    return guidance
 
-    def _active_with_remaining(self) -> List[Dict[str, Any]]:
-        return [
-            item
-            for item in self.state.get("active_guidance") or []
-            if int(item.get("uses", 0)) < int(item.get("max_uses", 1))
-        ]
 
-    @staticmethod
-    def _with_assignment_anchor(
-        guidance: Dict[str, Any],
-        assignment: Dict[str, Any],
-    ) -> Dict[str, Any]:
-        result = dict(guidance)
-        result["creation_anchor_parent_id"] = guidance.get(
-            "creation_anchor_parent_id",
-            guidance.get("anchor_parent_id"),
-        )
-        if assignment.get("anchor_parent_id"):
-            result["anchor_parent_id"] = assignment["anchor_parent_id"]
-        if "anchor_fitness" in assignment:
-            result["anchor_fitness"] = assignment["anchor_fitness"]
-        return result
+def _tried_by_id(state: MetaGuidanceState, guidance_id: str) -> Optional[Guidance]:
+    return next((g for g in state.tried_guidance if g.guidance_id == guidance_id), None)
 
-    def _failed_guidance(self) -> List[Dict[str, Any]]:
-        return [
-            {
-                "guidance_id": item.get("guidance_id"),
-                "idea": item.get("idea"),
-                "approach_type": item.get("approach_type"),
-                "uses": item.get("uses"),
-                "outcome": item.get("outcome"),
-                "outcome_summary": item.get("outcome_summary") or _guidance_outcome_summary(item),
-            }
-            for item in self.state.get("tried_guidance") or []
-            if item.get("outcome") in {"no_effect", "regression", "failed"}
-        ]
 
-    def _guidance_history(self) -> List[Dict[str, Any]]:
-        """Return prior guidance with deterministic outcome summaries."""
-        return [
-            {
-                "guidance_id": item.get("guidance_id"),
-                "idea": item.get("idea"),
-                "approach_type": item.get("approach_type"),
-                "relationship_to_current_best": item.get("relationship_to_current_best"),
-                "uses": item.get("uses"),
-                "max_uses": item.get("max_uses"),
-                "outcome": item.get("outcome"),
-                "best_fitness_at_creation": item.get("best_fitness_at_creation"),
-                "outcome_summary": item.get("outcome_summary") or _guidance_outcome_summary(item),
-            }
-            for item in self.state.get("tried_guidance") or []
-        ]
+def _with_assignment_anchor(guidance: Guidance, assignment: Assignment) -> Dict[str, Any]:
+    result = asdict(guidance)
+    result["creation_anchor_parent_id"] = guidance.creation_anchor_parent_id or guidance.anchor_parent_id
+    if assignment.anchor_parent_id:
+        result["anchor_parent_id"] = assignment.anchor_parent_id
+    result["anchor_fitness"] = assignment.anchor_fitness
+    return result
 
-    def _completed_since_watching(self, task_count: int) -> int:
-        watching = self.state.get("watching") or {}
-        started = watching.get("started_task_count")
-        if started is None:
-            return 0
-        return max(int(task_count) - int(started), 0)
 
-    @staticmethod
-    def _next_id(prefix: str, number: int) -> str:
-        return f"{prefix}_{number:04d}"
-
-    @staticmethod
-    def _empty_state() -> Dict[str, Any]:
-        return {
-            "watching": None,
-            "pending_request": None,
-            "active_guidance": [],
-            "tried_guidance": [],
-            "task_assignments": {},
-            "next_guidance_index": 1,
-            "next_request_index": 1,
+def _failed_guidance(state: MetaGuidanceState) -> List[Dict[str, Any]]:
+    return [
+        {
+            "guidance_id": item.guidance_id,
+            "idea": item.idea,
+            "approach_type": item.approach_type,
+            "uses": item.uses,
+            "outcome": item.outcome,
+            "outcome_summary": item.outcome_summary or _guidance_outcome_summary(item),
         }
+        for item in state.tried_guidance
+        if item.outcome in {"no_effect", "regression", "failed"}
+    ]
+
+
+def _guidance_history(state: MetaGuidanceState) -> List[Dict[str, Any]]:
+    """Return prior guidance with deterministic outcome summaries."""
+    return [
+        {
+            "guidance_id": item.guidance_id,
+            "idea": item.idea,
+            "approach_type": item.approach_type,
+            "relationship_to_current_best": item.relationship_to_current_best,
+            "uses": item.uses,
+            "max_uses": item.max_uses,
+            "outcome": item.outcome,
+            "best_fitness_at_creation": item.best_fitness_at_creation,
+            "outcome_summary": item.outcome_summary or _guidance_outcome_summary(item),
+        }
+        for item in state.tried_guidance
+    ]
+
+
+def _completed_since_watching(state: MetaGuidanceState, task_count: int) -> int:
+    if state.watching is None:
+        return 0
+    return max(int(task_count) - state.watching.started_task_count, 0)
 
 
 def _record_ref(record: SuccessRecord, *, include_artifact_excerpt: bool = False) -> Dict[str, Any]:
@@ -550,6 +519,7 @@ def _extract_guidance_list(guidance_json: Any) -> List[Dict[str, Any]]:
 
 
 def _validate_guidance_item(item: Dict[str, Any]) -> Dict[str, Any] | str:
+    """Check one agent-submitted guidance item; return its normalised fields or a reason."""
     required = ["idea", "description", "novelty_claim", "implementation_plan", "approach_type"]
     for key in required:
         value = item.get(key)
@@ -578,23 +548,23 @@ def _validate_guidance_item(item: Dict[str, Any]) -> Dict[str, Any] | str:
     }
 
 
-def _render_guidance_prompt(guidance: Dict[str, Any]) -> str:
-    plan = "\n".join(f"- {item}" for item in guidance.get("implementation_plan") or [])
-    cautions = "\n".join(f"- {item}" for item in guidance.get("cautions") or [])
-    avoid = "\n".join(f"- {item}" for item in guidance.get("avoid_repeating") or [])
+def _render_guidance_prompt(guidance: Guidance) -> str:
+    plan = "\n".join(f"- {item}" for item in guidance.implementation_plan)
+    cautions = "\n".join(f"- {item}" for item in guidance.cautions)
+    avoid = "\n".join(f"- {item}" for item in guidance.avoid_repeating)
     return (
         "## META-GUIDANCE - APPLY THIS\n\n"
         "The search has stagnated and meta-guidance was requested. "
         "You MUST make a purposeful attempt to apply this guidance.\n\n"
-        f"**IDEA:** {guidance.get('idea')}\n\n"
-        f"**WHY THIS IS NEW:** {guidance.get('novelty_claim')}\n\n"
+        f"**IDEA:** {guidance.idea}\n\n"
+        f"**WHY THIS IS NEW:** {guidance.novelty_claim}\n\n"
         f"**CURRENT BEST ASSESSMENT:** "
-        f"{guidance.get('current_best_assessment') or 'Use the current best critically; do not assume its strategy is optimal.'}\n\n"
-        f"**RELATIONSHIP TO CURRENT BEST:** {guidance.get('relationship_to_current_best')}\n\n"
-        f"**HOW TO IMPLEMENT:**\n{guidance.get('description')}\n\n"
+        f"{guidance.current_best_assessment or 'Use the current best critically; do not assume its strategy is optimal.'}\n\n"
+        f"**RELATIONSHIP TO CURRENT BEST:** {guidance.relationship_to_current_best}\n\n"
+        f"**HOW TO IMPLEMENT:**\n{guidance.description}\n\n"
         f"**IMPLEMENTATION PLAN:**\n{plan or '- Apply the idea directly.'}\n\n"
-        f"**TARGET METRIC:** {guidance.get('target_metric', 'fitness')}\n\n"
-        f"**APPROACH TYPE:** {guidance.get('approach_type')}\n\n"
+        f"**TARGET METRIC:** {guidance.target_metric}\n\n"
+        f"**APPROACH TYPE:** {guidance.approach_type}\n\n"
         f"**CAUTIONS:**\n{cautions or '- Keep the benchmark output contract.'}\n\n"
         f"**AVOID REPEATING:**\n{avoid or '- No specific failed route listed.'}\n\n"
         "**ANCHOR RULES:**\n"
@@ -623,8 +593,8 @@ def _read_artifact_excerpt(artifact_ref: str, max_chars: int = 16000) -> tuple[s
         return "", False
 
 
-def _guidance_outcome_summary(guidance: Dict[str, Any]) -> Dict[str, Any]:
-    outcomes = [dict(item) for item in guidance.get("outcomes") or []]
+def _guidance_outcome_summary(guidance: Guidance) -> Dict[str, Any]:
+    outcomes = guidance.outcomes
     fitness_values = [
         value
         for value in (_coerce_float(item.get("fitness")) for item in outcomes)
@@ -637,7 +607,7 @@ def _guidance_outcome_summary(guidance: Dict[str, Any]) -> Dict[str, Any]:
     ]
     valid_uses = sum(1 for item in outcomes if _is_valid_guidance_outcome(item))
     return {
-        "total_uses": len(outcomes) or int(guidance.get("uses", 0) or 0),
+        "total_uses": len(outcomes) or guidance.uses,
         "valid_uses": valid_uses,
         "failed_uses": len(outcomes) - valid_uses,
         "no_effect_uses": sum(1 for item in outcomes if _is_no_effect_guidance_outcome(item)),
@@ -653,8 +623,8 @@ def _guidance_outcome_summary(guidance: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _classify_guidance_outcome(guidance: Dict[str, Any]) -> str:
-    outcomes = [dict(item) for item in guidance.get("outcomes") or []]
+def _classify_guidance_outcome(guidance: Guidance) -> str:
+    outcomes = guidance.outcomes
     if any(item.get("created_new_best") for item in outcomes):
         return "new_best"
     if any(

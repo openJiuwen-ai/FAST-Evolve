@@ -4,12 +4,14 @@ import json
 
 from evotrias.mcp.controller import EvolutionController
 from evotrias.mcp.success_pool import SuccessPool
-from evotrias.mcp.meta_guidance import MetaGuidanceManager
+from evotrias.mcp import meta_guidance as meta_guidance_module
 from evotrias.db.attempts import AttemptRecord, Attempts
 from evotrias.db.note_requests import NoteRequest, NoteRequests
 from evotrias.db.notes import Note, Notes, NoteTrigger
 from evotrias.db.notes_events import NotesEvents
-from evotrias.db.config import Config, MetaEvolveConfig
+from evotrias.db.meta_guidance_events import MetaGuidanceEvents
+from evotrias.db.meta_guidance_state import Guidance, MetaGuidanceState
+from evotrias.db.config import Config
 from evotrias.db.task_contexts import TaskContexts
 from evotrias.utils.time import utc_now_iso
 
@@ -83,36 +85,35 @@ def _add_successes(controller: EvolutionController, *, fitness=1.0, count=5):
 
 
 def test_exhausted_guidance_history_is_never_truncated(tmp_path, monkeypatch):
-    monkeypatch.setenv("AGENT_EVOLVE_CONTROLLER_DIR", str(tmp_path / "controller"))
-    manager = MetaGuidanceManager("run_guidance_history", MetaEvolveConfig())
+    monkeypatch.chdir(tmp_path)
+    run_id = "run_guidance_history"
 
     for index in range(1, 12):
         guidance_id = f"mg_{index:04d}"
-        manager.state["active_guidance"] = [
-            {
-                "guidance_id": guidance_id,
-                "idea": f"idea {index}",
-                "description": f"description {index}",
-                "implementation_plan": [f"step {index}"],
-                "anchor_parent_id": "success_0000",
-                "uses": 1,
-                "max_uses": 1,
-                "outcomes": [],
-            }
-        ]
-        manager._archive_exhausted_if_ready(guidance_id)
+        with MetaGuidanceState(run_id) as state:
+            state.active_guidance = [
+                Guidance(
+                    idea=f"idea {index}",
+                    description=f"description {index}",
+                    novelty_claim="",
+                    approach_type="",
+                    implementation_plan=[f"step {index}"],
+                    guidance_id=guidance_id,
+                    anchor_parent_id="success_0000",
+                    uses=1,
+                    max_uses=1,
+                )
+            ]
+            meta_guidance_module._archive_exhausted_if_ready(state, guidance_id)
 
-    manager.save()
-    manager.load()
-
-    tried = manager.state["tried_guidance"]
+    tried = MetaGuidanceState(run_id).tried_guidance
     assert len(tried) == 11
-    assert [item["guidance_id"] for item in tried] == [
+    assert [item.guidance_id for item in tried] == [
         f"mg_{index:04d}" for index in range(1, 12)
     ]
-    assert tried[0]["idea"] == "idea 1"
-    assert tried[0]["description"] == "description 1"
-    assert tried[0]["implementation_plan"] == ["step 1"]
+    assert tried[0].idea == "idea 1"
+    assert tried[0].description == "description 1"
+    assert tried[0].implementation_plan == ["step 1"]
 
 
 def test_plateau_requests_guidance_without_stop(tmp_path, monkeypatch):
@@ -456,11 +457,10 @@ def test_same_task_does_not_double_consume_guidance(tmp_path, monkeypatch):
 
     first = controller.select_parent("task_101")
     second = controller.select_parent("task_101")
-    controller.meta_guidance.load()
-    active = controller.meta_guidance.state["active_guidance"][0]
+    active = MetaGuidanceState(controller.run_id).active_guidance[0]
 
     assert first == second
-    assert active["uses"] == 1
+    assert active.uses == 1
 
 
 def test_active_guidance_uses_latest_best_parent(tmp_path, monkeypatch):
@@ -488,18 +488,18 @@ def test_active_guidance_uses_latest_best_parent(tmp_path, monkeypatch):
     _add_success(controller, "success_new_best", fitness=2.0, artifact_ref="new_best.py", created_at="2026-01-01T00:01:00+00:00")
     controller._load_state()
     second_parent = controller.select_parent("task_152")
-    controller.meta_guidance.load()
-    assignments = controller.meta_guidance.state["task_assignments"]
-    active = controller.meta_guidance.state["active_guidance"][0]
+    meta_state = MetaGuidanceState(controller.run_id)
+    assignments = meta_state.task_assignments
+    active = meta_state.active_guidance[0]
 
     assert first_parent["parent_id"] == "success_0000"
     assert second_parent["parent_id"] == "success_new_best"
-    assert assignments["task_151"]["anchor_parent_id"] == "success_0000"
-    assert assignments["task_152"]["anchor_parent_id"] == "success_new_best"
-    assert assignments["task_151"]["anchor_fitness"] == 1.0
-    assert assignments["task_152"]["anchor_fitness"] == 2.0
-    assert active["creation_anchor_parent_id"] == "success_0000"
-    assert active["uses"] == 2
+    assert assignments["task_151"].anchor_parent_id == "success_0000"
+    assert assignments["task_152"].anchor_parent_id == "success_new_best"
+    assert assignments["task_151"].anchor_fitness == 1.0
+    assert assignments["task_152"].anchor_fitness == 2.0
+    assert active.creation_anchor_parent_id == "success_0000"
+    assert active.uses == 2
 
 
 def test_no_new_request_while_assigned_guidance_is_unresolved(tmp_path, monkeypatch):
@@ -525,8 +525,7 @@ def test_no_new_request_while_assigned_guidance_is_unresolved(tmp_path, monkeypa
 
     controller.select_parent("task_201")
     controller.select_parent("task_202")
-    controller.meta_guidance.load()
-    assert controller.meta_guidance.state["active_guidance"][0]["uses"] == 2
+    assert MetaGuidanceState(controller.run_id).active_guidance[0].uses == 2
 
     followup = controller.check_convergence(concurrency=1)
 
@@ -623,6 +622,55 @@ def test_pending_request_is_cleared_after_new_best(tmp_path, monkeypatch):
     assert request["available"] is False
 
 
+
+def test_meta_guidance_events_cover_the_whole_lifecycle(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    controller = _controller(tmp_path, monkeypatch)
+    _add_successes(controller, fitness=1.0)
+    convergence = controller.check_convergence(concurrency=1)
+    request = controller.get_meta_guidance_request(convergence["request_id"])
+    controller.commit_meta_guidance(
+        request["request_id"],
+        {
+            "guidance": [
+                {
+                    "idea": "Switch representation",
+                    "description": "Change representation first.",
+                    "novelty_claim": "Nobody tried it.",
+                    "implementation_plan": ["Build alternate representation"],
+                    "approach_type": "representation",
+                    "max_uses": 1,
+                }
+            ]
+        },
+    )
+    controller.select_parent("task_301")
+    result_path = tmp_path / "eval_result.json"
+    result_path.write_text(
+        json.dumps({"status": "success", "artifact_ref": "runs/run_meta_test/tasks/task_301/final.py", "fitness": 2.0}),
+        encoding="utf-8",
+    )
+    controller.record_attempt(task_id="task_301", verification_result_ref=str(result_path), attempt_id="attempt_001", max_attempts=3)
+    controller.check_convergence(concurrency=1)  # new best ends the plateau -> watching_reset
+
+    events = list(MetaGuidanceEvents(controller.run_id))
+    assert [e.event_type for e in events] == [
+        "watching_started",
+        "request_created",
+        "guidance_committed",
+        "assigned",
+        "recorded",
+        "guidance_archived",
+        "watching_reset",
+    ]
+    by_type = {e.event_type: e.payload for e in events}
+    assert by_type["request_created"]["request_id"] == request["request_id"]
+    assert by_type["guidance_committed"]["approach_type"] == "representation"
+    assert by_type["assigned"]["task_id"] == "task_301"
+    assert by_type["recorded"]["created_new_best"] is True
+    assert by_type["guidance_archived"]["outcome"] == "new_best"
+    assert by_type["watching_reset"]["had_pending_request"] is False
+
 def test_attempt_records_meta_guidance_and_report_summary(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     controller = _controller(tmp_path, monkeypatch)
@@ -671,15 +719,14 @@ def test_attempt_records_meta_guidance_and_report_summary(tmp_path, monkeypatch)
         max_attempts=3,
     )
     attempts = list(Attempts(controller.run_id))
-    controller.meta_guidance.load()
 
     assert record["in_success_pool"] is True
     assert attempts[-1].meta_guidance_id == "mg_0001"
     assert attempts[-1].anchor_parent_id == "success_0000"
-    tried = controller.meta_guidance.state["tried_guidance"][0]
-    assert tried["outcome"] == "new_best"
-    assert tried["outcomes"][0]["anchor_fitness"] == 1.0
-    assert tried["outcomes"][0]["delta_vs_anchor"] == 1.0
+    tried = MetaGuidanceState(controller.run_id).tried_guidance[0]
+    assert tried.outcome == "new_best"
+    assert tried.outcomes[0]["anchor_fitness"] == 1.0
+    assert tried.outcomes[0]["delta_vs_anchor"] == 1.0
 
     report = controller.finalize_run()
     summary_path = tmp_path / report["summary_ref"]
@@ -805,13 +852,12 @@ def test_equal_fitness_with_changed_metrics_is_regression(tmp_path, monkeypatch)
         attempt_id="attempt_001",
         max_attempts=1,
     )
-    controller.meta_guidance.load()
 
-    tried = controller.meta_guidance.state["tried_guidance"][0]
-    assert tried["outcome"] == "regression"
-    assert tried["outcomes"][0]["metrics_changed"] is True
-    assert tried["outcomes"][0]["no_effect"] is False
-    assert tried["outcome_summary"]["no_effect_uses"] == 0
+    tried = MetaGuidanceState(controller.run_id).tried_guidance[0]
+    assert tried.outcome == "regression"
+    assert tried.outcomes[0]["metrics_changed"] is True
+    assert tried.outcomes[0]["no_effect"] is False
+    assert tried.outcome_summary["no_effect_uses"] == 0
 
 
 def test_guidance_can_improve_its_anchor_without_creating_global_best(tmp_path, monkeypatch):
@@ -856,14 +902,13 @@ def test_guidance_can_improve_its_anchor_without_creating_global_best(tmp_path, 
         attempt_id="attempt_001",
         max_attempts=1,
     )
-    controller.meta_guidance.load()
 
-    tried = controller.meta_guidance.state["tried_guidance"][0]
-    assert tried["outcome"] == "improved_anchor"
-    assert tried["outcomes"][0]["anchor_fitness"] == 1.0
-    assert tried["outcomes"][0]["best_fitness_before"] == 2.0
-    assert tried["outcomes"][0]["delta_vs_anchor"] == 0.5
-    assert tried["outcomes"][0]["created_new_best"] is False
+    tried = MetaGuidanceState(controller.run_id).tried_guidance[0]
+    assert tried.outcome == "improved_anchor"
+    assert tried.outcomes[0]["anchor_fitness"] == 1.0
+    assert tried.outcomes[0]["best_fitness_before"] == 2.0
+    assert tried.outcomes[0]["delta_vs_anchor"] == 0.5
+    assert tried.outcomes[0]["created_new_best"] is False
 
 
 def test_guidance_with_only_invalid_results_is_failed(tmp_path, monkeypatch):
@@ -905,9 +950,8 @@ def test_guidance_with_only_invalid_results_is_failed(tmp_path, monkeypatch):
         attempt_id="attempt_001",
         max_attempts=1,
     )
-    controller.meta_guidance.load()
 
-    tried = controller.meta_guidance.state["tried_guidance"][0]
-    assert tried["outcome"] == "failed"
-    assert tried["outcome_summary"]["valid_uses"] == 0
-    assert tried["outcome_summary"]["failed_uses"] == 1
+    tried = MetaGuidanceState(controller.run_id).tried_guidance[0]
+    assert tried.outcome == "failed"
+    assert tried.outcome_summary["valid_uses"] == 0
+    assert tried.outcome_summary["failed_uses"] == 1

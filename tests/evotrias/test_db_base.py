@@ -7,6 +7,7 @@ import importlib
 import json
 import pkgutil
 from dataclasses import dataclass, field
+from typing import List, Optional
 
 import pytest
 
@@ -334,3 +335,23 @@ def test_dblist_rebuilds_nested_dataclass_fields(tmp_path, log):
     [got] = list(log_store)
     assert isinstance(got.inner, _Inner)
     assert got.inner == _Inner(x=3, y="three")
+
+
+class _Nest(base.DBObject):
+    maybe: Optional[_Inner] = None
+    many: List[_Inner] = field(default_factory=list)
+
+
+def test_dbobject_rebuilds_optional_and_list_of_dataclass(tmp_path, log):
+    path = tmp_path / "nest.json"
+    assert _Nest(path).maybe is None
+    with _Nest(path) as nest:
+        nest.maybe = _Inner(x=1)
+        nest.many = [_Inner(x=2), _Inner(x=3, y="c")]
+    reloaded = _Nest(path)
+    assert reloaded.maybe == _Inner(x=1) and isinstance(reloaded.maybe, _Inner)
+    assert reloaded.many == [_Inner(x=2), _Inner(x=3, y="c")]
+    assert all(isinstance(v, _Inner) for v in reloaded.many)
+    with _Nest(path) as nest:
+        nest.maybe = None
+    assert _Nest(path).maybe is None

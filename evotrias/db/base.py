@@ -99,17 +99,27 @@ def _dataclass_from_dict(cls: type, data: Dict[str, Any]) -> Any:
 def _rebuild(hint: Any, value: Any) -> Any:
     """Turn loaded JSON back into the shape ``hint`` declares.
 
-    Handles a plain dataclass and ``Dict[str, <dataclass>]``; anything else is
-    returned as-is.
+    Handles a plain dataclass and the containers ``Optional[X]``, ``List[X]``
+    and ``Dict[str, X]`` where ``X`` is a dataclass; anything else is returned
+    as-is.
     """
+    origin = typing.get_origin(hint)
+    args = typing.get_args(hint)
+    if origin is typing.Union:
+        inner = [a for a in args if a is not type(None)]
+        return _rebuild(inner[0], value) if len(inner) == 1 and value is not None else value
     if isinstance(value, dict):
-        if isinstance(hint, type) and dataclasses.is_dataclass(hint):
+        if _is_dataclass_type(hint):
             return _dataclass_from_dict(hint, value)
-        if typing.get_origin(hint) is dict:
-            args = typing.get_args(hint)
-            if len(args) == 2 and isinstance(args[1], type) and dataclasses.is_dataclass(args[1]):
-                return {k: _dataclass_from_dict(args[1], v) for k, v in value.items()}
+        if origin is dict and len(args) == 2 and _is_dataclass_type(args[1]):
+            return {k: _dataclass_from_dict(args[1], v) for k, v in value.items()}
+    if isinstance(value, list) and origin is list and len(args) == 1 and _is_dataclass_type(args[0]):
+        return [_dataclass_from_dict(args[0], v) if isinstance(v, dict) else v for v in value]
     return value
+
+
+def _is_dataclass_type(hint: Any) -> bool:
+    return isinstance(hint, type) and dataclasses.is_dataclass(hint)
 
 
 class DBList:
@@ -143,9 +153,9 @@ class DBObject:
     Subclasses only declare fields; ``__init_subclass__`` turns them into a
     ``dataclass(init=False)`` and rejects any field without a default, so a
     malformed store fails at import rather than on first load.  Unknown keys in
-    the file are ignored.  Fields typed as a plain dataclass or as
-    ``Dict[str, <dataclass>]`` are rebuilt from JSON on load; other nested
-    shapes need the subclass to override ``_load``/``_dump``.
+    the file are ignored.  Fields typed as a dataclass, or as ``Optional``,
+    ``List`` or ``Dict[str, ...]`` of one, are rebuilt from JSON on load; other
+    nested shapes need the subclass to override ``_load``/``_dump``.
 
     ``created_at`` and ``updated_at`` are managed here, not declared by
     subclasses: both empty until the file is first written; ``created_at`` is

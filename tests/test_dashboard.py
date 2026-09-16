@@ -117,7 +117,7 @@ def _seed_run(tmp_path: Path, monkeypatch):
         ],
     )
     _write_json(
-        state / "meta_guidance" / "meta_guidance_state.json",
+        tmp_path / ".evotrias" / "db" / "runs" / RUN_ID / "meta_guidance_state.json",
         {
             "active_guidance": [
                 {

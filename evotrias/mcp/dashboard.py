@@ -142,8 +142,8 @@ def build_snapshot(run_id: str, workspace_root: Path) -> Dict[str, Any]:
     completed = _completions(attempts)
     notes_rows = _read_jsonl(workspace_root / paths.run_dir(run_id) / paths.NOTES)
     notes_events = _read_jsonl(workspace_root / paths.run_dir(run_id) / paths.NOTES_EVENTS)
-    meta_state = _read_json(state_root / "meta_guidance" / "meta_guidance_state.json", {})
-    meta_uses = _read_jsonl(state_root / "meta_guidance" / "meta_guidance_uses.jsonl")
+    meta_state = _read_json(workspace_root / paths.run_dir(run_id) / paths.META_GUIDANCE_STATE, {})
+    meta_events = _read_jsonl(workspace_root / paths.run_dir(run_id) / paths.META_GUIDANCE_EVENTS)
 
     attempt_index = _attempt_index(attempts)
     progress = _build_progress(completed, attempt_index)
@@ -182,7 +182,7 @@ def build_snapshot(run_id: str, workspace_root: Path) -> Dict[str, Any]:
         attempt_index=attempt_index,
         notes=notes,
         note_events=notes_events,
-        meta_uses=meta_uses,
+        meta_events=meta_events,
         guidance=guidance,
         agents=agents,
         task_pool=task_pool,
@@ -755,7 +755,7 @@ def _build_activity(
     attempt_index: Dict[str, Dict[str, Any]],
     notes: List[Dict[str, Any]],
     note_events: List[Dict[str, Any]],
-    meta_uses: List[Dict[str, Any]],
+    meta_events: List[Dict[str, Any]],
     guidance: List[Dict[str, Any]],
     agents: List[Dict[str, Any]],
     task_pool: Dict[str, Any] | None = None,
@@ -842,25 +842,26 @@ def _build_activity(
                 "timestamp": event.get("created_at") or event.get("timestamp"),
             }
         )
-    for event in meta_uses[-20:]:
-        status = str(event.get("status") or "")
-        if status not in {"assigned", "recorded"}:
+    for event in meta_events[-20:]:
+        event_type = str(event.get("event_type") or "")
+        if event_type not in {"assigned", "recorded"}:
             continue
+        payload = event.get("payload") or {}
         events.append(
             {
                 "kind": "guidance",
                 "title": (
-                    f"{event.get('guidance_id')} assigned to {event.get('task_id')}"
-                    if status == "assigned"
-                    else f"{event.get('guidance_id')} outcome recorded"
+                    f"{payload.get('guidance_id')} assigned to {payload.get('task_id')}"
+                    if event_type == "assigned"
+                    else f"{payload.get('guidance_id')} outcome recorded"
                 ),
                 "detail": (
-                    f"Fitness {_format_fitness(_finite_float(event.get('fitness')))}"
-                    if status == "recorded"
+                    f"Fitness {_format_fitness(_finite_float(payload.get('fitness')))}"
+                    if event_type == "recorded"
                     else "A new strategy is being tested."
                 ),
-                "timestamp": event.get("assigned_at") or event.get("recorded_at"),
-                "status": status,
+                "timestamp": event.get("created_at"),
+                "status": event_type,
             }
         )
     for item in guidance[:8]:
