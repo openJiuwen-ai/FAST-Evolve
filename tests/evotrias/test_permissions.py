@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from evotrias.db.agent_index import AgentInfo
 from evotrias.enums import Agents, Decisions, Tools
 from evotrias.permissions import evaluate_permission
 
@@ -16,7 +17,7 @@ GUARDED_AGENTS = (
 
 
 def _task_info(task="task_001"):
-    return {"agent_type": Agents.TASK_EXECUTOR, "task_id": task}
+    return AgentInfo(Agents.TASK_EXECUTOR, {"task_id": task})
 
 
 def test_unknown_agent_bypasses():
@@ -25,14 +26,8 @@ def test_unknown_agent_bypasses():
         Tools.WRITE,
         {"file_path": "anywhere/at/all.py", "content": "x"},
         RUN,
-        {"agent_type": Agents.UNKNOWN, "origin_agent_type": "general-purpose"},
+        AgentInfo(Agents.UNKNOWN, {"origin_agent_type": "general-purpose"}),
     )
-    assert decision == Decisions.BYPASS
-
-
-def test_missing_agent_type_bypasses():
-    # A malformed agent_info must not crash the gate; it degrades to BYPASS.
-    decision, _ = evaluate_permission(Tools.READ, {"file_path": "anywhere"}, RUN, {})
     assert decision == Decisions.BYPASS
 
 
@@ -42,7 +37,7 @@ def test_no_evaluator_access_denies_read_for_all_guarded_agents():
             Tools.READ,
             {"file_path": "benchmarks/skills/foo/scripts/evaluator.py"},
             RUN,
-            {"agent_type": agent},
+            AgentInfo(agent),
         )
         assert decision == Decisions.DENY, agent
         assert "evaluator" in reason.lower()

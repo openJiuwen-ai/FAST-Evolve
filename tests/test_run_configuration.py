@@ -27,7 +27,6 @@ def run_env(tmp_path, monkeypatch):
     )
     monkeypatch.setenv("AGENT_EVOLVE_UI_ENABLED", "0")
     monkeypatch.setenv("AGENT_EVOLVE_NOTES_ENABLED", "0")
-    monkeypatch.setattr(sched, "_STATE_DIR", tmp_path / ".evotrias" / "state")
     public_tools_module._controllers.pop(RUN_ID, None)
     yield
     public_tools_module._controllers.pop(RUN_ID, None)

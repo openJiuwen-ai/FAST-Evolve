@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from evotrias.db.attempts import Attempts
+from evotrias.db.agent_index import AgentInfo
 from evotrias.enums import Agents
 from evotrias.hooks import hook_manager
 from evotrias.logger import logger
@@ -59,13 +60,13 @@ def remember_agent(payload: dict, result: dict, extra_data: Any) -> dict[str, An
     if not run_id:
         return result
 
-    agent_info: dict[str, Any] = {"agent_type": agent_type}
+    agent_info = AgentInfo(agent_type=agent_type)
     if agent_type == Agents.UNKNOWN:
-        agent_info["origin_agent_type"] = payload.get("agent_type")
+        agent_info.attrs["origin_agent_type"] = payload.get("agent_type")
     elif agent_type == Agents.TASK_EXECUTOR:
         # queued -> running; None when this fires before executor_bind_agent
         # (parallel processes), which then backfills the index itself
-        agent_info['task_id'] = scheduler.start_task(run_id, agent_id)
+        agent_info.attrs["task_id"] = scheduler.start_task(run_id, agent_id)
 
     scheduler.remember_agent(run_id, agent_id, agent_info)
     return result
@@ -123,10 +124,10 @@ def executor_bind_agent(payload: dict, result: dict, extra_data: Any) -> dict[st
     # SubagentStart may have fired before this PostToolUse (parallel processes),
     # leaving the executor indexed with task_id=None; backfill it now.
     agent_info = scheduler.lookup_agent(run_id, agent_id)
-    if agent_info is not None and agent_info.get("task_id") is None:
-        agent_info["task_id"] = scheduler.start_task(run_id, agent_id)
+    if agent_info is not None and agent_info.attrs.get("task_id") is None:
+        agent_info.attrs["task_id"] = scheduler.start_task(run_id, agent_id)
         scheduler.remember_agent(run_id, agent_id, agent_info)
-        logger.info(f"scheduler hook: backfilled task_id={agent_info['task_id']} "
+        logger.info(f"scheduler hook: backfilled task_id={agent_info.attrs['task_id']} "
                     f"for agent {agent_id} in run {run_id}")
     return result
 
@@ -149,10 +150,10 @@ def executor_report_complete(payload: dict, result: dict, extra_data: Any) -> di
         logger.error(f"scheduler hook: failed to find agent info run={run_id} agent={agent_id}")
         return result
 
-    if agent_info.get('agent_type') != Agents.TASK_EXECUTOR:
+    if agent_info.agent_type != Agents.TASK_EXECUTOR:
         return result
 
-    task_id = agent_info.get("task_id")
+    task_id = agent_info.attrs.get("task_id")
     if not task_id:
         logger.error(f"scheduler hook: agent {agent_id} has no task_id in run {run_id}")
         return result

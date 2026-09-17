@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+import enum
 import importlib
 import json
 import pkgutil
@@ -355,3 +356,39 @@ def test_dbobject_rebuilds_optional_and_list_of_dataclass(tmp_path, log):
     with _Nest(path) as nest:
         nest.maybe = None
     assert _Nest(path).maybe is None
+
+
+class _Color(enum.Enum):
+    RED = "red"
+    BLUE = "blue"
+
+
+class _Painted(base.DBObject):
+    color: _Color = _Color.RED
+    history: List[_Color] = field(default_factory=list)
+
+
+def test_dbobject_enum_fields_round_trip_as_values(tmp_path, log):
+    path = tmp_path / "painted.json"
+    with _Painted(path) as painted:
+        painted.color = _Color.BLUE
+        painted.history = [_Color.RED, _Color.BLUE]
+    on_disk = json.loads(path.read_text(encoding="utf-8"))
+    assert on_disk["color"] == "blue" and on_disk["history"] == ["red", "blue"]
+    reloaded = _Painted(path)
+    assert reloaded.color is _Color.BLUE
+    assert reloaded.history == [_Color.RED, _Color.BLUE]
+
+
+@dataclass
+class _Tagged:
+    name: str
+    color: _Color = _Color.RED
+
+
+def test_dblist_enum_fields_round_trip_as_values(tmp_path, log):
+    log_store = base.DBList(tmp_path / "tagged.jsonl", _Tagged)
+    log_store.append(_Tagged("x", _Color.BLUE))
+    assert json.loads((tmp_path / "tagged.jsonl").read_text(encoding="utf-8"))["color"] == "blue"
+    [got] = list(log_store)
+    assert got.color is _Color.BLUE

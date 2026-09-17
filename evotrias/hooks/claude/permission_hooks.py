@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
+from evotrias.db.agent_index import AgentInfo
 from evotrias.enums import Agents, Decisions, Tools
 from evotrias.hooks import hook_manager
 from evotrias.logger import logger
@@ -73,7 +74,7 @@ def claude_tool_permission_gate(payload: dict, result: dict, extra_data: Any) ->
         return result
 
     if agent_id is None:
-        agent_info = {'agent_type': Agents.MAIN}
+        agent_info = AgentInfo(agent_type=Agents.MAIN)
     else:
         agent_info = scheduler.lookup_agent(run_id, agent_id)
     if agent_info is None:

@@ -22,6 +22,7 @@ corrupt one yields defaults with a warning.  Locking is the caller's concern.
 from __future__ import annotations
 
 import dataclasses
+import enum
 import inspect
 import json
 import os
@@ -99,27 +100,40 @@ def _dataclass_from_dict(cls: type, data: Dict[str, Any]) -> Any:
 def _rebuild(hint: Any, value: Any) -> Any:
     """Turn loaded JSON back into the shape ``hint`` declares.
 
-    Handles a plain dataclass and the containers ``Optional[X]``, ``List[X]``
-    and ``Dict[str, X]`` where ``X`` is a dataclass; anything else is returned
+    Handles a dataclass or an ``Enum`` and the containers ``Optional[X]``,
+    ``List[X]`` and ``Dict[str, X]`` around one; anything else is returned
     as-is.
     """
     origin = typing.get_origin(hint)
     args = typing.get_args(hint)
+    if isinstance(hint, type) and issubclass(hint, enum.Enum) and not isinstance(value, enum.Enum):
+        return hint(value)
     if origin is typing.Union:
         inner = [a for a in args if a is not type(None)]
         return _rebuild(inner[0], value) if len(inner) == 1 and value is not None else value
     if isinstance(value, dict):
         if _is_dataclass_type(hint):
             return _dataclass_from_dict(hint, value)
-        if origin is dict and len(args) == 2 and _is_dataclass_type(args[1]):
-            return {k: _dataclass_from_dict(args[1], v) for k, v in value.items()}
-    if isinstance(value, list) and origin is list and len(args) == 1 and _is_dataclass_type(args[0]):
-        return [_dataclass_from_dict(args[0], v) if isinstance(v, dict) else v for v in value]
+        if origin is dict and len(args) == 2:
+            return {k: _rebuild(args[1], v) for k, v in value.items()}
+    if isinstance(value, list) and origin is list and len(args) == 1:
+        return [_rebuild(args[0], v) for v in value]
     return value
 
 
 def _is_dataclass_type(hint: Any) -> bool:
     return isinstance(hint, type) and dataclasses.is_dataclass(hint)
+
+
+def _to_json(value: Any) -> Any:
+    """Recursively replace Enum members with their values so ``json.dumps`` accepts the result."""
+    if isinstance(value, enum.Enum):
+        return value.value
+    if isinstance(value, dict):
+        return {k: _to_json(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_to_json(v) for v in value]
+    return value
 
 
 class DBList:
@@ -144,7 +158,7 @@ class DBList:
     def append(self, item: Any) -> None:
         if not isinstance(item, self._schema):
             raise TypeError(f"{type(self).__name__}.append expects {self._schema.__name__}, got {type(item).__name__}")
-        append_jsonl(self._path, dataclasses.asdict(item))
+        append_jsonl(self._path, _to_json(dataclasses.asdict(item)))
 
 
 class DBObject:
@@ -153,9 +167,10 @@ class DBObject:
     Subclasses only declare fields; ``__init_subclass__`` turns them into a
     ``dataclass(init=False)`` and rejects any field without a default, so a
     malformed store fails at import rather than on first load.  Unknown keys in
-    the file are ignored.  Fields typed as a dataclass, or as ``Optional``,
-    ``List`` or ``Dict[str, ...]`` of one, are rebuilt from JSON on load; other
-    nested shapes need the subclass to override ``_load``/``_dump``.
+    the file are ignored.  Fields typed as a dataclass or ``Enum``, or as
+    ``Optional``, ``List`` or ``Dict[str, ...]`` of one, are rebuilt from JSON
+    on load and enums are written as their values; other nested shapes need
+    the subclass to override ``_load``/``_dump``.
 
     ``created_at`` and ``updated_at`` are managed here, not declared by
     subclasses: both empty until the file is first written; ``created_at`` is
@@ -211,7 +226,7 @@ class DBObject:
             self.updated_at = utc_now_iso()
             if not self.created_at:
                 self.created_at = self.updated_at
-            payload = self._dump()
+            payload = _to_json(self._dump())
             payload["created_at"] = self.created_at
             payload["updated_at"] = self.updated_at
             write_json_atomic(self._path, payload)

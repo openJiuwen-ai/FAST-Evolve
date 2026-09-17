@@ -44,7 +44,7 @@ def _seed_run(tmp_path: Path, monkeypatch):
         },
     )
     _write_json(
-        tmp_path / ".evotrias" / "state" / "runs" / RUN_ID / "task_pool.json",
+        tmp_path / ".evotrias" / "db" / "runs" / RUN_ID / "task_pool.json",
         {
             "run_id": RUN_ID,
             "pending": [],
@@ -143,7 +143,7 @@ def _seed_history_run(tmp_path: Path):
     state = tmp_path / ".agent_evolve" / "controller" / run_id
     artifact = f"runs/{run_id}/tasks/task_001/attempts/attempt_001/solution.py"
     _write_json(
-        tmp_path / ".evotrias" / "state" / "runs" / run_id / "task_pool.json",
+        tmp_path / ".evotrias" / "db" / "runs" / run_id / "task_pool.json",
         {"run_id": run_id, "pending": [], "running": {}, "completed": {}, "failed": {}},
     )
     _write_jsonl(
@@ -219,13 +219,13 @@ def test_infer_activity_recognizes_cpp_candidate(tmp_path):
 
 def test_recent_activity_links_to_evotrias_state_machine(tmp_path, monkeypatch):
     """§5.4: Recent activity shows completed(fitness) / failed(reason) sourced
-    from .evotrias/state/runs/<run_id>/task_pool.json, not just the legacy
+    from .evotrias/db/runs/<run_id>/task_pool.json, not just the legacy
     success log."""
     _seed_run(tmp_path, monkeypatch)
 
     # Seed the evotrias task pool with a completed task (fitness) and a failed
     # task (reason). The dashboard must surface both in Recent activity.
-    pool_path = tmp_path / ".evotrias" / "state" / "runs" / RUN_ID / "task_pool.json"
+    pool_path = tmp_path / ".evotrias" / "db" / "runs" / RUN_ID / "task_pool.json"
     _write_json(
         pool_path,
         {

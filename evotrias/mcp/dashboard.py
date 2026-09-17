@@ -134,10 +134,7 @@ def build_snapshot(run_id: str, workspace_root: Path) -> Dict[str, Any]:
     config = _read_json(workspace_root / paths.run_dir(run_id) / paths.CONFIG, {})
     # Task scheduling state (running/completed/failed and task→agent mapping)
     # comes from the evotrias task pool.
-    task_pool = _read_json(
-        workspace_root / ".evotrias" / "state" / "runs" / safe_run_id / "task_pool.json",
-        {},
-    )
+    task_pool = _read_json(workspace_root / paths.run_dir(run_id) / paths.TASK_POOL, {})
     attempts = _read_jsonl(workspace_root / paths.run_dir(run_id) / paths.ATTEMPTS)
     completed = _completions(attempts)
     notes_rows = _read_jsonl(workspace_root / paths.run_dir(run_id) / paths.NOTES)
@@ -260,10 +257,7 @@ def list_runs(current_run_id: str, workspace_root: Path) -> Dict[str, Any]:
             continue
         run_id = run_dir.name
         state_root = _controller_run_dir(workspace_root, run_id)
-        task_pool = _read_json(
-            workspace_root / ".evotrias" / "state" / "runs" / run_id / "task_pool.json",
-            {},
-        )
+        task_pool = _read_json(workspace_root / paths.run_dir(run_id) / paths.TASK_POOL, {})
         run_state = _read_json(workspace_root / paths.run_dir(run_id) / paths.RUN_STATE, {})
         attempts = _read_jsonl(workspace_root / paths.run_dir(run_id) / paths.ATTEMPTS)
         completed = _completions(attempts)

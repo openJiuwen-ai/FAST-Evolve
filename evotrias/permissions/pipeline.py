@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+from evotrias.db.agent_index import AgentInfo
 from evotrias.enums import Agents, Decisions, Tools
 from evotrias.logger import logger
 from evotrias.permissions.handler_base import Handler, DEFAULT_ALLOW_REASON
@@ -24,14 +25,11 @@ def evaluate_permission(
     tool_type: Tools,
     tool_param: dict[str, Any],
     run_id: str,
-    agent_info: dict[str, Any],
+    agent_info: AgentInfo,
 ) -> tuple[Decisions, str]:
     logger.info(f'Evaluating permission for tool {tool_type.name}')
     logger.debug(f'{agent_info=!r}, {tool_param=!r}, {run_id=!r}')
-    agent_type = agent_info.get("agent_type", None)
-    if agent_type is None:
-        logger.warning(f'Failed to solve agent type from agent_info, fall back to UNKNOWN. {agent_info=!r}')
-        agent_type = Agents.UNKNOWN
+    agent_type = agent_info.agent_type
     handlers = _pipelines.get(agent_type, [])
     if not handlers:
         logger.info(f'Final decision: BYPASS (no handlers for agent type {agent_type})')

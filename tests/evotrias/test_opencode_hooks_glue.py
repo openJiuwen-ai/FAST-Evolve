@@ -12,6 +12,7 @@ import os
 import pytest
 
 from evotrias import scheduler as sched
+from evotrias.db.agent_index import AgentInfo
 from evotrias.db.attempts import AttemptRecord, Attempts
 from evotrias.enums import Agents
 from evotrias.hooks import broker
@@ -37,13 +38,25 @@ def _record_success(run_id: str, task_id: str, fitness: float) -> None:
     )
 
 
+
+def _agents(bucket):
+    """queued/running -> {task_id: agent_id}, dropping the timestamp."""
+    return {tid: held.agent_id for tid, held in bucket.items()}
+
+
+def _fitness(bucket):
+    return {tid: done.fitness for tid, done in bucket.items()}
+
+
+def _reasons(bucket):
+    return {tid: failed.reason for tid, failed in bucket.items()}
+
 @pytest.fixture
 def tmp_env(monkeypatch, tmp_path):
     repo = tmp_path / "repo"
     os.makedirs(repo, exist_ok=True)
-    # Cwd-relative constants: pin scheduler state to the temp repo and chdir
-    # so runs/ and the opencode registry land there too.
-    monkeypatch.setattr(sched, "_STATE_DIR", repo / ".evotrias" / "state")
+    # .evotrias is cwd-relative: chdir into the temp repo so db state, runs/
+    # and the opencode registry all land there.
     monkeypatch.chdir(repo)
     # Reset handler registry and re-import the glue module so its @register
     # side effects repopulate the broker against a clean slate.
@@ -129,39 +142,33 @@ def test_executor_full_chain_observed_order(tmp_env):
     assert args["subagent_type"] == "task-executor"
     assert args["background"] is True
     snap = sched.pool_snapshot("run-Z")
-    assert snap["created"] == ["task_002"]
-    assert snap["pending"] == ["task_001"]
+    assert snap.created == ["task_002"]
+    assert snap.pending == ["task_001"]
 
     # 2. session.created (fires between before and after): index with no task yet.
     out = hook_manager.dispatch("opencode", "session.created", _created_payload())
     assert out is None
-    assert sched.lookup_agent("run-Z", "ses_child") == {
-        "agent_type": Agents.TASK_EXECUTOR,
-        "task_id": None,
-    }
+    assert sched.lookup_agent("run-Z", "ses_child") == AgentInfo(Agents.TASK_EXECUTOR, {"task_id": None})
 
     # 3. after: bind via callID registry, then backfill the index to running.
     out = hook_manager.dispatch("opencode", "tool.execute.after", _after_payload())
     assert out is None
-    assert sched.lookup_agent("run-Z", "ses_child") == {
-        "agent_type": Agents.TASK_EXECUTOR,
-        "task_id": "task_001",
-    }
+    assert sched.lookup_agent("run-Z", "ses_child") == AgentInfo(Agents.TASK_EXECUTOR, {"task_id": "task_001"})
     snap = sched.pool_snapshot("run-Z")
-    assert snap["queued"] == {}
-    assert snap["running"] == {"task_001": "ses_child"}
+    assert snap.queued == {}
+    assert _agents(snap.running) == {"task_001": "ses_child"}
 
     # 4. idle: terminal accounting from the recorded successful attempt.
     _record_success("run-Z", "task_001", 0.91)
     out = hook_manager.dispatch("opencode", "session.idle", _idle_payload())
     assert out is None
     snap = sched.pool_snapshot("run-Z")
-    assert snap["completed"] == {"task_001": {"fitness": 0.91}}
-    assert snap["running"] == {}
+    assert _fitness(snap.completed) == {"task_001": 0.91}
+    assert snap.running == {}
 
     # 5. the registry entry is consumed: a second idle is a no-op.
     hook_manager.dispatch("opencode", "session.idle", _idle_payload())
-    assert sched.pool_snapshot("run-Z")["failed"] == {}
+    assert sched.pool_snapshot("run-Z").failed == {}
 
 
 def test_executor_full_chain_created_after_after(tmp_env):
@@ -172,22 +179,19 @@ def test_executor_full_chain_created_after_after(tmp_env):
     hook_manager.dispatch("opencode", "tool.execute.before", _before_payload())
     hook_manager.dispatch("opencode", "tool.execute.after", _after_payload())
     snap = sched.pool_snapshot("run-R")
-    assert snap["queued"] == {"task_001": "ses_child"}
+    assert _agents(snap.queued) == {"task_001": "ses_child"}
     assert sched.lookup_agent("run-R", "ses_child") is None
 
     hook_manager.dispatch("opencode", "session.created", _created_payload())
-    assert sched.lookup_agent("run-R", "ses_child") == {
-        "agent_type": Agents.TASK_EXECUTOR,
-        "task_id": "task_001",
-    }
+    assert sched.lookup_agent("run-R", "ses_child") == AgentInfo(Agents.TASK_EXECUTOR, {"task_id": "task_001"})
     snap = sched.pool_snapshot("run-R")
-    assert snap["running"] == {"task_001": "ses_child"}
+    assert _agents(snap.running) == {"task_001": "ses_child"}
 
     # No completion record: idle fails the task.
     hook_manager.dispatch("opencode", "session.idle", _idle_payload())
     snap = sched.pool_snapshot("run-R")
-    assert "task_001" in snap["failed"]
-    assert snap["failed"]["task_001"]["reason"] == "no successful attempt recorded on session idle"
+    assert "task_001" in snap.failed
+    assert snap.failed["task_001"].reason == "no successful attempt recorded on session idle"
 
 
 def test_non_executor_spawn_passes_through(tmp_env):
@@ -196,7 +200,7 @@ def test_non_executor_spawn_passes_through(tmp_env):
     out = hook_manager.dispatch(
         "opencode", "tool.execute.before", _before_payload(subagent="story_writer"))
     assert out is None
-    assert sched.pool_snapshot("run-S")["created"] == ["task_001"]
+    assert sched.pool_snapshot("run-S").created == ["task_001"]
 
 
 def test_before_and_after_skip_when_no_run_for_session(tmp_env):
@@ -229,9 +233,9 @@ def test_non_executor_children_indexed_and_idle_is_harmless(tmp_env):
     sched.remember_session_run("ses_parent", "run-mixed")
     sched.top_up_tasks("run-mixed", target=1, max_tasks=100)
     expected = {
-        "init-explorer": {"agent_type": Agents.INIT_EXPLORER},
-        "meta-guidance-generator": {"agent_type": Agents.META_GUIDANCE_GENERATOR},
-        "general": {"agent_type": Agents.UNKNOWN, "origin_agent_type": "general"},
+        "init-explorer": AgentInfo(Agents.INIT_EXPLORER),
+        "meta-guidance-generator": AgentInfo(Agents.META_GUIDANCE_GENERATOR),
+        "general": AgentInfo(Agents.UNKNOWN, {"origin_agent_type": "general"}),
     }
     for agent, want in expected.items():
         child = f"ses_{agent}"
@@ -241,13 +245,13 @@ def test_non_executor_children_indexed_and_idle_is_harmless(tmp_env):
         assert sched.lookup_agent("run-mixed", child) == want
 
     snap = sched.pool_snapshot("run-mixed")
-    assert snap["created"] == ["task_001"], "created pool must be untouched"
-    assert snap["running"] == {}
+    assert snap.created == ["task_001"], "created pool must be untouched"
+    assert snap.running == {}
 
     # Their idles pop the registry without failing anything.
     for agent in expected:
         hook_manager.dispatch("opencode", "session.idle", _idle_payload(f"ses_{agent}"))
-    assert sched.pool_snapshot("run-mixed")["failed"] == {}
+    assert sched.pool_snapshot("run-mixed").failed == {}
 
 
 def test_idle_for_unregistered_session_is_noop(tmp_env):

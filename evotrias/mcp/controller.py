@@ -578,7 +578,7 @@ class EvolutionController:
         root number, so this flips exactly once per run.
         """
         pool = scheduler.pool_snapshot(self.run_id)
-        finished = len(pool["completed"]) + len(pool["failed"])
+        finished = len(pool.completed) + len(pool.failed)
         return finished < self.config.scheduler.lineage_root_number
 
     def _progress(self) -> float:

@@ -7,6 +7,7 @@ import os
 import pytest
 
 from evotrias import scheduler as sched
+from evotrias.db.agent_index import AgentInfo
 from evotrias.db.attempts import AttemptRecord, Attempts
 from evotrias.enums import Agents
 from evotrias.hooks import broker
@@ -32,15 +33,24 @@ def _record_success(run_id: str, task_id: str, fitness: float) -> None:
     )
 
 
+
+def _agents(bucket):
+    """queued/running -> {task_id: agent_id}, dropping the timestamp."""
+    return {tid: held.agent_id for tid, held in bucket.items()}
+
+
+def _fitness(bucket):
+    return {tid: done.fitness for tid, done in bucket.items()}
+
+
+def _reasons(bucket):
+    return {tid: failed.reason for tid, failed in bucket.items()}
+
 @pytest.fixture
 def tmp_env(monkeypatch, tmp_path):
     repo = tmp_path / "repo"
     os.makedirs(repo, exist_ok=True)
-    # _STATE_DIR is a cwd-relative constant; pin it to an absolute path under
-    # the temp repo so the path-building helpers stay untouched and no state
-    # leaks into the real .evotrias/.
-    monkeypatch.setattr(sched, "_STATE_DIR", repo / ".evotrias" / "state")
-    # .evotrias/db (attempts.jsonl) is cwd-relative, so the temp repo is cwd.
+    # .evotrias is cwd-relative: chdir into the temp repo so no state leaks.
     monkeypatch.chdir(repo)
     # Reset handler registry and re-import the glue modules so their
     # @register side effects repopulate the broker against a clean slate.
@@ -113,8 +123,8 @@ def test_executor_spawn_full_chain(tmp_env):
     assert updated["subagent_type"] == "agent_evolve_plugin:task-executor"
     assert updated["run_in_background"] is True
     snap = sched.pool_snapshot("run-Z")
-    assert snap["created"] == ["task_002"]
-    assert snap["pending"] == ["task_001"]
+    assert snap.created == ["task_002"]
+    assert snap.pending == ["task_001"]
 
     # 2. PostToolUse: bind the spawned agentId to the task. No indexing yet.
     out = hook_manager.dispatch(
@@ -130,8 +140,8 @@ def test_executor_spawn_full_chain(tmp_env):
     )
     assert out is None
     snap = sched.pool_snapshot("run-Z")
-    assert snap["pending"] == []
-    assert snap["queued"] == {"task_001": "agent-5"}
+    assert snap.pending == []
+    assert _agents(snap.queued) == {"task_001": "agent-5"}
     assert sched.lookup_agent("run-Z", "agent-5") is None, "agent_index is subagent_start's job"
 
     # 3. SubagentStart: index the agent with its task and move it to running.
@@ -146,13 +156,10 @@ def test_executor_spawn_full_chain(tmp_env):
         },
     )
     assert out is None
-    assert sched.lookup_agent("run-Z", "agent-5") == {
-        "agent_type": Agents.TASK_EXECUTOR,
-        "task_id": "task_001",
-    }
+    assert sched.lookup_agent("run-Z", "agent-5") == AgentInfo(Agents.TASK_EXECUTOR, {"task_id": "task_001"})
     snap = sched.pool_snapshot("run-Z")
-    assert snap["queued"] == {}
-    assert snap["running"] == {"task_001": "agent-5"}
+    assert snap.queued == {}
+    assert _agents(snap.running) == {"task_001": "agent-5"}
 
 
 def test_executor_bind_backfills_index_when_subagent_start_ran_first(tmp_env):
@@ -174,10 +181,7 @@ def test_executor_bind_backfills_index_when_subagent_start_ran_first(tmp_env):
         },
     )
     assert out is None
-    assert sched.lookup_agent("run-race", "agent-5") == {
-        "agent_type": Agents.TASK_EXECUTOR,
-        "task_id": None,
-    }
+    assert sched.lookup_agent("run-race", "agent-5") == AgentInfo(Agents.TASK_EXECUTOR, {"task_id": None})
 
     hook_manager.dispatch(
         "claude",
@@ -190,13 +194,10 @@ def test_executor_bind_backfills_index_when_subagent_start_ran_first(tmp_env):
             "tool_response": {"isAsync": True, "agentId": "agent-5", "description": "task_001"},
         },
     )
-    assert sched.lookup_agent("run-race", "agent-5") == {
-        "agent_type": Agents.TASK_EXECUTOR,
-        "task_id": "task_001",
-    }
+    assert sched.lookup_agent("run-race", "agent-5") == AgentInfo(Agents.TASK_EXECUTOR, {"task_id": "task_001"})
     snap = sched.pool_snapshot("run-race")
-    assert snap["queued"] == {}
-    assert snap["running"] == {"task_001": "agent-5"}
+    assert snap.queued == {}
+    assert _agents(snap.running) == {"task_001": "agent-5"}
 
 
 def test_executor_spawn_passes_through_on_empty_pool(tmp_env):
@@ -253,10 +254,10 @@ def test_subagent_start_indexes_non_executors_without_claiming_a_task(tmp_env):
     sched.remember_session_run("sess-1", "run-mixed")
     sched.top_up_tasks("run-mixed", target=2, max_tasks=100)
     expected = {
-        "agent_evolve_plugin:init-explorer": {"agent_type": Agents.INIT_EXPLORER},
-        "agent_evolve_plugin:meta-guidance-generator": {"agent_type": Agents.META_GUIDANCE_GENERATOR},
-        "general-purpose": {"agent_type": Agents.UNKNOWN, "origin_agent_type": "general-purpose"},
-        "Explore": {"agent_type": Agents.UNKNOWN, "origin_agent_type": "Explore"},
+        "agent_evolve_plugin:init-explorer": AgentInfo(Agents.INIT_EXPLORER),
+        "agent_evolve_plugin:meta-guidance-generator": AgentInfo(Agents.META_GUIDANCE_GENERATOR),
+        "general-purpose": AgentInfo(Agents.UNKNOWN, {"origin_agent_type": "general-purpose"}),
+        "Explore": AgentInfo(Agents.UNKNOWN, {"origin_agent_type": "Explore"}),
     }
     for agent_type, want in expected.items():
         out = hook_manager.dispatch(
@@ -273,16 +274,13 @@ def test_subagent_start_indexes_non_executors_without_claiming_a_task(tmp_env):
         assert sched.lookup_agent("run-mixed", f"agent-{agent_type}") == want
 
     snap = sched.pool_snapshot("run-mixed")
-    assert snap["created"] == ["task_001", "task_002"], "created pool must be untouched"
-    assert snap["running"] == {}
+    assert snap.created == ["task_001", "task_002"], "created pool must be untouched"
+    assert snap.running == {}
 
     # A task-executor in the same session still lands its slot via the chain.
     task_id = _start_executor("run-mixed", "agent-exec")
     assert task_id == "task_001"
-    assert sched.lookup_agent("run-mixed", "agent-exec") == {
-        "agent_type": Agents.TASK_EXECUTOR,
-        "task_id": "task_001",
-    }
+    assert sched.lookup_agent("run-mixed", "agent-exec") == AgentInfo(Agents.TASK_EXECUTOR, {"task_id": "task_001"})
 
     # A run-scoped agent's normal sign-off must not land as a failure reason.
     hook_manager.dispatch(
@@ -296,8 +294,8 @@ def test_subagent_start_indexes_non_executors_without_claiming_a_task(tmp_env):
             "last_assistant_message": "Here is the summary you asked for.",
         },
     )
-    assert sched.pool_snapshot("run-mixed")["failed"] == {}
-    assert sched.pool_snapshot("run-mixed")["running"] == {"task_001": "agent-exec"}
+    assert sched.pool_snapshot("run-mixed").failed == {}
+    assert _agents(sched.pool_snapshot("run-mixed").running) == {"task_001": "agent-exec"}
 
 
 def test_configure_run_post_records_session_run(tmp_env):
@@ -325,8 +323,8 @@ def test_subagent_stop_completes_task_from_recorded_success(tmp_env):
     }
     hook_manager.dispatch("claude", "subagent_stop", payload)
     snap = sched.pool_snapshot("run-W")
-    assert snap["completed"] == {"task_001": {"fitness": 0.91}}
-    assert snap["running"] == {}
+    assert _fitness(snap.completed) == {"task_001": 0.91}
+    assert snap.running == {}
 
 
 def test_subagent_stop_fails_task_with_last_message(tmp_env):
@@ -342,8 +340,8 @@ def test_subagent_stop_fails_task_with_last_message(tmp_env):
     }
     hook_manager.dispatch("claude", "subagent_stop", payload)
     snap = sched.pool_snapshot("run-V")
-    assert "task_001" in snap["failed"]
-    reason = snap["failed"]["task_001"]["reason"]
+    assert "task_001" in snap.failed
+    reason = snap.failed["task_001"].reason
     assert len(reason) <= 200
     assert "verifier timed out" in reason
 

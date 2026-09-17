@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from evotrias.db.agent_index import AgentInfo
 from evotrias.enums import Agents, Decisions, Tools
 from evotrias.permissions.handler_base import Handler
 from evotrias.permissions.pipeline import register
@@ -17,13 +18,13 @@ class NoEvaluatorAccess(Handler):
 
     @staticmethod
     def filter(
-        tool_type: Tools, tool_param: dict[str, Any], run_id: str, agent_info: dict[str, Any]
+        tool_type: Tools, tool_param: dict[str, Any], run_id: str, agent_info: AgentInfo
     ) -> bool:
         return tool_type in (Tools.READ, Tools.GLOB, Tools.GREP)
 
     @staticmethod
     def check(
-        tool_type: Tools, tool_param: dict[str, Any], run_id: str, agent_info: dict[str, Any]
+        tool_type: Tools, tool_param: dict[str, Any], run_id: str, agent_info: AgentInfo
     ) -> tuple[Decisions, str]:
         targets: list[str] = []
         if tool_type == Tools.READ:
