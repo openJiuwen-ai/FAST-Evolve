@@ -26,7 +26,6 @@ def _controller(
     meta_enabled=True,
 ):
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AGENT_EVOLVE_CONTROLLER_DIR", str(tmp_path / "controller"))
     with Config("run_meta_test") as config:
         config.budget.max_total_tasks = max_total_tasks
         config.plateau.window = 1

@@ -21,7 +21,6 @@ from typing import Any, Dict, Iterable, List, Optional
 from urllib.parse import parse_qs, urlparse
 
 from evotrias.db import paths
-from evotrias.mcp.storage import controller_root
 
 DEFAULT_DASHBOARD_HOST = "127.0.0.1"
 DEFAULT_DASHBOARD_PORT = 4000
@@ -128,7 +127,6 @@ def build_snapshot(run_id: str, workspace_root: Path) -> Dict[str, Any]:
     workspace_root = Path(workspace_root).resolve()
     safe_run_id = _safe_name(run_id)
     public_run_dir = workspace_root / "runs" / safe_run_id
-    state_root = _controller_run_dir(workspace_root, safe_run_id)
 
     run_state = _read_json(workspace_root / paths.run_dir(run_id) / paths.RUN_STATE, {})
     config = _read_json(workspace_root / paths.run_dir(run_id) / paths.CONFIG, {})
@@ -256,7 +254,6 @@ def list_runs(current_run_id: str, workspace_root: Path) -> Dict[str, Any]:
         if not run_dir.is_dir() or run_dir.is_symlink() or run_dir.name.startswith("."):
             continue
         run_id = run_dir.name
-        state_root = _controller_run_dir(workspace_root, run_id)
         task_pool = _read_json(workspace_root / paths.run_dir(run_id) / paths.TASK_POOL, {})
         run_state = _read_json(workspace_root / paths.run_dir(run_id) / paths.RUN_STATE, {})
         attempts = _read_jsonl(workspace_root / paths.run_dir(run_id) / paths.ATTEMPTS)
@@ -883,13 +880,6 @@ def _attempt_index(attempts: Iterable[Dict[str, Any]]) -> Dict[str, Dict[str, An
         if task_id:
             index[task_id] = attempt
     return index
-
-
-def _controller_run_dir(workspace_root: Path, run_id: str) -> Path:
-    root = controller_root()
-    if not root.is_absolute():
-        root = workspace_root / root
-    return root / run_id
 
 
 def _available_run_id(run_id: str, workspace_root: Path) -> Optional[str]:

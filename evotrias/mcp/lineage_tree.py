@@ -10,10 +10,24 @@ from __future__ import annotations
 
 import math
 from collections import deque
+from dataclasses import dataclass
 from typing import Dict, List, Optional, Set
 
-from evotrias.db.models import LineageStats
 from evotrias.mcp.success_pool import SuccessPool, SuccessRecord
+
+
+@dataclass
+class LineageStats:
+    """Aggregate statistics for one lineage root."""
+
+    root_id: str
+    size: int = 0
+    best_fitness: float = float("-inf")
+    best_record_id: str = ""
+    max_depth: int = 0
+    share: float = 0.0
+    total_selections: int = 0
+    recent_improvement: float = 0.0
 
 
 class LineageTree:

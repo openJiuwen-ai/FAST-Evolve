@@ -22,9 +22,6 @@ RUN_ID = "run_shape_test"
 @pytest.fixture
 def run_env(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv(
-        "AGENT_EVOLVE_CONTROLLER_DIR", str(tmp_path / ".agent_evolve" / "controller")
-    )
     monkeypatch.setenv("AGENT_EVOLVE_UI_ENABLED", "0")
     monkeypatch.setenv("AGENT_EVOLVE_NOTES_ENABLED", "0")
     public_tools_module._controllers.pop(RUN_ID, None)

@@ -20,8 +20,8 @@ from evotrias.db.attempts import Attempts
 from evotrias.db.meta_guidance_events import MetaGuidanceEvents
 from evotrias.db.meta_guidance_state import MetaGuidanceState
 from evotrias.db.run_state import RunState
-from evotrias.mcp.storage import write_json_atomic
 from evotrias.mcp.success_pool import SuccessPool, SuccessRecord
+from evotrias.utils.io import write_json_atomic
 
 REPORT_FILENAME = "run_summary.md"
 SUMMARY_FILENAME = "run_summary.json"

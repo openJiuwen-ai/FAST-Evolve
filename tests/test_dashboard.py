@@ -29,11 +29,8 @@ def _write_jsonl(path: Path, values):
     )
 
 
-def _seed_run(tmp_path: Path, monkeypatch):
-    controller_root = tmp_path / ".agent_evolve" / "controller"
-    monkeypatch.setenv("AGENT_EVOLVE_CONTROLLER_DIR", str(controller_root))
+def _seed_run(tmp_path: Path):
     public = tmp_path / "runs" / RUN_ID
-    state = controller_root / RUN_ID
 
     _write_json(
         tmp_path / ".evotrias" / "db" / "runs" / RUN_ID / "config.json",
@@ -134,13 +131,12 @@ def _seed_run(tmp_path: Path, monkeypatch):
             "pending_request": None,
         },
     )
-    return public, state
+    return public
 
 
 def _seed_history_run(tmp_path: Path):
     run_id = "run_20260714010101"
     public = tmp_path / "runs" / run_id
-    state = tmp_path / ".agent_evolve" / "controller" / run_id
     artifact = f"runs/{run_id}/tasks/task_001/attempts/attempt_001/solution.py"
     _write_json(
         tmp_path / ".evotrias" / "db" / "runs" / run_id / "task_pool.json",
@@ -172,8 +168,8 @@ def _seed_history_run(tmp_path: Path):
     return run_id
 
 
-def test_build_snapshot_aggregates_live_run_state(tmp_path, monkeypatch):
-    _seed_run(tmp_path, monkeypatch)
+def test_build_snapshot_aggregates_live_run_state(tmp_path):
+    _seed_run(tmp_path)
 
     snapshot = build_snapshot(RUN_ID, tmp_path)
 
@@ -217,11 +213,11 @@ def test_infer_activity_recognizes_cpp_candidate(tmp_path):
     assert "attempt_001" in detail
 
 
-def test_recent_activity_links_to_evotrias_state_machine(tmp_path, monkeypatch):
+def test_recent_activity_links_to_evotrias_state_machine(tmp_path):
     """§5.4: Recent activity shows completed(fitness) / failed(reason) sourced
     from .evotrias/db/runs/<run_id>/task_pool.json, not just the legacy
     success log."""
-    _seed_run(tmp_path, monkeypatch)
+    _seed_run(tmp_path)
 
     # Seed the evotrias task pool with a completed task (fitness) and a failed
     # task (reason). The dashboard must surface both in Recent activity.
@@ -266,9 +262,6 @@ def test_configure_run_freezes_feature_flags_into_config(tmp_path, monkeypatch):
         return FakeDashboardServer()
 
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv(
-        "AGENT_EVOLVE_CONTROLLER_DIR", str(tmp_path / ".agent_evolve" / "controller")
-    )
     monkeypatch.setenv("AGENT_EVOLVE_META_EVOLVE_ENABLED", "0")
     monkeypatch.setenv("AGENT_EVOLVE_NOTES_ENABLED", "0")
     monkeypatch.setattr(public_tools_module, "start_dashboard", fake_start_dashboard)
@@ -288,7 +281,7 @@ def test_configure_run_freezes_feature_flags_into_config(tmp_path, monkeypatch):
 
 
 def test_list_runs_returns_flat_history_for_named_and_legacy_ids(tmp_path, monkeypatch):
-    _seed_run(tmp_path, monkeypatch)
+    _seed_run(tmp_path)
     history_run_id = _seed_history_run(tmp_path)
     monkeypatch.setattr(
         dashboard_module,
@@ -309,8 +302,8 @@ def test_list_runs_returns_flat_history_for_named_and_legacy_ids(tmp_path, monke
     assert history["runs"][1]["status"] == "stopped"
 
 
-def test_dashboard_uses_next_port_and_serves_snapshot(tmp_path, monkeypatch):
-    _seed_run(tmp_path, monkeypatch)
+def test_dashboard_uses_next_port_and_serves_snapshot(tmp_path):
+    _seed_run(tmp_path)
     history_run_id = _seed_history_run(tmp_path)
     blocker = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     blocker.bind(("127.0.0.1", 0))
