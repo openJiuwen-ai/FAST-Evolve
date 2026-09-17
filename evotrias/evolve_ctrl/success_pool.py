@@ -75,33 +75,6 @@ class SuccessRecord:
             },
         )
 
-    def to_inspiration(self) -> Dict[str, Any]:
-        """Return the compact shape sent to generator subagents."""
-        return {
-            "id": self.id,
-            "artifact_ref": self.artifact_ref,
-            "sketch": self.sketch,
-            "fitness": self.fitness,
-            "profile": self.profile,
-            "metrics": self.metrics,
-            "generation": self.generation,
-            "parent_id": self.parent_id,
-        }
-
-    def to_summary(self) -> Dict[str, Any]:
-        """Return the parent summary shape used by ``select_parent``."""
-        return {
-            "id": self.id,
-            "fitness": self.fitness,
-            "artifact_ref": self.artifact_ref,
-            "sketch": self.sketch,
-            "profile": self.profile,
-            "metrics": self.metrics,
-            "generation": self.generation,
-            "parent_id": self.parent_id,
-            "selection_count": self.selection_count,
-        }
-
 
 class SuccessPool:
     def __init__(self, run_id: str):

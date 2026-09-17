@@ -1,4 +1,4 @@
-"""Tests for evotrias.mcp.success_pool."""
+"""Tests for evotrias.evolve_ctrl.success_pool."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import pytest
 
 from evotrias.db.attempts import AttemptRecord, Attempts
 from evotrias.db.task_contexts import TaskContexts
-from evotrias.mcp.success_pool import SuccessPool, SuccessRecord
+from evotrias.evolve_ctrl.success_pool import SuccessPool, SuccessRecord
 
 RUN_ID = "pool_test"
 

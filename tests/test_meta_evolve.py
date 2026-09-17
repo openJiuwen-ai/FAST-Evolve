@@ -3,7 +3,8 @@ from __future__ import annotations
 import json
 
 from evotrias.mcp.controller import EvolutionController
-from evotrias.mcp.success_pool import SuccessPool
+from evotrias.evolve_ctrl.inspiration_selector import _inspiration
+from evotrias.evolve_ctrl.success_pool import SuccessPool
 from evotrias.mcp import meta_guidance as meta_guidance_module
 from evotrias.db.attempts import AttemptRecord, Attempts
 from evotrias.db.note_requests import NoteRequest, NoteRequests
@@ -309,8 +310,8 @@ def test_parent_and_inspirations_expose_persisted_metrics(tmp_path, monkeypatch)
         controller.inspiration_selector,
         "select",
         lambda parent, pool, progress: [
-            {**parent.to_inspiration(), "is_parent": True},
-            {**pool.get("inspiration").to_inspiration(), "is_parent": False},
+            {**_inspiration(parent), "is_parent": True},
+            {**_inspiration(pool.get("inspiration")), "is_parent": False},
         ],
     )
 

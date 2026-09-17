@@ -28,7 +28,7 @@ from evotrias.db.meta_guidance_state import (
     RequestProgress,
     Watching,
 )
-from evotrias.mcp.success_pool import SuccessPool, SuccessRecord
+from evotrias.evolve_ctrl.success_pool import SuccessPool, SuccessRecord
 from evotrias.utils.time import utc_now_iso
 
 

@@ -18,7 +18,7 @@ from evotrias.db.config import NotesConfig
 from evotrias.db.note_requests import NoteRequest, NoteRequests
 from evotrias.db.notes import Note, NoteRefs, Notes, NoteSource, NoteTrigger
 from evotrias.db.notes_events import NotesEvent, NotesEvents
-from evotrias.mcp.success_pool import SuccessPool, SuccessRecord
+from evotrias.evolve_ctrl.success_pool import SuccessPool, SuccessRecord
 
 NOTE_TYPES = {"error", "negative", "positive"}
 POSITIVE_DUPLICATE_FITNESS_TOL = 1e-6
