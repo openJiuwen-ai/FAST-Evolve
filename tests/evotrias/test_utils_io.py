@@ -1,0 +1,62 @@
+"""Tests for evotrias.utils.io."""
+
+from __future__ import annotations
+
+from evotrias.utils import io
+
+
+def test_write_json_atomic_round_trips_and_ends_with_newline(tmp_path, log):
+    path = tmp_path / "nested" / "state.json"
+    io.write_json_atomic(path, {"b": 1, "a": {"x": [1, 2]}})
+    assert io.read_json(path, {}) == {"b": 1, "a": {"x": [1, 2]}}
+    assert path.read_text(encoding="utf-8").endswith("\n")
+    assert log.warnings == []
+
+
+def test_write_json_atomic_leaves_no_tmp_files(tmp_path, log):
+    path = tmp_path / "state.json"
+    io.write_json_atomic(path, {"k": "v"})
+    assert [p.name for p in tmp_path.iterdir()] == ["state.json"]
+
+
+def test_read_json_missing_file_returns_default_silently(tmp_path, log):
+    default = {"fresh": True}
+    assert io.read_json(tmp_path / "absent.json", default) is default
+    assert log.warnings == []
+
+
+def test_read_json_corrupt_file_returns_default_with_warning(tmp_path, log):
+    path = tmp_path / "state.json"
+    path.write_text("{not json", encoding="utf-8")
+    assert io.read_json(path, {"d": 1}) == {"d": 1}
+    assert len(log.warnings) == 1
+    assert "state.json" in log.warnings[0]
+
+
+def test_read_json_non_dict_top_level_returns_default_with_warning(tmp_path, log):
+    path = tmp_path / "state.json"
+    path.write_text("[1, 2, 3]", encoding="utf-8")
+    assert io.read_json(path, {"d": 1}) == {"d": 1}
+    assert len(log.warnings) == 1
+    assert "list" in log.warnings[0]
+
+
+def test_append_jsonl_preserves_order(tmp_path, log):
+    path = tmp_path / "nested" / "events.jsonl"
+    for i in range(3):
+        io.append_jsonl(path, {"i": i})
+    assert io.read_jsonl(path) == [{"i": 0}, {"i": 1}, {"i": 2}]
+    assert log.warnings == []
+
+
+def test_read_jsonl_skips_malformed_lines_with_warning(tmp_path, log):
+    path = tmp_path / "events.jsonl"
+    path.write_text('{"i": 0}\n{broken\n\n{"i": 2}\n', encoding="utf-8")
+    assert io.read_jsonl(path) == [{"i": 0}, {"i": 2}]
+    assert len(log.warnings) == 1
+    assert "line 2" in log.warnings[0]
+
+
+def test_read_jsonl_missing_file_returns_empty(tmp_path, log):
+    assert io.read_jsonl(tmp_path / "absent.jsonl") == []
+    assert log.warnings == []

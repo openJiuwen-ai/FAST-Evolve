@@ -13,88 +13,7 @@ from typing import List, Optional
 import pytest
 
 from evotrias.db import base
-
-
-class _Recorder:
-    def __init__(self):
-        self.warnings: list[str] = []
-
-    def warning(self, msg, **kwargs):
-        self.warnings.append(msg)
-
-    def debug(self, msg, **kwargs):
-        pass
-
-    info = error = critical = debug
-
-
-@pytest.fixture
-def log(monkeypatch):
-    # evotrias.logger writes to ./.evotrias/logs relative to cwd and does not
-    # propagate, so swap it for a recorder instead of relying on caplog.
-    rec = _Recorder()
-    monkeypatch.setattr(base, "logger", rec)
-    return rec
-
-
-# --- primitives -------------------------------------------------------------
-
-
-def test_write_json_atomic_round_trips_and_ends_with_newline(tmp_path, log):
-    path = tmp_path / "nested" / "state.json"
-    base.write_json_atomic(path, {"b": 1, "a": {"x": [1, 2]}})
-    assert base.read_json(path, {}) == {"b": 1, "a": {"x": [1, 2]}}
-    assert path.read_text(encoding="utf-8").endswith("\n")
-    assert log.warnings == []
-
-
-def test_write_json_atomic_leaves_no_tmp_files(tmp_path, log):
-    path = tmp_path / "state.json"
-    base.write_json_atomic(path, {"k": "v"})
-    assert [p.name for p in tmp_path.iterdir()] == ["state.json"]
-
-
-def test_read_json_missing_file_returns_default_silently(tmp_path, log):
-    default = {"fresh": True}
-    assert base.read_json(tmp_path / "absent.json", default) is default
-    assert log.warnings == []
-
-
-def test_read_json_corrupt_file_returns_default_with_warning(tmp_path, log):
-    path = tmp_path / "state.json"
-    path.write_text("{not json", encoding="utf-8")
-    assert base.read_json(path, {"d": 1}) == {"d": 1}
-    assert len(log.warnings) == 1
-    assert "state.json" in log.warnings[0]
-
-
-def test_read_json_non_dict_top_level_returns_default_with_warning(tmp_path, log):
-    path = tmp_path / "state.json"
-    path.write_text("[1, 2, 3]", encoding="utf-8")
-    assert base.read_json(path, {"d": 1}) == {"d": 1}
-    assert len(log.warnings) == 1
-    assert "list" in log.warnings[0]
-
-
-def test_append_jsonl_preserves_order(tmp_path, log):
-    path = tmp_path / "nested" / "events.jsonl"
-    for i in range(3):
-        base.append_jsonl(path, {"i": i})
-    assert base.read_jsonl(path) == [{"i": 0}, {"i": 1}, {"i": 2}]
-    assert log.warnings == []
-
-
-def test_read_jsonl_skips_malformed_lines_with_warning(tmp_path, log):
-    path = tmp_path / "events.jsonl"
-    path.write_text('{"i": 0}\n{broken\n\n{"i": 2}\n', encoding="utf-8")
-    assert base.read_jsonl(path) == [{"i": 0}, {"i": 2}]
-    assert len(log.warnings) == 1
-    assert "line 2" in log.warnings[0]
-
-
-def test_read_jsonl_missing_file_returns_empty(tmp_path, log):
-    assert base.read_jsonl(tmp_path / "absent.jsonl") == []
-    assert log.warnings == []
+from evotrias.utils import io
 
 
 # --- DBList -----------------------------------------------------------------
@@ -132,7 +51,7 @@ def test_dblist_append_rejects_non_schema(tmp_path, log):
 
 def test_dblist_iter_ignores_unknown_keys_and_fills_defaults(tmp_path, log):
     path = tmp_path / "events.jsonl"
-    base.append_jsonl(path, {"kind": "old", "retired": True})
+    io.append_jsonl(path, {"kind": "old", "retired": True})
     [got] = list(base.DBList(path, _Event))
     assert got == _Event("old")
 
@@ -230,7 +149,7 @@ def test_dbobject_without_with_never_writes(tmp_path, log):
 
 def test_dbobject_exception_inside_with_does_not_write(tmp_path, log):
     path = tmp_path / "state.json"
-    base.write_json_atomic(path, {"name": "before"})
+    io.write_json_atomic(path, {"name": "before"})
     with pytest.raises(RuntimeError):
         with _State(path) as state:
             state.name = "after"
@@ -356,6 +275,21 @@ def test_dbobject_rebuilds_optional_and_list_of_dataclass(tmp_path, log):
     with _Nest(path) as nest:
         nest.maybe = None
     assert _Nest(path).maybe is None
+
+
+class _Pep604(base.DBObject):
+    child: _Inner | None = None
+
+
+def test_dbobject_rebuilds_pep604_optional(tmp_path, log):
+    path = tmp_path / "pep604.json"
+    with _Pep604(path) as obj:
+        obj.child = _Inner(x=4)
+    reloaded = _Pep604(path)
+    assert reloaded.child == _Inner(x=4) and isinstance(reloaded.child, _Inner)
+    with _Pep604(path) as obj:
+        obj.child = None
+    assert _Pep604(path).child is None
 
 
 class _Color(enum.Enum):
