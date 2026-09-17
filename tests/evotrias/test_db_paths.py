@@ -8,8 +8,9 @@ import pytest
 
 from evotrias.db import paths
 
-_ROOTS = [paths.DB_ROOT, paths.LOCKS_ROOT, paths.RUNS_ROOT]
-_GLOBAL_FILES = [paths.SESSION_MAP, paths.OPENCODE_REGISTRY]
+_ROOTS = [paths.DB_ROOT, paths.HOOKS_ROOT, paths.LOCKS_ROOT, paths.RUNS_ROOT]
+_DB_FILES = [paths.SESSION_MAP]
+_HOOK_FILES = [paths.OPENCODE_REGISTRY]
 _LOCKS = [paths.HOOK_QUEUE_LOCK, paths.LOGS_LOCK]
 _RUN_FILES = [
     paths.RUN_STATE,
@@ -40,8 +41,11 @@ def test_roots_are_relative_and_resolve_under_cwd(cwd):
 
 
 def test_global_files_and_locks_sit_under_their_roots():
-    for path in _GLOBAL_FILES:
+    for path in _DB_FILES:
         assert path.parent == paths.DB_ROOT
+        assert path.suffix == ".json"
+    for path in _HOOK_FILES:
+        assert path.parent == paths.HOOKS_ROOT
         assert path.suffix == ".json"
     for path in _LOCKS:
         assert path.parent == paths.LOCKS_ROOT

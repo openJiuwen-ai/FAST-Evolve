@@ -19,11 +19,12 @@ import re
 from pathlib import Path
 
 DB_ROOT = Path(".evotrias") / "db"
+HOOKS_ROOT = Path(".evotrias") / "hooks"
 LOCKS_ROOT = Path(".evotrias") / "locks"
 RUNS_ROOT = Path("runs")
 
 SESSION_MAP = DB_ROOT / "session_map.json"
-OPENCODE_REGISTRY = DB_ROOT / "opencode_registry.json"
+OPENCODE_REGISTRY = HOOKS_ROOT / "opencode_registry.json"
 HOOK_QUEUE_LOCK = LOCKS_ROOT / "hook_queue.lock"
 LOGS_LOCK = LOCKS_ROOT / "logs.lock"
 

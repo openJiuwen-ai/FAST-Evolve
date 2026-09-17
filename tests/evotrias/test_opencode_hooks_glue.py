@@ -12,6 +12,7 @@ import os
 import pytest
 
 from evotrias import scheduler as sched
+from evotrias.db import paths
 from evotrias.db.agent_index import AgentInfo
 from evotrias.db.attempts import AttemptRecord, Attempts
 from evotrias.enums import Agents
@@ -62,8 +63,6 @@ def tmp_env(monkeypatch, tmp_path):
     # side effects repopulate the broker against a clean slate.
     broker._handlers.clear()
     importlib.reload(oc_glue)
-    monkeypatch.setattr(
-        oc_glue._Registry, "PATH", repo / ".evotrias" / "state" / "opencode_registry.json")
     return repo
 
 
@@ -257,3 +256,18 @@ def test_non_executor_children_indexed_and_idle_is_harmless(tmp_env):
 def test_idle_for_unregistered_session_is_noop(tmp_env):
     out = hook_manager.dispatch("opencode", "session.idle", _idle_payload("ses_never_seen"))
     assert out is None
+
+
+def test_registry_round_trips_typed_entries(tmp_env):
+    with oc_glue._Registry() as registry:
+        registry.calls["call_1"] = oc_glue.PendingCall(run_id="run-Z", task_id="task_001")
+        registry.sessions["ses_child"] = oc_glue.PendingSession(agent="task-executor", parent_id="ses_parent")
+    reloaded = oc_glue._Registry()
+    assert reloaded.calls["call_1"] == oc_glue.PendingCall(run_id="run-Z", task_id="task_001")
+    assert isinstance(reloaded.sessions["ses_child"], oc_glue.PendingSession)
+    assert reloaded.sessions["ses_child"].parent_id == "ses_parent"
+    assert paths.OPENCODE_REGISTRY.exists()
+    with oc_glue._Registry() as registry:
+        assert registry.calls.pop("call_1", None) is not None
+        assert registry.calls.pop("missing", None) is None
+    assert oc_glue._Registry().calls == {}

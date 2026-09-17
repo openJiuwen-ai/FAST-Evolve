@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import json
-import os
-from pathlib import Path
-from typing import Any, Optional
+from dataclasses import dataclass, field
+from typing import Any, Dict
 
-from evotrias.db.attempts import Attempts
+from evotrias.db import paths
 from evotrias.db.agent_index import AgentInfo
+from evotrias.db.attempts import Attempts
+from evotrias.db.base import DBObject
 from evotrias.enums import Agents
 from evotrias.hooks import hook_manager
 from evotrias.logger import logger
@@ -23,46 +23,34 @@ _AGENT_TYPE_MAP: dict[str, Agents] = {
     "meta-guidance-generator": Agents.META_GUIDANCE_GENERATOR,
 }
 
-class _Registry:
-    """Cross-process store stitching hook events: before->after (calls), created->idle (sessions)."""
+@dataclass
+class PendingCall:
+    """A task-tool call seen at ``tool.execute.before``, awaiting its ``after``."""
 
-    PATH = Path(".evotrias") / "state" / "opencode_registry.json"
+    run_id: str
+    task_id: str
 
-    @staticmethod
-    def _read() -> dict[str, Any]:
-        try:
-            data = json.loads(_Registry.PATH.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            data = None
-        if not isinstance(data, dict):
-            data = {}
-        data.setdefault("sessions", {})
-        data.setdefault("calls", {})
-        return data
 
-    @staticmethod
-    def _write(data: dict[str, Any]) -> None:
-        _Registry.PATH.parent.mkdir(parents=True, exist_ok=True)
-        tmp = _Registry.PATH.with_name(f".{_Registry.PATH.name}.{os.getpid()}.tmp")
-        tmp.write_text(
-            json.dumps(data, ensure_ascii=False, separators=(",", ":")) + "\n",
-            encoding="utf-8",
-        )
-        os.replace(tmp, _Registry.PATH)
+@dataclass
+class PendingSession:
+    """A subagent session seen at ``session.created``, awaiting its ``idle``."""
 
-    @staticmethod
-    def put(section: str, key: str, value: dict[str, Any]) -> None:
-        data = _Registry._read()
-        data[section][key] = value
-        _Registry._write(data)
+    agent: str
+    parent_id: str
 
-    @staticmethod
-    def pop(section: str, key: str) -> Optional[dict[str, Any]]:
-        data = _Registry._read()
-        value = data[section].pop(key, None)
-        if value is not None:
-            _Registry._write(data)
-        return value
+
+class _Registry(DBObject):
+    """Cross-process store stitching hook events: before->after (calls), created->idle (sessions).
+
+    Private to the opencode hooks, so it lives here rather than in ``evotrias.db``;
+    it still borrows the db base class for atomic JSON IO.
+    """
+
+    calls: Dict[str, PendingCall] = field(default_factory=dict)
+    sessions: Dict[str, PendingSession] = field(default_factory=dict)
+
+    def __init__(self):
+        super().__init__(paths.OPENCODE_REGISTRY)
 
 
 def _spawn_args(payload: dict) -> dict[str, Any]:
@@ -99,7 +87,8 @@ def executor_allocate_task(payload: dict, result: dict, extra_data: Any) -> dict
         return result
 
     call_id = str(input_.get("callID") or "")
-    _Registry.put("calls", call_id, {"run_id": run_id, "task_id": task_id})
+    with _Registry() as registry:
+        registry.calls[call_id] = PendingCall(run_id=run_id, task_id=task_id)
 
     args = dict(_spawn_args(payload))
     args["description"] = task_id
@@ -127,11 +116,12 @@ def executor_bind_agent(payload: dict, result: dict, extra_data: Any) -> dict[st
         return result
 
     input_ = payload.get("input") or {}
-    call = _Registry.pop("calls", str(input_.get("callID") or ""))
+    with _Registry() as registry:
+        call = registry.calls.pop(str(input_.get("callID") or ""), None)
     if call is None:
         # No allocation happened for this call (unknown session or empty pool).
         return result
-    run_id, task_id = str(call["run_id"]), str(call["task_id"])
+    run_id, task_id = call.run_id, call.task_id
 
     metadata = (payload.get("output") or {}).get("metadata") or {}
     agent_id = str(metadata.get("sessionId") or "")
@@ -169,7 +159,8 @@ def remember_agent(payload: dict, result: dict, extra_data: Any) -> dict[str, An
     agent_name = str(info.get("agent") or "").strip().lower()
     agent_type = _AGENT_TYPE_MAP.get(agent_name, Agents.UNKNOWN)
 
-    _Registry.put("sessions", session_id, {"agent": agent_name, "parent_id": parent_id})
+    with _Registry() as registry:
+        registry.sessions[session_id] = PendingSession(agent=agent_name, parent_id=parent_id)
 
     agent_info = AgentInfo(agent_type=agent_type)
     if agent_type == Agents.UNKNOWN:
@@ -186,15 +177,16 @@ def remember_agent(payload: dict, result: dict, extra_data: Any) -> dict[str, An
 @hook_manager.register("opencode", "session.idle", priority=0)
 def executor_report_complete(payload: dict, result: dict, extra_data: Any) -> dict[str, Any] | None:
     session_id = str(((payload.get("properties") or {}).get("sessionID")) or "")
-    entry = _Registry.pop("sessions", session_id)
+    with _Registry() as registry:
+        entry = registry.sessions.pop(session_id, None)
     if entry is None:
         # Main session or a subagent outside any evolve run.
         return result
 
-    if _AGENT_TYPE_MAP.get(str(entry.get("agent") or "")) != Agents.TASK_EXECUTOR:
+    if _AGENT_TYPE_MAP.get(entry.agent) != Agents.TASK_EXECUTOR:
         return result
 
-    run_id = scheduler.lookup_run_by_session(str(entry.get("parent_id") or ""))
+    run_id = scheduler.lookup_run_by_session(entry.parent_id)
     if not run_id:
         return result
 
