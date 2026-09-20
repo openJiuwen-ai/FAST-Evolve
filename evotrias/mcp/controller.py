@@ -30,7 +30,7 @@ from evotrias.evolve_ctrl.meta_guidance import MetaGuidanceManager
 from evotrias.evolve_ctrl.notes import NotesManager
 from evotrias.evolve_ctrl.parent_selector import LineageAwareParentSelector
 from evotrias.evolve_ctrl.success_pool import SuccessPool
-from evotrias.mcp.run_report import write_run_report
+from evotrias.evolve_ctrl.run_report import write_run_report
 
 
 META_EVOLVE_ENABLED_ENV = "AGENT_EVOLVE_META_EVOLVE_ENABLED"

@@ -15,16 +15,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from evotrias.evolve_ctrl.lineage_tree import LineageTree
-from evotrias.db.attempts import Attempts
+from evotrias.db import paths
+from evotrias.db.attempts import AttemptRecord, Attempts
 from evotrias.db.meta_guidance_events import MetaGuidanceEvents
 from evotrias.db.meta_guidance_state import MetaGuidanceState
 from evotrias.db.run_state import RunState
+from evotrias.evolve_ctrl.lineage_tree import LineageTree
 from evotrias.evolve_ctrl.success_pool import SuccessPool, SuccessRecord
+from evotrias.logger import logger
 from evotrias.utils.io import write_json_atomic
-
-REPORT_FILENAME = "run_summary.md"
-SUMMARY_FILENAME = "run_summary.json"
 
 
 def write_run_report(
@@ -38,13 +37,13 @@ def write_run_report(
     Returns only path-like refs so public MCP calls stay compact.
     """
     lineage_tree.rebuild(db)
-    attempts = [asdict(a) for a in Attempts(run_id)]
+    attempts = list(Attempts(run_id))
     records = db.get_all()
 
-    report_dir = Path("runs") / _safe_name(run_id)
+    report_dir = paths.public_run_dir(run_id)
     report_dir.mkdir(parents=True, exist_ok=True)
-    report_path = report_dir / REPORT_FILENAME
-    summary_path = report_dir / SUMMARY_FILENAME
+    report_path = report_dir / paths.RUN_SUMMARY_MD
+    summary_path = report_dir / paths.RUN_SUMMARY_JSON
 
     summary = _build_summary(
         run_id=run_id,
@@ -58,6 +57,7 @@ def write_run_report(
 
     write_json_atomic(summary_path, summary)
     report_path.write_text(_render_markdown(summary), encoding="utf-8")
+    logger.info(f"run {run_id}: report written to {_as_ref(report_path)} and {_as_ref(summary_path)}")
     return {
         "report_ref": _as_ref(report_path),
         "summary_ref": _as_ref(summary_path),
@@ -67,7 +67,7 @@ def write_run_report(
 def _build_summary(
     run_id: str,
     records: List[SuccessRecord],
-    attempts: List[Dict[str, Any]],
+    attempts: List[AttemptRecord],
     lineage_tree: LineageTree,
     run_state: RunState,
     report_ref: str,
@@ -75,9 +75,7 @@ def _build_summary(
 ) -> Dict[str, Any]:
     best = max(records, key=lambda record: record.fitness) if records else None
     top_records = sorted(records, key=lambda record: record.fitness, reverse=True)[:5]
-    failed_attempts = [
-        attempt for attempt in attempts if not bool(attempt.get("in_success_pool"))
-    ]
+    failed_attempts = [attempt for attempt in attempts if not attempt.in_success_pool]
     success_count = len(records)
     attempt_count = len(attempts)
 
@@ -133,22 +131,22 @@ def _record_summary(record: Optional[SuccessRecord]) -> Optional[Dict[str, Any]]
     }
 
 
-def _attempt_summary(attempt: Dict[str, Any]) -> Dict[str, Any]:
-    result = dict(attempt.get("verification_result") or {})
+def _attempt_summary(attempt: AttemptRecord) -> Dict[str, Any]:
+    result = dict(attempt.verification_result or {})
     return {
-        "id": attempt.get("id"),
-        "task_id": attempt.get("task_id"),
+        "id": attempt.id,
+        "task_id": attempt.task_id,
         "status": result.get("status"),
         "fitness": result.get("fitness"),
-        "in_success_pool": bool(attempt.get("in_success_pool")),
-        "success_record_id": attempt.get("success_record_id"),
-        "parent_id": attempt.get("parent_id"),
-        "meta_guidance_id": attempt.get("meta_guidance_id"),
-        "anchor_parent_id": attempt.get("anchor_parent_id"),
-        "generation": attempt.get("generation"),
-        "artifact_ref": attempt.get("artifact_ref"),
-        "verification_result_ref": attempt.get("verification_result_ref"),
-        "created_at": attempt.get("created_at"),
+        "in_success_pool": attempt.in_success_pool,
+        "success_record_id": attempt.success_record_id,
+        "parent_id": attempt.parent_id,
+        "meta_guidance_id": attempt.meta_guidance_id,
+        "anchor_parent_id": attempt.anchor_parent_id,
+        "generation": attempt.generation,
+        "artifact_ref": attempt.artifact_ref,
+        "verification_result_ref": attempt.verification_result_ref,
+        "created_at": attempt.created_at,
     }
 
 
@@ -537,11 +535,6 @@ def _quote_mermaid(value: str) -> str:
 
 def _escape_mermaid_label(value: str) -> str:
     return value.replace('"', '\\"').replace("|", "/")
-
-
-def _safe_name(value: str) -> str:
-    safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", value.strip())
-    return safe or "default"
 
 
 def _as_ref(path: Path) -> str:
