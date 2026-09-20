@@ -5,7 +5,7 @@ import json
 from evotrias.mcp.controller import EvolutionController
 from evotrias.evolve_ctrl.inspiration_selector import _inspiration
 from evotrias.evolve_ctrl.success_pool import SuccessPool
-from evotrias.mcp import meta_guidance as meta_guidance_module
+from evotrias.evolve_ctrl import meta_guidance as meta_guidance_module
 from evotrias.db.attempts import AttemptRecord, Attempts
 from evotrias.db.note_requests import NoteRequest, NoteRequests
 from evotrias.db.notes import Note, Notes, NoteTrigger

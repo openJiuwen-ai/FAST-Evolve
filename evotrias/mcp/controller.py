@@ -26,7 +26,7 @@ from evotrias.evolve_ctrl.budget_guard import RunBudgetGuard
 from evotrias.evolve_ctrl.convergence_detector import FitnessPlateauDetector
 from evotrias.evolve_ctrl.inspiration_selector import LineageBoltzmannInspirationSelector
 from evotrias.evolve_ctrl.lineage_tree import LineageTree
-from evotrias.mcp.meta_guidance import MetaGuidanceManager
+from evotrias.evolve_ctrl.meta_guidance import MetaGuidanceManager
 from evotrias.evolve_ctrl.notes import NotesManager
 from evotrias.evolve_ctrl.parent_selector import LineageAwareParentSelector
 from evotrias.evolve_ctrl.success_pool import SuccessPool
