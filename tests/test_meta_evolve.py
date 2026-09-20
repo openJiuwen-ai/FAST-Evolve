@@ -401,6 +401,25 @@ def test_meta_guidance_request_includes_current_best_artifact_excerpt(tmp_path, 
     )
 
 
+def test_pending_request_on_disk_has_no_artifact_excerpt(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    controller = _controller(tmp_path, monkeypatch)
+    artifact = tmp_path / "candidate.py"
+    artifact.write_text("def solve():\n    return 'current-best-route'\n", encoding="utf-8")
+    _add_success(controller, "success_with_code", fitness=1.0, artifact_ref=str(artifact), created_at="2026-01-01T00:00:00+00:00")
+    for index in range(1, 5):
+        _add_success(controller, f"success_without_code_{index}", fitness=1.0, artifact_ref=f"missing_{index}.py", created_at=f"2026-01-01T00:00:0{index}+00:00")
+    controller._load_state()
+
+    convergence = controller.check_convergence(concurrency=1)
+
+    on_disk = MetaGuidanceState(controller.run_id).pending_request.current_best
+    assert set(on_disk) == {"record_id", "fitness", "artifact_ref", "summary", "metrics", "profile", "created_at"}
+    served = controller.get_meta_guidance_request(convergence["request_id"])["current_best"]
+    assert "current-best-route" in served["artifact_excerpt"]
+    assert served["artifact_excerpt_truncated"] is False
+
+
 def test_commit_guidance_rejects_duplicate_approach_types(tmp_path, monkeypatch):
     controller = _controller(tmp_path, monkeypatch)
     _add_successes(controller, fitness=1.0)
