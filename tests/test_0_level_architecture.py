@@ -55,9 +55,11 @@ def _violations(prefix: str, forbidden: Set[str], *, allow: Set[str] = frozenset
 
 
 def test_mcp_does_not_touch_db():
-    # dashboard.py reads db files directly until it moves to evotrias/dashboard
-    # (TODO block 3); drop the allowance with that move.
-    assert _violations("evotrias/mcp/", {"db"}, allow={"evotrias/mcp/dashboard.py"}) == []
+    assert _violations("evotrias/mcp/", {"db"}) == []
+
+
+def test_dashboard_only_reads_db():
+    assert _violations("evotrias/dashboard/", {"evolve_ctrl", "mcp", "hooks", "permissions", "scheduler"}) == []
 
 
 def test_db_does_not_depend_on_upper_layers():

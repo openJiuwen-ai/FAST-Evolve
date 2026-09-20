@@ -46,4 +46,4 @@ addopts = "--strict-markers"
 include = ["evotrias*"]
 
 [tool.setuptools.package-data]
-"evotrias.mcp" = ["dashboard_static/**"]
+"evotrias.dashboard" = ["static/**"]

@@ -13,7 +13,7 @@ from __future__ import annotations
 from typing import Any, Dict
 
 from evotrias.evolve_ctrl import controller as ctrl
-from evotrias.mcp.dashboard import start_dashboard
+from evotrias.dashboard.server import start_dashboard
 from evotrias.mcp.mcp_server import mcp
 
 
