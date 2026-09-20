@@ -3,108 +3,70 @@
 The detector observes running-best fitness over a rolling window. A sustained
 plateau enters WATCHING so the controller can request meta-guidance. Plateau is
 never a stop signal and does not modify parent or inspiration selection.
+
+The detector is stateless: the previous search state comes in through
+``RunState``, the new state goes back out as a return value, and the caller
+decides whether to persist it.
 """
 
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Any, Dict, List, Tuple
 
-from evotrias.evolve_ctrl.lineage_tree import LineageTree
 from evotrias.db.config import PlateauConfig
+from evotrias.db.run_state import RunState
 from evotrias.enums import SearchState
+from evotrias.evolve_ctrl.lineage_tree import LineageTree
 from evotrias.evolve_ctrl.success_pool import SuccessPool, SuccessRecord
 
 
 class FitnessPlateauDetector:
-    """Maintain EXPLORING or WATCHING from running-best fitness history."""
+    """Derive EXPLORING / WATCHING / STOPPED from running-best fitness history."""
 
     def __init__(self, config: PlateauConfig):
         self.window = config.window
         self.improvement_threshold = config.improvement_threshold
         self.patience = config.patience
-        self._state = SearchState.EXPLORING
-        self._stop_reason = ""
-        self._diagnostics = {}
-
-    @property
-    def state(self) -> SearchState:
-        return self._state
-
-    @property
-    def stop_reason(self) -> str:
-        return self._stop_reason
-
-    def restore_state(
-        self,
-        state: str,
-        stop_reason: str = "",
-        diagnostics: Optional[dict] = None,
-    ) -> None:
-        """Restore persisted state before a controller operation."""
-        try:
-            self._state = SearchState(state)
-        except ValueError:
-            self._state = SearchState.EXPLORING
-        self._stop_reason = stop_reason
-        self._diagnostics = dict(diagnostics or {})
 
     def evaluate(
         self,
-        db: SuccessPool,
+        previous: RunState,
+        pool: SuccessPool,
         lineage_tree: LineageTree,
-        total_success: int,
-    ) -> None:
-        """Update the current search state from the SuccessPool snapshot."""
-        if self._state == SearchState.STOPPED and self._stop_reason:
-            self._diagnostics = self._build_diagnostics(db, lineage_tree)
-            self._diagnostics["state"] = self._state.value
-            self._diagnostics["stop_reason"] = self._stop_reason
-            return
+        *,
+        stop_reason: str = "",
+    ) -> Tuple[SearchState, str, Dict[str, Any]]:
+        """Return ``(state, stop_reason, diagnostics)`` for the current pool.
 
-        min_success = max(self.window, 5)
-        if total_success < min_success:
-            self._state = SearchState.EXPLORING
-            self._stop_reason = ""
-            self._diagnostics = self._build_diagnostics(db, lineage_tree)
-            return
+        A non-empty ``stop_reason`` (budget exhausted) forces STOPPED.  A run
+        already STOPPED with a reason stays STOPPED.  Otherwise the state is
+        recomputed from scratch; plateau alone never stops a run.
+        """
+        diagnostics = self._build_diagnostics(pool, lineage_tree)
 
-        diagnostics = self._build_diagnostics(db, lineage_tree)
-        plateau = bool(diagnostics["plateau_detected"])
-        plateau_count = int(diagnostics["plateau_count"])
-        latest_is_new_best = bool(diagnostics["latest_success_is_new_best"])
-
-        if plateau and not latest_is_new_best and plateau_count >= self.patience:
-            self._state = SearchState.WATCHING
+        if stop_reason:
+            state, reason = SearchState.STOPPED, stop_reason
+        elif previous.search_state is SearchState.STOPPED and previous.stop_reason:
+            state, reason = SearchState.STOPPED, previous.stop_reason
+        elif diagnostics["total_success_tracked"] < max(self.window, 5):
+            state, reason = SearchState.EXPLORING, ""
         else:
-            self._state = SearchState.EXPLORING
-        self._stop_reason = ""
-        diagnostics["state"] = self._state.value
-        diagnostics["stop_reason"] = self._stop_reason
-        self._diagnostics = diagnostics
+            plateau = bool(diagnostics["plateau_detected"])
+            plateau_count = int(diagnostics["plateau_count"])
+            latest_is_new_best = bool(diagnostics["latest_success_is_new_best"])
+            if plateau and not latest_is_new_best and plateau_count >= self.patience:
+                state = SearchState.WATCHING
+            else:
+                state = SearchState.EXPLORING
+            reason = ""
 
-    def mark_stopped(
-        self,
-        reason: str,
-        db: SuccessPool,
-        lineage_tree: LineageTree,
-    ) -> None:
-        """Record a hard-budget stop without treating plateau as convergence."""
-        self._state = SearchState.STOPPED
-        self._stop_reason = reason
-        diagnostics = self._build_diagnostics(db, lineage_tree)
-        diagnostics["state"] = self._state.value
-        diagnostics["stop_reason"] = reason
-        self._diagnostics = diagnostics
+        diagnostics = {"state": state.value, "stop_reason": reason, **diagnostics}
+        return state, reason, diagnostics
 
-    def get_diagnostics(self) -> dict:
-        """Return the most recent diagnostic snapshot."""
-        return dict(self._diagnostics)
-
-    def _build_diagnostics(self, db: SuccessPool, lineage_tree: LineageTree) -> dict:
+    def _build_diagnostics(self, pool: SuccessPool, lineage_tree: LineageTree) -> Dict[str, Any]:
         """Compute plateau inputs plus useful current search context."""
-        records = db.get_all()
+        records = pool.get_all()
         best_history = self._best_fitness_history(records)
-        total_success = len(records)
         window = max(self.window, 1)
 
         improvement = None
@@ -116,8 +78,6 @@ class FitnessPlateauDetector:
             plateau_detected = improvement <= self.improvement_threshold
 
         return {
-            "state": self._state.value,
-            "stop_reason": self._stop_reason,
             "plateau_count": self._consecutive_plateau_count(best_history, window),
             "patience": self.patience,
             "window": window,
@@ -126,7 +86,7 @@ class FitnessPlateauDetector:
             "plateau_detected": plateau_detected,
             "current_best_fitness": best_history[-1] if best_history else None,
             "current_diversity": round(lineage_tree.get_diversity_index(), 4),
-            "total_success_tracked": total_success,
+            "total_success_tracked": len(records),
             "latest_success_is_new_best": self._latest_success_is_new_best(records),
         }
 

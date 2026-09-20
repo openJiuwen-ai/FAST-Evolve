@@ -435,29 +435,24 @@ class EvolutionController:
         run_state = RunState(self.run_id)
         total_tasks = self._task_count()
         total_attempts = len(self.attempt_log)
-        total_success = len(self.success_pool.get_all())
         elapsed_seconds = run_state.elapsed_seconds()
-        reason = self.budget_guard.exhaustion_reason(
+        budget_reason = self.budget_guard.exhaustion_reason(
             total_tasks=total_tasks,
             elapsed_seconds=elapsed_seconds,
         )
-        budget_exhausted = bool(reason)
-        if budget_exhausted:
-            self.plateau_detector.mark_stopped(reason, self.success_pool, self.lineage_tree)
-        else:
-            self.plateau_detector.evaluate(
-                self.success_pool,
-                self.lineage_tree,
-                total_success=total_success,
-            )
-
-        diagnostics = self.plateau_detector.get_diagnostics()
+        budget_exhausted = bool(budget_reason)
+        state, reason, diagnostics = self.plateau_detector.evaluate(
+            run_state,
+            self.success_pool,
+            self.lineage_tree,
+            stop_reason=budget_reason,
+        )
         action = "continue"
         request_id = None
 
         if budget_exhausted:
             action = "budget_exhausted"
-        elif self.plateau_detector.state == SearchState.WATCHING:
+        elif state == SearchState.WATCHING:
             current_best = diagnostics.get("current_best_fitness")
             self.meta_guidance.note_watching(
                 task_count=total_tasks,
@@ -505,16 +500,21 @@ class EvolutionController:
 
         meta_stats = self.meta_guidance.stats()
         diagnostics["meta_guidance"] = meta_stats
+        if state != run_state.search_state:
+            logger.info(
+                f"run {self.run_id}: search state {run_state.search_state.value} -> {state.value}"
+                + (f" ({reason})" if reason else "")
+            )
         with RunState(self.run_id) as saved:
-            saved.search_state = self.plateau_detector.state.value
+            saved.search_state = state
             saved.stop_reason = reason
             saved.diagnostics = diagnostics
             saved.last_checked_attempt_count = total_attempts
         response: Dict[str, Any] = {
             "action": action,
             "tasks_to_create": tasks_to_create,
-            "search_state": self.plateau_detector.state.value,
-            "plateau": self.plateau_detector.state == SearchState.WATCHING,
+            "search_state": state.value,
+            "plateau": state == SearchState.WATCHING,
             "stop_reason": reason,
             "meta_guidance": meta_stats,
             "diagnostics": diagnostics,
@@ -548,7 +548,7 @@ class EvolutionController:
         """
         self._load_state()
         with RunState(self.run_id) as run_state:
-            run_state.search_state = SearchState.STOPPED.value
+            run_state.search_state = SearchState.STOPPED
             run_state.stop_reason = stop_reason or run_state.stop_reason or "manual_finalize"
             run_state.last_checked_attempt_count = len(self.attempt_log)
         self._load_state()
@@ -562,12 +562,6 @@ class EvolutionController:
     def _load_state(self) -> None:
         """Reload all disk-backed state needed for a decision."""
         self.success_pool = SuccessPool(self.run_id)
-        run_state = RunState(self.run_id)
-        self.plateau_detector.restore_state(
-            run_state.search_state,
-            stop_reason=run_state.stop_reason,
-            diagnostics=run_state.diagnostics,
-        )
         self.lineage_tree.rebuild(self.success_pool)
 
     def _in_root_phase(self) -> bool:

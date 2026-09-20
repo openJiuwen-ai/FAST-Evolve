@@ -22,7 +22,7 @@ def cwd(monkeypatch, tmp_path):
 def test_missing_file_yields_defaults_and_no_elapsed():
     state = RunState(RUN_ID)
     assert state.task_description == ""
-    assert state.search_state == SearchState.EXPLORING.value
+    assert state.search_state is SearchState.EXPLORING
     assert state.stop_reason == ""
     assert state.diagnostics == {}
     assert state.last_checked_attempt_count == 0
@@ -47,12 +47,12 @@ def test_rewrite_keeps_created_at_and_moves_updated_at(monkeypatch):
     with RunState(RUN_ID) as state:
         state.task_description = "x"
     with RunState(RUN_ID) as state:
-        state.search_state = SearchState.STOPPED.value
+        state.search_state = SearchState.STOPPED
         state.stop_reason = "manual"
     reloaded = RunState(RUN_ID)
     assert reloaded.created_at == "2026-01-01T00:00:00+00:00"
     assert reloaded.updated_at == "2026-01-01T00:05:00+00:00"
-    assert (reloaded.search_state, reloaded.stop_reason, reloaded.task_description) == ("stopped", "manual", "x")
+    assert (reloaded.search_state, reloaded.stop_reason, reloaded.task_description) == (SearchState.STOPPED, "manual", "x")
 
 
 def test_on_disk_shape_has_no_retired_keys():

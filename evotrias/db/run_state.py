@@ -18,7 +18,7 @@ from evotrias.enums import SearchState
 
 class RunState(DBObject):
     task_description: str = ""
-    search_state: str = SearchState.EXPLORING.value
+    search_state: SearchState = SearchState.EXPLORING
     stop_reason: str = ""
     diagnostics: Dict[str, Any] = field(default_factory=dict)
     last_checked_attempt_count: int = 0

@@ -86,7 +86,7 @@ def _build_summary(
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "report_ref": report_ref,
         "summary_ref": summary_ref,
-        "status": run_state.search_state,
+        "status": run_state.search_state.value,
         "stop_reason": run_state.stop_reason or "manual_finalize",
         "diagnostics": dict(run_state.diagnostics or {}),
         "overview": {
