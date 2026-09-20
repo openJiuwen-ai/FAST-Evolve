@@ -11,9 +11,10 @@ from __future__ import annotations
 import pytest
 
 from evotrias.mcp import public_tools as public_tools_module
-from evotrias.mcp.controller import EvolutionController
+from evotrias.evolve_ctrl import controller as ctrl
 from evotrias.db.attempts import AttemptRecord, Attempts
 from evotrias.db.config import Config
+from evotrias.db.run_state import RunState
 from evotrias import scheduler as sched
 
 RUN_ID = "run_shape_test"
@@ -24,9 +25,7 @@ def run_env(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("AGENT_EVOLVE_UI_ENABLED", "0")
     monkeypatch.setenv("AGENT_EVOLVE_NOTES_ENABLED", "0")
-    public_tools_module._controllers.pop(RUN_ID, None)
     yield
-    public_tools_module._controllers.pop(RUN_ID, None)
 
 
 def _start_one_task(run_id: str, agent_id: str) -> str:
@@ -65,6 +64,22 @@ def test_configure_run_records_and_returns_run_shape(run_env):
     ) == (30, 6, 2)
 
 
+def test_configure_run_returns_locked_config_with_message(run_env):
+    knobs = {"max_total_tasks": 30, "lineage_root_number": 6, "max_concurrent_tasks": 2}
+    first = ctrl.configure_run(RUN_ID, {"task_description": "first"}, knobs)
+    second = ctrl.configure_run(
+        RUN_ID,
+        {"task_description": "second"},
+        {"max_total_tasks": 99, "lineage_root_number": 1, "max_concurrent_tasks": 9},
+    )
+
+    assert first[0] is True and first[2] == "Run configured."
+    assert second[0] is False and second[2]
+    assert second[1].budget.max_total_tasks == 30
+    assert second[1].scheduler.lineage_root_number == 6
+    assert RunState(RUN_ID).task_description == "first"
+
+
 def test_configure_run_is_locked_in_process(run_env):
     public_tools_module.evolve_configure_run(
         RUN_ID, max_total_tasks=30, lineage_root_number=6, max_concurrent_tasks=2
@@ -83,9 +98,8 @@ def test_configure_run_is_locked_across_process_restarts(run_env):
     public_tools_module.evolve_configure_run(
         RUN_ID, max_total_tasks=30, lineage_root_number=6, max_concurrent_tasks=2
     )
-    # A new MCP process has an empty controller cache but the same disk state.
-    public_tools_module._controllers.pop(RUN_ID, None)
-
+    # Nothing is cached in-process: the lock is config.json on disk, so a
+    # restarted MCP server sees exactly the same answer.
     second = public_tools_module.evolve_configure_run(
         RUN_ID, max_total_tasks=99, lineage_root_number=1, max_concurrent_tasks=9
     )
@@ -176,8 +190,6 @@ def test_root_tasks_get_no_parent_even_after_early_root_success(run_env):
     public_tools_module.evolve_configure_run(
         RUN_ID, max_total_tasks=30, lineage_root_number=3, max_concurrent_tasks=2
     )
-    controller = public_tools_module._controllers[RUN_ID]
-
     assert public_tools_module.evolve_check_convergence(RUN_ID, concurrency=2)[
         "tasks_to_create"
     ] == 2
@@ -226,8 +238,8 @@ def test_restarted_controller_recovers_recorded_config(run_env):
         RUN_ID, max_total_tasks=30, lineage_root_number=6, max_concurrent_tasks=2
     )
 
-    restarted = EvolutionController(RUN_ID)
+    restarted = Config(RUN_ID)
 
-    assert restarted.config.budget.max_total_tasks == 30
-    assert restarted.config.scheduler.lineage_root_number == 6
-    assert restarted.config.scheduler.max_concurrent_tasks == 2
+    assert restarted.budget.max_total_tasks == 30
+    assert restarted.scheduler.lineage_root_number == 6
+    assert restarted.scheduler.max_concurrent_tasks == 2

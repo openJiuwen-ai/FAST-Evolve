@@ -265,12 +265,8 @@ def test_configure_run_freezes_feature_flags_into_config(tmp_path, monkeypatch):
     monkeypatch.setenv("AGENT_EVOLVE_META_EVOLVE_ENABLED", "0")
     monkeypatch.setenv("AGENT_EVOLVE_NOTES_ENABLED", "0")
     monkeypatch.setattr(public_tools_module, "start_dashboard", fake_start_dashboard)
-    public_tools_module._controllers.pop(run_id, None)
 
-    try:
-        result = public_tools_module.evolve_configure_run(run_id, max_total_tasks=20)
-    finally:
-        public_tools_module._controllers.pop(run_id, None)
+    result = public_tools_module.evolve_configure_run(run_id, max_total_tasks=20)
 
     assert result["meta_evolve"]["enabled"] is False
     config = Config(run_id)
