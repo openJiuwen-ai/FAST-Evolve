@@ -126,6 +126,8 @@ docs/                   集成指南
 tests/                  测试用例
 ```
 
+控制器 MCP 的工具契约见 [docs/mcp_interface_CN.md](mcp_interface_CN.md)。
+
 运行产物保存在 Git 忽略的 `runs/` 和 `.agent_evolve/` 目录中。每次完成的运行都会
 生成机器可读结果和简洁的 Markdown 总结。
 

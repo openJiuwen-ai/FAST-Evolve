@@ -136,6 +136,8 @@ docs/                   Integration guides
 tests/                  Testcases
 ```
 
+The controller MCP tool contract is documented in [docs/mcp_interface.md](docs/mcp_interface.md).
+
 Runtime artifacts are written to the gitignored `runs/` and `.agent_evolve/`
 directories. Each completed run includes machine-readable results and a concise
 Markdown summary.
