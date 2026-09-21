@@ -100,11 +100,11 @@ class MetaGuidanceManager:
         lineages: List[Dict[str, Any]],
         notes_summary: Optional[Dict[str, Any]] = None,
         task_count: int,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[PendingRequest]:
         """Create or return the current pending request."""
         existing = MetaGuidanceState(self.run_id).pending_request
         if existing is not None:
-            return asdict(existing)
+            return existing
 
         anchor = db.get_canonical_best_record()
         if anchor is None:
@@ -148,7 +148,7 @@ class MetaGuidanceManager:
                 "completed_since_watching": completed_since_watching,
             },
         )
-        return asdict(request)
+        return request
 
     def get_request(self, request_id: Optional[str] = None) -> Dict[str, Any]:
         """Return the pending request payload for the meta-guidance worker."""
@@ -250,7 +250,7 @@ class MetaGuidanceManager:
         task_id: str,
         anchor_parent_id: Optional[str] = None,
         anchor_fitness: Optional[float] = None,
-    ) -> Optional[Dict[str, Any]]:
+    ) -> Optional[Assignment]:
         """Assign one active guidance item to a task, consuming one use."""
         state = MetaGuidanceState(self.run_id)
         existing = state.task_assignments.get(task_id)
@@ -258,7 +258,7 @@ class MetaGuidanceManager:
             guidance = state.active_by_id(existing.guidance_id) or _tried_by_id(state, existing.guidance_id)
             if guidance is None:
                 return None
-            return _with_assignment_anchor(guidance, existing)
+            return existing
 
         if not self.config.enabled:
             return None
@@ -281,7 +281,7 @@ class MetaGuidanceManager:
             else:
                 return None
         self._append_event("assigned", asdict(assignment))
-        return _with_assignment_anchor(guidance, assignment)
+        return assignment
 
     def prompt_for_task(self, task_id: str) -> Dict[str, Any]:
         """Return a ready-to-inject prompt for a task's assigned guidance."""
@@ -444,15 +444,6 @@ def _archive_exhausted_if_ready(state: MetaGuidanceState, guidance_id: str) -> O
 
 def _tried_by_id(state: MetaGuidanceState, guidance_id: str) -> Optional[Guidance]:
     return next((g for g in state.tried_guidance if g.guidance_id == guidance_id), None)
-
-
-def _with_assignment_anchor(guidance: Guidance, assignment: Assignment) -> Dict[str, Any]:
-    result = asdict(guidance)
-    result["creation_anchor_parent_id"] = guidance.creation_anchor_parent_id or guidance.anchor_parent_id
-    if assignment.anchor_parent_id:
-        result["anchor_parent_id"] = assignment.anchor_parent_id
-    result["anchor_fitness"] = assignment.anchor_fitness
-    return result
 
 
 def _failed_guidance(state: MetaGuidanceState) -> List[Dict[str, Any]]:

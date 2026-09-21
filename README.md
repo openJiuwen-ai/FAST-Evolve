@@ -129,7 +129,7 @@ configured task or time budget is exhausted.
 ## Repository Layout
 
 ```text
-evotrias/               Core package: scheduler, hooks, and the controller MCP (evotrias/mcp)
+evotrias/               Core package: db (state), evolve_ctrl (evolution control), dashboard, mcp (server entry), hooks, scheduler
 evotrias_plugin/        Workflow skills and task-executor agents
 benchmarks/             Benchmark skills, evaluators, and references
 docs/                   Integration guides

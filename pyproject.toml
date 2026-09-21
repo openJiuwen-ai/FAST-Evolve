@@ -10,13 +10,13 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = "Apache-2.0"
 dependencies = [
-    "pyyaml>=6.0",
     "fastmcp>=3.3.0",
 ]
 
 [dependency-groups]
 dev = [
     "pytest>=7.0.0",
+    "pyyaml>=6.0",
     "black>=22.0.0",
     "isort>=5.10.0",
     "mypy>=0.950",

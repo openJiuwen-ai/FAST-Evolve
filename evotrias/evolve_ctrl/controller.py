@@ -103,10 +103,10 @@ def select_parent(run_id: str, task_id: str) -> Dict[str, Any]:
             else None
         )
         if guidance is not None:
-            parent = pool.get(str(guidance.get("anchor_parent_id")))
+            parent = pool.get(guidance.anchor_parent_id)
             if parent is not None:
-                context.meta_guidance_id = str(guidance.get("guidance_id"))
-                context.anchor_parent_id = str(guidance.get("anchor_parent_id"))
+                context.meta_guidance_id = guidance.guidance_id
+                context.anchor_parent_id = guidance.anchor_parent_id
             else:
                 guidance = None
 
@@ -448,7 +448,7 @@ def check_convergence(run_id: str, concurrency: int) -> Dict[str, Any]:
             )
             if request is not None:
                 action = "request_meta_guidance"
-                request_id = request.get("request_id")
+                request_id = request.request_id
     else:
         meta_guidance.reset_watching()
 

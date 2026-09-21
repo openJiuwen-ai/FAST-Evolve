@@ -1,8 +1,16 @@
 from __future__ import annotations
 
+import pytest
+
 from evotrias.db.agent_index import AgentInfo
 from evotrias.enums import Agents, Decisions, Tools
 from evotrias.permissions import evaluate_permission
+
+
+@pytest.fixture(autouse=True)
+def cwd(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+    return tmp_path
 
 
 RUN = "run-X"

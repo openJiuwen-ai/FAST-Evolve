@@ -119,7 +119,7 @@ EvoTrias 会在 `runs/` 下创建具名运行，启动仪表盘，探索多个�
 ## 仓库结构
 
 ```text
-evotrias/               核心包：调度、hooks 与控制器 MCP（evotrias/mcp）
+evotrias/               核心包：db（状态）、evolve_ctrl（进化控制）、dashboard、mcp（服务入口）、hooks、scheduler
 evotrias_plugin/        工作流技能与任务执行智能体
 benchmarks/             基准技能、评估器与参考资料
 docs/                   集成指南
