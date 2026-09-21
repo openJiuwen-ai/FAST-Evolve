@@ -55,6 +55,18 @@ class Attempts(DBList):
         """
         return {a.task_id: a for a in self if a.in_success_pool}
 
+    @property
+    def final_by_task(self) -> Dict[str, AttemptRecord]:
+        """task_id -> the attempt that stands for the task's outcome.
+
+        The attempt that entered the success pool when there is one (see
+        ``successes``), otherwise the task's latest attempt.  Insertion order
+        follows first appearance in the log.  Re-reads the file on every access.
+        """
+        final = {attempt.task_id: attempt for attempt in self}
+        final.update(self.successes)
+        return final
+
     def find_by_task_id(self, task_id: str) -> Optional[AttemptRecord]:
         """Most recent attempt for a task, if any."""
         match = None

@@ -8,170 +8,112 @@ from urllib.parse import quote
 
 import pytest
 
-from evotrias.db.config import Config
 import evotrias.dashboard.server as dashboard_module
 import evotrias.mcp.public_tools as public_tools_module
 from evotrias.dashboard.server import DashboardServer, build_snapshot, list_runs
+from evotrias.db.attempts import AttemptRecord, Attempts
+from evotrias.db.config import Config
+from evotrias.db.meta_guidance_state import Assignment, Guidance, MetaGuidanceState
+from evotrias.db.notes import Note, Notes
+from evotrias.db.run_state import RunState
+from evotrias.db.task_contexts import TaskContexts
+from evotrias.db.task_pool import TaskAssigned, TaskCompleted, TaskFailed, TaskPool
+from evotrias.enums import SearchState
 
 RUN_ID = "signal_processing_20260715010101"
 
 
-def _write_json(path: Path, value):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(value), encoding="utf-8")
+@pytest.fixture(autouse=True)
+def cwd(monkeypatch, tmp_path):
+    # db paths are cwd-relative; every test gets a fresh workspace.
+    monkeypatch.chdir(tmp_path)
+    return tmp_path
 
 
-def _write_jsonl(path: Path, values):
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(
-        "".join(json.dumps(value) + "\n" for value in values),
-        encoding="utf-8",
+def _attempt(run_id: str, task_id: str, *, fitness: float, generation: int, parent_id, created_at: str, metrics=None) -> AttemptRecord:
+    return AttemptRecord(
+        id="attempt_001",
+        run_id=run_id,
+        task_id=task_id,
+        subagent_id="agent",
+        artifact_ref=f"runs/{run_id}/tasks/{task_id}/attempts/attempt_001/solution.py",
+        parent_id=parent_id,
+        inspiration_ids=[],
+        generation=generation,
+        verification_result={"status": "success", "fitness": fitness, "metrics": metrics or {}},
+        in_success_pool=True,
+        created_at=created_at,
     )
 
 
-def _seed_run(tmp_path: Path):
-    public = tmp_path / "runs" / RUN_ID
-
-    _write_json(
-        tmp_path / ".evotrias" / "db" / "runs" / RUN_ID / "config.json",
-        {
-            "budget": {"max_total_tasks": 50},
-            "meta_evolve": {"enabled": True},
-            "notes": {"enabled": False},
-        },
-    )
-    _write_json(
-        tmp_path / ".evotrias" / "db" / "runs" / RUN_ID / "task_pool.json",
-        {
-            "run_id": RUN_ID,
-            "pending": [],
-            "running": {"task_003": "agent-live-3"},
-            "completed": {},
-            "failed": {},
-        },
-    )
-    completed = [
-        {
-            "task_id": "task_001",
-            "fitness": 0.4,
-            "status": "success",
-            "artifact_ref": f"runs/{RUN_ID}/tasks/task_001/attempts/attempt_001/solution.py",
-        },
-        {
-            "task_id": "task_002",
-            "fitness": 0.7,
-            "status": "success",
-            "artifact_ref": f"runs/{RUN_ID}/tasks/task_002/attempts/attempt_001/solution.py",
-        },
-    ]
-    attempts = []
-    for index, row in enumerate(completed, start=1):
-        attempts.append(
-            {
-                "id": "attempt_001",
-                "task_id": row["task_id"],
-                "artifact_ref": row["artifact_ref"],
-                "created_at": f"2026-07-15T01:0{index}:00+00:00",
-                "generation": index - 1,
-                "parent_id": None if index == 1 else "task_001",
-                "verification_result": {
-                    "status": "success",
-                    "fitness": row["fitness"],
-                    "metrics": {"accuracy_score": row["fitness"], "bad": float("nan")},
-                },
-                "in_success_pool": True,
-            }
+def _seed_run():
+    """A run mid-flight: two successes, one running task under meta-guidance."""
+    with Config(RUN_ID) as config:
+        config.budget.max_total_tasks = 50
+        config.meta_evolve.enabled = True
+        config.notes.enabled = False
+    with TaskPool(RUN_ID) as pool:
+        pool.running["task_003"] = TaskAssigned(agent_id="agent-live-3", at="2026-07-15T01:02:50+00:00")
+    log = Attempts(RUN_ID)
+    log.append(_attempt(RUN_ID, "task_001", fitness=0.4, generation=0, parent_id=None,
+                        created_at="2026-07-15T01:01:00+00:00",
+                        metrics={"accuracy_score": 0.4, "bad": float("nan")}))
+    log.append(_attempt(RUN_ID, "task_002", fitness=0.7, generation=1, parent_id="task_001",
+                        created_at="2026-07-15T01:02:00+00:00",
+                        metrics={"accuracy_score": 0.7, "bad": float("nan")}))
+    with RunState(RUN_ID) as state:
+        state.search_state = SearchState.WATCHING
+        state.task_description = "Improve the benchmark candidate."
+        state.diagnostics = {"plateau_count": 3, "patience": 4, "current_diversity": 0.82}
+    with TaskContexts(RUN_ID) as contexts:
+        context = contexts.get("task_003", create=True)
+        context.parent_id = "task_002"
+        context.inspiration_ids = ["task_001"]
+    Notes(RUN_ID).append(
+        Note(
+            note_id="note_positive_1",
+            note_type="positive",
+            title="Keep the stable update",
+            lesson="It improved fitness.",
+            created_at="2026-07-15T01:02:30+00:00",
         )
-    _write_jsonl(tmp_path / ".evotrias" / "db" / "runs" / RUN_ID / "attempts.jsonl", attempts)
-    _write_json(
-        tmp_path / ".evotrias" / "db" / "runs" / RUN_ID / "run_state.json",
-        {
-            "search_state": "watching",
-            "created_at": "2026-07-15T01:00:00+00:00",
-            "updated_at": "2026-07-15T01:03:00+00:00",
-            "task_description": "Improve the benchmark candidate.",
-            "diagnostics": {
-                "plateau_count": 3,
-                "patience": 4,
-                "current_diversity": 0.82,
-            },
-        },
     )
-    _write_json(
-        tmp_path / ".evotrias" / "db" / "runs" / RUN_ID / "task_contexts.json",
-        {"tasks": {"task_003": {"parent_id": "task_002", "inspiration_ids": ["task_001"]}}},
-    )
-    _write_jsonl(
-        tmp_path / ".evotrias" / "db" / "runs" / RUN_ID / "notes.jsonl",
-        [
-            {
-                "note_id": "note_positive_1",
-                "note_type": "positive",
-                "title": "Keep the stable update",
-                "lesson": "It improved fitness.",
-                "created_at": "2026-07-15T01:02:30+00:00",
-            }
-        ],
-    )
-    _write_json(
-        tmp_path / ".evotrias" / "db" / "runs" / RUN_ID / "meta_guidance_state.json",
-        {
-            "active_guidance": [
-                {
-                    "guidance_id": "mg_0001",
-                    "idea": "Try a new search family",
-                    "description": "Escape the current plateau.",
-                    "created_at": "2026-07-15T01:02:40+00:00",
-                    "uses": 1,
-                    "max_uses": 2,
-                }
-            ],
-            "tried_guidance": [],
-            "task_assignments": {"task_003": {"guidance_id": "mg_0001"}},
-            "pending_request": None,
-        },
-    )
-    return public
+    with MetaGuidanceState(RUN_ID) as meta:
+        meta.active_guidance = [
+            Guidance(
+                idea="Try a new search family",
+                description="Escape the current plateau.",
+                novelty_claim="",
+                approach_type="",
+                guidance_id="mg_0001",
+                created_at="2026-07-15T01:02:40+00:00",
+                uses=1,
+                max_uses=2,
+            )
+        ]
+        meta.task_assignments = {
+            "task_003": Assignment(task_id="task_003", guidance_id="mg_0001", anchor_parent_id="task_002")
+        }
 
 
-def _seed_history_run(tmp_path: Path):
+def _seed_history_run() -> str:
     run_id = "run_20260714010101"
-    public = tmp_path / "runs" / run_id
-    artifact = f"runs/{run_id}/tasks/task_001/attempts/attempt_001/solution.py"
-    _write_json(
-        tmp_path / ".evotrias" / "db" / "runs" / run_id / "task_pool.json",
-        {"run_id": run_id, "pending": [], "running": {}, "completed": {}, "failed": {}},
+    with TaskPool(run_id):
+        pass
+    Attempts(run_id).append(
+        _attempt(run_id, "task_001", fitness=0.2, generation=0, parent_id=None,
+                 created_at="2026-07-14T01:02:00+00:00")
     )
-    _write_jsonl(
-        tmp_path / ".evotrias" / "db" / "runs" / run_id / "attempts.jsonl",
-        [
-            {
-                "id": "attempt_001",
-                "task_id": "task_001",
-                "artifact_ref": artifact,
-                "created_at": "2026-07-14T01:02:00+00:00",
-                "generation": 0,
-                "verification_result": {"status": "success", "fitness": 0.2},
-                "in_success_pool": True,
-            }
-        ],
-    )
-    _write_json(
-        tmp_path / ".evotrias" / "db" / "runs" / run_id / "run_state.json",
-        {
-            "search_state": "stopped",
-            "task_description": "An older persisted run.",
-            "created_at": "2026-07-14T01:01:01+00:00",
-            "updated_at": "2026-07-14T01:03:00+00:00",
-        },
-    )
+    with RunState(run_id) as state:
+        state.search_state = SearchState.STOPPED
+        state.task_description = "An older persisted run."
     return run_id
 
 
 def test_build_snapshot_aggregates_live_run_state(tmp_path):
-    _seed_run(tmp_path)
+    _seed_run()
 
-    snapshot = build_snapshot(RUN_ID, tmp_path)
+    snapshot = build_snapshot(RUN_ID)
 
     assert snapshot["run"]["completed_tasks"] == 2
     assert snapshot["run"]["max_total_tasks"] == 50
@@ -207,7 +149,7 @@ def test_infer_activity_recognizes_cpp_candidate(tmp_path):
     attempt_dir.mkdir(parents=True)
     (attempt_dir / "solution.cpp").write_text("int main() { return 0; }\n", encoding="utf-8")
 
-    activity, detail = dashboard_module._infer_activity(task_dir, {}, {}, {})
+    activity, detail = dashboard_module._infer_activity(task_dir, None, None, None)
 
     assert activity == "Verifying candidate"
     assert "attempt_001" in detail
@@ -217,23 +159,16 @@ def test_recent_activity_links_to_evotrias_state_machine(tmp_path):
     """§5.4: Recent activity shows completed(fitness) / failed(reason) sourced
     from .evotrias/db/runs/<run_id>/task_pool.json, not just the legacy
     success log."""
-    _seed_run(tmp_path)
+    _seed_run()
 
     # Seed the evotrias task pool with a completed task (fitness) and a failed
     # task (reason). The dashboard must surface both in Recent activity.
-    pool_path = tmp_path / ".evotrias" / "db" / "runs" / RUN_ID / "task_pool.json"
-    _write_json(
-        pool_path,
-        {
-            "run_id": RUN_ID,
-            "pending": [],
-            "running": {},
-            "completed": {"task_004": {"fitness": 0.91}},
-            "failed": {"task_005": {"reason": "candidate did not compile"}},
-        },
-    )
+    with TaskPool(RUN_ID) as pool:
+        pool.running.clear()
+        pool.completed["task_004"] = TaskCompleted(fitness=0.91)
+        pool.failed["task_005"] = TaskFailed(reason="candidate did not compile")
 
-    snapshot = build_snapshot(RUN_ID, tmp_path)
+    snapshot = build_snapshot(RUN_ID)
     activity = snapshot["activity"]
     titles = {item["title"] for item in activity}
 
@@ -261,7 +196,6 @@ def test_configure_run_freezes_feature_flags_into_config(tmp_path, monkeypatch):
         captured["kwargs"] = kwargs
         return FakeDashboardServer()
 
-    monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("AGENT_EVOLVE_META_EVOLVE_ENABLED", "0")
     monkeypatch.setenv("AGENT_EVOLVE_NOTES_ENABLED", "0")
     monkeypatch.setattr(public_tools_module, "start_dashboard", fake_start_dashboard)
@@ -277,15 +211,15 @@ def test_configure_run_freezes_feature_flags_into_config(tmp_path, monkeypatch):
 
 
 def test_list_runs_returns_flat_history_for_named_and_legacy_ids(tmp_path, monkeypatch):
-    _seed_run(tmp_path)
-    history_run_id = _seed_history_run(tmp_path)
+    _seed_run()
+    history_run_id = _seed_history_run()
     monkeypatch.setattr(
         dashboard_module,
         "_utc_now",
         lambda: datetime(2026, 7, 15, 1, 4, tzinfo=timezone.utc),
     )
 
-    history = list_runs(RUN_ID, tmp_path)
+    history = list_runs(RUN_ID)
 
     assert history["current"] == RUN_ID
     assert [item["id"] for item in history["runs"]] == [RUN_ID, history_run_id]
@@ -299,8 +233,8 @@ def test_list_runs_returns_flat_history_for_named_and_legacy_ids(tmp_path, monke
 
 
 def test_dashboard_uses_next_port_and_serves_snapshot(tmp_path):
-    _seed_run(tmp_path)
-    history_run_id = _seed_history_run(tmp_path)
+    _seed_run()
+    history_run_id = _seed_history_run()
     blocker = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     blocker.bind(("127.0.0.1", 0))
     blocker.listen(1)
@@ -309,11 +243,7 @@ def test_dashboard_uses_next_port_and_serves_snapshot(tmp_path):
         blocker.close()
         return
 
-    server = DashboardServer(
-        run_id=RUN_ID,
-        workspace_root=tmp_path,
-        preferred_port=preferred,
-    ).start()
+    server = DashboardServer(run_id=RUN_ID, preferred_port=preferred).start()
     try:
         assert server.port > preferred
         with urllib.request.urlopen(f"{server.url}/api/health", timeout=3) as response:
@@ -347,13 +277,8 @@ def test_dashboard_uses_remote_bind_and_public_hosts_from_environment(tmp_path, 
     monkeypatch.setenv("AGENT_EVOLVE_UI_HOST", "0.0.0.0")
     monkeypatch.setenv("AGENT_EVOLVE_UI_PUBLIC_HOST", "gpu.example.test")
 
-    server = dashboard_module.start_dashboard(
-        RUN_ID,
-        workspace_root=tmp_path,
-        preferred_port=0,
-    )
+    server = dashboard_module.start_dashboard(RUN_ID, preferred_port=0)
     assert server is not None
-    key = (str(tmp_path.resolve()), RUN_ID)
     try:
         assert server.host == "0.0.0.0"
         assert server.public_host == "gpu.example.test"
@@ -364,27 +289,22 @@ def test_dashboard_uses_remote_bind_and_public_hosts_from_environment(tmp_path, 
             assert json.loads(response.read()) == {"status": "ok", "run_id": RUN_ID}
     finally:
         server.stop()
-        dashboard_module._servers.pop(key, None)
+        dashboard_module._servers.pop(RUN_ID, None)
 
 
 def test_dashboard_keeps_loopback_default_when_remote_hosts_are_unset(tmp_path, monkeypatch):
     monkeypatch.delenv("AGENT_EVOLVE_UI_HOST", raising=False)
     monkeypatch.delenv("AGENT_EVOLVE_UI_PUBLIC_HOST", raising=False)
 
-    server = dashboard_module.start_dashboard(
-        RUN_ID,
-        workspace_root=tmp_path,
-        preferred_port=0,
-    )
+    server = dashboard_module.start_dashboard(RUN_ID, preferred_port=0)
     assert server is not None
-    key = (str(tmp_path.resolve()), RUN_ID)
     try:
         assert server.host == dashboard_module.DEFAULT_DASHBOARD_HOST
         assert server.public_host == dashboard_module.DEFAULT_DASHBOARD_HOST
         assert server.url == f"http://127.0.0.1:{server.port}"
     finally:
         server.stop()
-        dashboard_module._servers.pop(key, None)
+        dashboard_module._servers.pop(RUN_ID, None)
 
 
 def test_dashboard_includes_robust_chart_scale_controls():

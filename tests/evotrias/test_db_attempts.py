@@ -94,3 +94,19 @@ def test_successes_maps_task_id_to_its_success_attempt():
     successes = log.successes
     assert set(successes) == {"task_001"}
     assert successes["task_001"].id == "attempt_002"
+
+
+def test_final_by_task_prefers_pool_entry_else_latest():
+    log = Attempts(RUN_ID)
+    assert log.final_by_task == {}
+    log.append(_attempt("task_001", "attempt_001", in_success_pool=True))
+    log.append(_attempt("task_002", "attempt_001", verification_result={"status": "failure"}))
+    log.append(_attempt("task_002", "attempt_002", verification_result={"status": "failure"}))
+    log.append(_attempt("task_003", "attempt_001", verification_result={"status": "failure"}))
+    log.append(_attempt("task_003", "attempt_002", in_success_pool=True))
+    log.append(_attempt("task_003", "attempt_003", verification_result={"status": "failure"}))
+    final = log.final_by_task
+    assert list(final) == ["task_001", "task_002", "task_003"]
+    assert final["task_001"].id == "attempt_001"
+    assert final["task_002"].id == "attempt_002" and not final["task_002"].in_success_pool
+    assert final["task_003"].id == "attempt_002" and final["task_003"].in_success_pool

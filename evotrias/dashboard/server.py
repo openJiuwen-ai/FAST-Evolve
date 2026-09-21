@@ -1,12 +1,14 @@
-"""Live, read-only dashboard for an Agent Evolve run.
+"""Live, read-only dashboard for an evotrias run.
 
-The dashboard deliberately reads the same filesystem artifacts used by the
-controller and scheduler.  It does not maintain a second database and it never
-participates in scheduling, so a UI failure cannot affect an evolution run.
+The dashboard reads run state through ``evotrias.db`` -- the same objects the
+controller and scheduler write -- and never writes anything, so a UI failure
+cannot affect an evolution run.  Paths are cwd-relative like everywhere else;
+the working directory is the workspace.
 """
 
 from __future__ import annotations
 
+import enum
 import json
 import math
 import os
@@ -21,6 +23,16 @@ from typing import Any, Dict, Iterable, List, Optional
 from urllib.parse import parse_qs, urlparse
 
 from evotrias.db import paths
+from evotrias.db.attempts import AttemptRecord, Attempts
+from evotrias.db.config import Config
+from evotrias.db.meta_guidance_events import MetaGuidanceEvent, MetaGuidanceEvents
+from evotrias.db.meta_guidance_state import Assignment, MetaGuidanceState
+from evotrias.db.notes import Note, Notes
+from evotrias.db.notes_events import NotesEvent, NotesEvents
+from evotrias.db.run_state import RunState
+from evotrias.db.task_contexts import TaskContext, TaskContexts
+from evotrias.db.task_pool import TaskAssigned, TaskPool
+from evotrias.logger import logger
 
 DEFAULT_DASHBOARD_HOST = "127.0.0.1"
 DEFAULT_DASHBOARD_PORT = 4000
@@ -38,21 +50,14 @@ class DashboardServer:
         self,
         *,
         run_id: str,
-        workspace_root: Path,
         host: str = DEFAULT_DASHBOARD_HOST,
         public_host: Optional[str] = None,
         preferred_port: int = DEFAULT_DASHBOARD_PORT,
     ) -> None:
         self.run_id = run_id
-        self.workspace_root = Path(workspace_root).resolve()
         self.host = host
         self.public_host = public_host or host
-        self._httpd = _bind_server(
-            run_id=run_id,
-            workspace_root=self.workspace_root,
-            host=host,
-            preferred_port=preferred_port,
-        )
+        self._httpd = _bind_server(run_id=run_id, host=host, preferred_port=preferred_port)
         self.port = int(self._httpd.server_address[1])
         self.url = f"http://{_format_url_host(self.public_host)}:{self.port}"
         self._thread = threading.Thread(
@@ -76,7 +81,7 @@ class DashboardServer:
             self._thread.join(timeout=2)
 
 
-_servers: Dict[tuple[str, str], DashboardServer] = {}
+_servers: Dict[str, DashboardServer] = {}
 _servers_lock = threading.Lock()
 
 
@@ -89,7 +94,6 @@ def dashboard_enabled() -> bool:
 def start_dashboard(
     run_id: str,
     *,
-    workspace_root: Optional[Path] = None,
     host: Optional[str] = None,
     public_host: Optional[str] = None,
     preferred_port: int = DEFAULT_DASHBOARD_PORT,
@@ -103,56 +107,46 @@ def start_dashboard(
     if not dashboard_enabled():
         return None
 
-    root = Path(workspace_root or Path.cwd()).resolve()
     bind_host = _configured_host(host, UI_HOST_ENV, DEFAULT_DASHBOARD_HOST)
     advertised_host = _configured_host(public_host, UI_PUBLIC_HOST_ENV, bind_host)
-    key = (str(root), run_id)
     with _servers_lock:
-        existing = _servers.get(key)
+        existing = _servers.get(run_id)
         if existing is not None and existing.is_alive:
             return existing
         server = DashboardServer(
             run_id=run_id,
-            workspace_root=root,
             host=bind_host,
             public_host=advertised_host,
             preferred_port=preferred_port,
         ).start()
-        _servers[key] = server
+        _servers[run_id] = server
+    logger.info(f"run {run_id}: dashboard at {server.url}")
     return server
 
 
-def build_snapshot(run_id: str, workspace_root: Path) -> Dict[str, Any]:
+def build_snapshot(run_id: str) -> Dict[str, Any]:
     """Build a compact, JSON-safe view of all user-facing run state."""
-    workspace_root = Path(workspace_root).resolve()
-    safe_run_id = _safe_name(run_id)
-    public_run_dir = workspace_root / "runs" / safe_run_id
-
-    run_state = _read_json(workspace_root / paths.run_dir(run_id) / paths.RUN_STATE, {})
-    config = _read_json(workspace_root / paths.run_dir(run_id) / paths.CONFIG, {})
-    # Task scheduling state (running/completed/failed and task→agent mapping)
-    # comes from the evotrias task pool.
-    task_pool = _read_json(workspace_root / paths.run_dir(run_id) / paths.TASK_POOL, {})
-    attempts = _read_jsonl(workspace_root / paths.run_dir(run_id) / paths.ATTEMPTS)
-    completed = _completions(attempts)
-    notes_rows = _read_jsonl(workspace_root / paths.run_dir(run_id) / paths.NOTES)
-    notes_events = _read_jsonl(workspace_root / paths.run_dir(run_id) / paths.NOTES_EVENTS)
-    meta_state = _read_json(workspace_root / paths.run_dir(run_id) / paths.META_GUIDANCE_STATE, {})
-    meta_events = _read_jsonl(workspace_root / paths.run_dir(run_id) / paths.META_GUIDANCE_EVENTS)
+    run_state = RunState(run_id)
+    config = Config(run_id)
+    pool = TaskPool(run_id)
+    attempts = list(Attempts(run_id))
+    completed = list(Attempts(run_id).final_by_task.values())
+    notes = sorted(Notes(run_id), key=lambda note: note.created_at, reverse=True)
+    note_events = list(NotesEvents(run_id))
+    meta_state = MetaGuidanceState(run_id)
+    meta_events = list(MetaGuidanceEvents(run_id))
+    task_contexts = TaskContexts(run_id).tasks
 
     attempt_index = _attempt_index(attempts)
     progress = _build_progress(completed, attempt_index)
     best = _best_record(progress, attempt_index)
-    running_map = task_pool.get("running") or {}
-    running_tasks = [str(item) for item in running_map]
-    task_contexts = _read_json(workspace_root / paths.run_dir(run_id) / paths.TASK_CONTEXTS, {}).get("tasks") or {}
+    running_tasks = list(pool.running)
     agents = _build_agents(
-        public_run_dir=public_run_dir,
-        running_tasks=running_tasks,
-        task_agents=running_map,
+        public_run_dir=paths.public_run_dir(run_id),
+        running=pool.running,
         attempts=attempts,
         task_contexts=task_contexts,
-        meta_assignments=meta_state.get("task_assignments") or {},
+        assignments=meta_state.task_assignments,
     )
     lineage = _build_lineage(
         attempts=attempts,
@@ -160,41 +154,27 @@ def build_snapshot(run_id: str, workspace_root: Path) -> Dict[str, Any]:
         running_tasks=running_tasks,
         task_contexts=task_contexts,
     )
-
-    notes = sorted(
-        [dict(note) for note in notes_rows],
-        key=lambda note: str(note.get("created_at") or ""),
-        reverse=True,
-    )
     guidance = _build_guidance(meta_state)
-    feature_flags = {
-        "meta_guidance": (config.get("meta_evolve") or {}).get("enabled"),
-        "notes": (config.get("notes") or {}).get("enabled"),
-    }
     activity = _build_activity(
-        attempts=attempts,
         completed=completed,
         attempt_index=attempt_index,
         notes=notes,
-        note_events=notes_events,
+        note_events=note_events,
         meta_events=meta_events,
-        guidance=guidance,
+        meta_state=meta_state,
+        pool=pool,
         agents=agents,
-        task_pool=task_pool,
     )
 
-    diagnostics = dict(run_state.get("diagnostics") or {})
-    numeric_completed = len(completed)
-    success_count = sum(1 for row in completed if row.get("status") == "success")
-    failed_count = sum(1 for row in completed if row.get("status") != "success")
-    max_total_tasks = _coerce_int((config.get("budget") or {}).get("max_total_tasks"))
+    diagnostics = dict(run_state.diagnostics or {})
+    success_count = sum(1 for row in completed if row.in_success_pool)
+    failed_count = len(completed) - success_count
+    max_total_tasks = config.budget.max_total_tasks if config.created_at else None
     if max_total_tasks is None:
         max_total_tasks = _coerce_int(diagnostics.get("max_total_tasks"))
-    started_at = run_state.get("created_at")
-    updated_at = run_state.get("updated_at") or _latest_timestamp(
-        [row.get("created_at") for row in attempts]
-    )
-    search_state = str(run_state.get("search_state") or "initializing")
+    started_at = run_state.created_at or None
+    updated_at = run_state.updated_at or _latest_timestamp([row.created_at for row in attempts])
+    search_state = run_state.search_state.value if run_state.created_at else "initializing"
     if search_state == "initializing" and (completed or running_tasks):
         search_state = "running"
 
@@ -203,27 +183,27 @@ def build_snapshot(run_id: str, workspace_root: Path) -> Dict[str, Any]:
         "run": {
             "id": run_id,
             "state": search_state,
-            "task_description": run_state.get("task_description") or "",
+            "task_description": run_state.task_description,
             "max_total_tasks": max_total_tasks,
-            "completed_tasks": numeric_completed,
+            "completed_tasks": len(completed),
             "successful_tasks": success_count,
             "failed_tasks": failed_count,
             "active_agents": len(agents),
             "started_at": started_at,
             "updated_at": updated_at,
             "elapsed_seconds": _elapsed_seconds(started_at, search_state),
-            "stop_reason": run_state.get("stop_reason") or diagnostics.get("stop_reason"),
+            "stop_reason": run_state.stop_reason or diagnostics.get("stop_reason"),
         },
         "progress": progress,
         "best": best,
         "agents": agents,
-        "notes": notes[:40],
+        "notes": [_note_row(note) for note in notes[:40]],
         "guidance": guidance,
         "activity": activity[:60],
         "lineage": lineage,
         "features": {
-            "meta_guidance": feature_flags.get("meta_guidance"),
-            "notes": feature_flags.get("notes"),
+            "meta_guidance": config.meta_evolve.enabled if config.created_at else None,
+            "notes": config.notes.enabled if config.created_at else None,
         },
         "diagnostics": {
             "search_state": diagnostics.get("state") or search_state,
@@ -236,7 +216,7 @@ def build_snapshot(run_id: str, workspace_root: Path) -> Dict[str, Any]:
     }
 
 
-def list_runs(current_run_id: str, workspace_root: Path) -> Dict[str, Any]:
+def list_runs(current_run_id: str) -> Dict[str, Any]:
     """Return a flat, newest-first index of persisted runs.
 
     A run exists once the controller has state for it under
@@ -244,8 +224,7 @@ def list_runs(current_run_id: str, workspace_root: Path) -> Dict[str, Any]:
     not consulted.  Keeping this index flat lets one read-only dashboard
     inspect history without mutating the active controller.
     """
-    workspace_root = Path(workspace_root).resolve()
-    runs_root = workspace_root / paths.DB_ROOT / "runs"
+    runs_root = paths.DB_ROOT / "runs"
     entries: List[Dict[str, Any]] = []
     if not runs_root.is_dir():
         return {"current": current_run_id, "runs": entries}
@@ -254,15 +233,15 @@ def list_runs(current_run_id: str, workspace_root: Path) -> Dict[str, Any]:
         if not run_dir.is_dir() or run_dir.is_symlink() or run_dir.name.startswith("."):
             continue
         run_id = run_dir.name
-        task_pool = _read_json(workspace_root / paths.run_dir(run_id) / paths.TASK_POOL, {})
-        run_state = _read_json(workspace_root / paths.run_dir(run_id) / paths.RUN_STATE, {})
-        attempts = _read_jsonl(workspace_root / paths.run_dir(run_id) / paths.ATTEMPTS)
-        completed = _completions(attempts)
+        pool = TaskPool(run_id)
+        run_state = RunState(run_id)
+        attempts = Attempts(run_id)
+        completed = list(attempts.final_by_task.values())
         successful_fitness = [
             value
-            for item in completed
-            if item.get("status") == "success"
-            for value in [_finite_float(item.get("fitness"))]
+            for row in completed
+            if row.in_success_pool
+            for value in [_finite_float(row.verification_result.get("fitness"))]
             if value is not None
         ]
         name_match = re.match(r"^(?P<label>.+)_(?P<timestamp>\d{14})$", run_id)
@@ -270,13 +249,7 @@ def list_runs(current_run_id: str, workspace_root: Path) -> Dict[str, Any]:
             modified_at = datetime.fromtimestamp(run_dir.stat().st_mtime, timezone.utc).isoformat()
         except OSError:
             modified_at = None
-        updated_at = _latest_timestamp(
-            [
-                run_state.get("updated_at"),
-                run_state.get("created_at"),
-                modified_at,
-            ]
-        )
+        updated_at = _latest_timestamp([run_state.updated_at, run_state.created_at, modified_at])
         updated_time = _parse_time(updated_at)
         recently_updated = bool(
             updated_time and (_utc_now() - updated_time).total_seconds() <= 15 * 60
@@ -286,17 +259,13 @@ def list_runs(current_run_id: str, workspace_root: Path) -> Dict[str, Any]:
                 "id": run_id,
                 "label": name_match.group("label") if name_match else run_id,
                 "timestamp": name_match.group("timestamp") if name_match else None,
-                "status": (
-                    "running"
-                    if (task_pool.get("running") or {}) and recently_updated
-                    else "stopped"
-                ),
+                "status": "running" if pool.running and recently_updated else "stopped",
                 "completed_tasks": len(completed),
                 "attempts": len(attempts),
                 "best_fitness": max(successful_fitness) if successful_fitness else None,
-                "started_at": run_state.get("created_at"),
+                "started_at": run_state.created_at or None,
                 "updated_at": updated_at,
-                "task_description": run_state.get("task_description") or "",
+                "task_description": run_state.task_description,
                 "is_launch_run": run_id == current_run_id,
             }
         )
@@ -317,14 +286,8 @@ class _DashboardHTTPServer(ThreadingHTTPServer):
     allow_reuse_address = False
 
 
-def _bind_server(
-    *,
-    run_id: str,
-    workspace_root: Path,
-    host: str,
-    preferred_port: int,
-) -> _DashboardHTTPServer:
-    handler = _handler_factory(run_id, workspace_root)
+def _bind_server(*, run_id: str, host: str, preferred_port: int) -> _DashboardHTTPServer:
+    handler = _handler_factory(run_id)
     if preferred_port == 0:
         return _DashboardHTTPServer((host, 0), handler)
     last_error: Optional[OSError] = None
@@ -333,13 +296,14 @@ def _bind_server(
             return _DashboardHTTPServer((host, port), handler)
         except OSError as exc:
             last_error = exc
+            logger.debug(f"run {run_id}: dashboard port {port} busy, trying next")
     raise RuntimeError(
         f"No dashboard port available on {host} in "
         f"{preferred_port}-{preferred_port + DASHBOARD_PORT_SEARCH_LIMIT - 1}"
     ) from last_error
 
 
-def _handler_factory(run_id: str, workspace_root: Path) -> type[BaseHTTPRequestHandler]:
+def _handler_factory(run_id: str) -> type[BaseHTTPRequestHandler]:
     static_root = Path(__file__).with_name("static")
 
     class Handler(BaseHTTPRequestHandler):
@@ -353,18 +317,19 @@ def _handler_factory(run_id: str, workspace_root: Path) -> type[BaseHTTPRequestH
                 self._json({"status": "ok", "run_id": run_id})
                 return
             if path == "/api/runs":
-                self._json(list_runs(run_id, workspace_root))
+                self._json(list_runs(run_id))
                 return
             if path == "/api/snapshot":
                 requested_run_id = str(query.get("run_id", [run_id])[0])
-                selected_run_id = _available_run_id(requested_run_id, workspace_root)
+                selected_run_id = _available_run_id(requested_run_id)
                 if selected_run_id is None:
+                    logger.warning(f"dashboard: snapshot requested for unknown run {requested_run_id!r}")
                     self._json(
                         {"error": "run not found", "run_id": requested_run_id},
                         status=HTTPStatus.NOT_FOUND,
                     )
                     return
-                self._json(build_snapshot(selected_run_id, workspace_root))
+                self._json(build_snapshot(selected_run_id))
                 return
             asset_map = {
                 "/": ("index.html", "text/html; charset=utf-8"),
@@ -375,10 +340,12 @@ def _handler_factory(run_id: str, workspace_root: Path) -> type[BaseHTTPRequestH
             }
             asset = asset_map.get(path)
             if asset is None:
+                logger.warning(f"dashboard: 404 {path}")
                 self.send_error(HTTPStatus.NOT_FOUND)
                 return
             file_path = static_root / asset[0]
             if not file_path.exists():
+                logger.warning(f"dashboard: asset missing {file_path}")
                 self.send_error(HTTPStatus.NOT_FOUND, "Dashboard asset missing")
                 return
             payload = file_path.read_bytes()
@@ -414,10 +381,10 @@ def _handler_factory(run_id: str, workspace_root: Path) -> type[BaseHTTPRequestH
 
 def _build_lineage(
     *,
-    attempts: List[Dict[str, Any]],
-    completed: List[Dict[str, Any]],
+    attempts: List[AttemptRecord],
+    completed: List[AttemptRecord],
     running_tasks: List[str],
-    task_contexts: Dict[str, Any],
+    task_contexts: Dict[str, TaskContext],
 ) -> Dict[str, Any]:
     """Build a task-level lineage DAG for the read-only dashboard.
 
@@ -425,52 +392,54 @@ def _build_lineage(
     represents a stable task node across retries. Active tasks are included
     before their first attempt so the graph advances in real time.
     """
-    latest_by_task: Dict[str, Dict[str, Any]] = {}
+    latest_by_task: Dict[str, AttemptRecord] = {}
     for attempt in attempts:
-        task_id = str(attempt.get("task_id") or "")
-        if task_id:
-            latest_by_task[task_id] = attempt
+        if attempt.task_id:
+            latest_by_task[attempt.task_id] = attempt
 
-    completed_by_task = {
-        str(item.get("task_id") or ""): item for item in completed if item.get("task_id")
-    }
-    running = {str(task_id) for task_id in running_tasks}
+    completed_by_task = {row.task_id: row for row in completed if row.task_id}
+    running = set(running_tasks)
     task_ids = set(latest_by_task) | running
     nodes_by_id: Dict[str, Dict[str, Any]] = {}
 
     for task_id in task_ids:
-        attempt = latest_by_task.get(task_id) or {}
-        context = task_contexts.get(task_id) or {}
-        completion = completed_by_task.get(task_id) or {}
-        verification = dict(attempt.get("verification_result") or {})
+        attempt = latest_by_task.get(task_id)
+        context = task_contexts.get(task_id)
+        completion = completed_by_task.get(task_id)
+        verification = dict(attempt.verification_result or {}) if attempt else {}
         fitness = _finite_float(verification.get("fitness"))
-        if fitness is None:
-            fitness = _finite_float(completion.get("fitness"))
+        if fitness is None and completion is not None and completion.in_success_pool:
+            fitness = _finite_float(completion.verification_result.get("fitness"))
 
-        raw_status = str(verification.get("status") or completion.get("status") or "")
+        raw_status = str(verification.get("status") or "")
+        if not raw_status and completion is not None:
+            raw_status = "success" if completion.in_success_pool else "failure"
         status = "running" if task_id in running else raw_status.lower() or "pending"
         if status == "success" and fitness is None:
             status = "failure"
 
-        parent_id = attempt.get("parent_id", context.get("parent_id"))
-        inspiration_ids = attempt.get("inspiration_ids")
-        if inspiration_ids is None:
-            inspiration_ids = context.get("inspiration_ids") or []
+        if attempt is not None:
+            parent_id = attempt.parent_id
+            inspiration_ids = attempt.inspiration_ids
+        else:
+            parent_id = context.parent_id if context else None
+            inspiration_ids = context.inspiration_ids if context else []
 
         nodes_by_id[task_id] = {
             "id": task_id,
             "task_id": task_id,
-            "attempt_id": attempt.get("id"),
+            "attempt_id": attempt.id if attempt else None,
             "parent_id": str(parent_id) if parent_id else None,
             "inspiration_ids": list(dict.fromkeys(str(item) for item in inspiration_ids if item)),
-            "generation": _coerce_int(attempt.get("generation")),
+            "generation": attempt.generation if attempt else None,
             "fitness": fitness,
             "status": status,
-            "created_at": attempt.get("created_at") or context.get("created_at"),
-            "artifact_ref": attempt.get("artifact_ref") or completion.get("artifact_ref"),
-            "meta_guidance_id": attempt.get("meta_guidance_id") or context.get("meta_guidance_id"),
+            "created_at": attempt.created_at if attempt else None,
+            "artifact_ref": attempt.artifact_ref if attempt else (completion.artifact_ref if completion else None),
+            "meta_guidance_id": (attempt.meta_guidance_id if attempt else None)
+            or (context.meta_guidance_id if context else None),
             "summary": str(
-                attempt.get("sketch")
+                (attempt.sketch if attempt else None)
                 or verification.get("summary")
                 or verification.get("feedback")
                 or ""
@@ -569,20 +538,15 @@ def _build_lineage(
 
 
 def _build_progress(
-    completed: List[Dict[str, Any]],
-    attempt_index: Dict[str, Dict[str, Any]],
+    completed: List[AttemptRecord],
+    attempt_index: Dict[str, AttemptRecord],
 ) -> List[Dict[str, Any]]:
     rows: List[Dict[str, Any]] = []
     best_so_far: Optional[float] = None
     for index, completion in enumerate(completed, start=1):
-        artifact_ref = str(completion.get("artifact_ref") or "")
-        attempt = (
-            attempt_index.get(artifact_ref)
-            or attempt_index.get(str(completion.get("task_id") or ""))
-            or {}
-        )
-        fitness = _finite_float(completion.get("fitness"))
-        status = str(completion.get("status") or "unknown")
+        attempt = attempt_index.get(completion.artifact_ref) or attempt_index.get(completion.task_id) or completion
+        fitness = _finite_float(completion.verification_result.get("fitness")) if completion.in_success_pool else None
+        status = "success" if completion.in_success_pool else "failure"
         is_new_best = False
         if status == "success" and fitness is not None:
             if best_so_far is None or fitness > best_so_far:
@@ -591,15 +555,15 @@ def _build_progress(
         rows.append(
             {
                 "index": index,
-                "task_id": str(completion.get("task_id") or ""),
-                "attempt_id": attempt.get("id"),
+                "task_id": completion.task_id,
+                "attempt_id": attempt.id,
                 "status": status,
                 "fitness": fitness,
                 "best_so_far": best_so_far,
                 "is_new_best": is_new_best,
-                "artifact_ref": artifact_ref,
-                "created_at": attempt.get("created_at"),
-                "meta_guidance_id": attempt.get("meta_guidance_id"),
+                "artifact_ref": completion.artifact_ref,
+                "created_at": attempt.created_at,
+                "meta_guidance_id": attempt.meta_guidance_id,
             }
         )
     return rows
@@ -607,65 +571,55 @@ def _build_progress(
 
 def _best_record(
     progress: List[Dict[str, Any]],
-    attempt_index: Dict[str, Dict[str, Any]],
+    attempt_index: Dict[str, AttemptRecord],
 ) -> Optional[Dict[str, Any]]:
     candidates = [row for row in progress if row.get("fitness") is not None]
     if not candidates:
         return None
     winner = max(candidates, key=lambda row: float(row["fitness"]))
-    attempt = attempt_index.get(str(winner.get("artifact_ref") or "")) or {}
-    verification = dict(attempt.get("verification_result") or {})
+    attempt = attempt_index.get(str(winner.get("artifact_ref") or ""))
+    verification = dict(attempt.verification_result or {}) if attempt else {}
     return {
         **winner,
         "metrics": verification.get("metrics") or {},
         "profile": verification.get("profile") or {},
-        "generation": attempt.get("generation"),
-        "parent_id": attempt.get("parent_id"),
-        "inspiration_ids": attempt.get("inspiration_ids") or [],
+        "generation": attempt.generation if attempt else None,
+        "parent_id": attempt.parent_id if attempt else None,
+        "inspiration_ids": list(attempt.inspiration_ids) if attempt else [],
     }
 
 
 def _build_agents(
     *,
     public_run_dir: Path,
-    running_tasks: List[str],
-    task_agents: Dict[str, Any],
-    attempts: List[Dict[str, Any]],
-    task_contexts: Dict[str, Any],
-    meta_assignments: Dict[str, Any],
+    running: Dict[str, TaskAssigned],
+    attempts: List[AttemptRecord],
+    task_contexts: Dict[str, TaskContext],
+    assignments: Dict[str, Assignment],
 ) -> List[Dict[str, Any]]:
-    latest_by_task: Dict[str, Dict[str, Any]] = {}
+    latest_by_task: Dict[str, AttemptRecord] = {}
     for attempt in attempts:
-        task_id = str(attempt.get("task_id") or "")
-        if task_id:
-            latest_by_task[task_id] = attempt
+        if attempt.task_id:
+            latest_by_task[attempt.task_id] = attempt
 
     agents: List[Dict[str, Any]] = []
-    for task_id in running_tasks:
-        mapping = task_agents.get(task_id) or {}
-        if isinstance(mapping, str):
-            mapping = {"agent_id": mapping}
-        latest = latest_by_task.get(task_id) or {}
-        context = task_contexts.get(task_id) or {}
-        guidance_assignment = meta_assignments.get(task_id) or {}
-        activity, detail = _infer_activity(
-            public_run_dir / "tasks" / task_id,
-            latest,
-            context,
-            guidance_assignment,
-        )
+    for task_id, held in running.items():
+        latest = latest_by_task.get(task_id)
+        context = task_contexts.get(task_id)
+        assignment = assignments.get(task_id)
+        activity, detail = _infer_activity(public_run_dir / "tasks" / task_id, latest, context, assignment)
         agents.append(
             {
                 "task_id": task_id,
-                "agent_id": mapping.get("agent_id") or latest.get("subagent_id") or "pending-id",
+                "agent_id": held.agent_id or (latest.subagent_id if latest else "") or "pending-id",
                 "status": "active",
                 "activity": activity,
                 "detail": detail,
-                "launched_at": mapping.get("launched_at"),
-                "latest_attempt": latest.get("id"),
-                "meta_guidance_id": guidance_assignment.get("guidance_id"),
-                "parent_id": context.get("parent_id"),
-                "inspiration_count": len(context.get("inspiration_ids") or []),
+                "launched_at": held.at,
+                "latest_attempt": latest.id if latest else None,
+                "meta_guidance_id": assignment.guidance_id if assignment else None,
+                "parent_id": context.parent_id if context else None,
+                "inspiration_count": len(context.inspiration_ids) if context else 0,
             }
         )
     return agents
@@ -673,14 +627,16 @@ def _build_agents(
 
 def _infer_activity(
     task_dir: Path,
-    latest_attempt: Dict[str, Any],
-    context: Dict[str, Any],
-    guidance_assignment: Dict[str, Any],
+    latest_attempt: Optional[AttemptRecord],
+    context: Optional[TaskContext],
+    assignment: Optional[Assignment],
 ) -> tuple[str, str]:
-    verification = dict(latest_attempt.get("verification_result") or {})
+    verification = dict(latest_attempt.verification_result or {}) if latest_attempt else {}
     if str(verification.get("status") or "") == "failure":
         return "Debugging candidate", "A failed attempt was recorded; preparing the next fix."
 
+    # The agent workspace under runs/<run_id>/ is the only thing the dashboard
+    # reads outside db: whether the newest attempt dir has a candidate yet.
     attempts_dir = task_dir / "attempts"
     attempt_dirs = (
         sorted((path for path in attempts_dir.iterdir() if path.is_dir()), reverse=True)
@@ -696,59 +652,62 @@ def _infer_activity(
             return "Verifying candidate", f"{newest.name} is ready for evaluation."
         if not candidate_exists:
             return "Generating candidate", f"Building {newest.name}."
-    if guidance_assignment:
-        guidance_id = guidance_assignment.get("guidance_id") or "meta-guidance"
-        return "Applying meta-guidance", f"Implementing {guidance_id}."
-    if context.get("parent_id") is not None or context.get("inspiration_ids"):
+    if assignment is not None:
+        return "Applying meta-guidance", f"Implementing {assignment.guidance_id or 'meta-guidance'}."
+    if context is not None and (context.parent_id is not None or context.inspiration_ids):
         return "Developing candidate", "Parent and inspiration context selected."
     if task_dir.exists():
         return "Exploring direction", "Preparing a new candidate approach."
     return "Selecting context", "Choosing parent, inspirations, and run-local knowledge."
 
 
-def _build_guidance(meta_state: Dict[str, Any]) -> List[Dict[str, Any]]:
+def _build_guidance(meta_state: MetaGuidanceState) -> List[Dict[str, Any]]:
     items: List[Dict[str, Any]] = []
-    for status_key, normalized_status in (
-        ("active_guidance", "active"),
-        ("tried_guidance", "tried"),
-    ):
-        for raw in meta_state.get(status_key) or []:
-            item = dict(raw)
-            item["lifecycle"] = normalized_status
-            items.append(item)
-    pending = meta_state.get("pending_request")
-    if pending:
-        current_best = dict(pending.get("current_best") or {})
+    for guidance_list, lifecycle in ((meta_state.active_guidance, "active"), (meta_state.tried_guidance, "tried")):
+        for guidance in guidance_list:
+            items.append(
+                {
+                    "guidance_id": guidance.guidance_id,
+                    "idea": guidance.idea,
+                    "description": guidance.description,
+                    "created_at": guidance.created_at,
+                    "best_fitness_at_creation": guidance.best_fitness_at_creation,
+                    "lifecycle": lifecycle,
+                    "uses": guidance.uses,
+                    "max_uses": guidance.max_uses,
+                    "status": guidance.status,
+                    "outcome": guidance.outcome,
+                    "anchor_parent_id": guidance.anchor_parent_id,
+                    "approach_type": guidance.approach_type,
+                }
+            )
+    pending = meta_state.pending_request
+    if pending is not None:
         items.append(
             {
-                "guidance_id": pending.get("request_id"),
+                "guidance_id": pending.request_id,
                 "idea": "Meta-guidance generation requested",
                 "description": "The controller detected a plateau and requested a new strategy.",
-                "created_at": pending.get("created_at"),
-                "best_fitness_at_creation": current_best.get("fitness"),
+                "created_at": pending.created_at,
+                "best_fitness_at_creation": pending.current_best.get("fitness"),
                 "lifecycle": "pending",
                 "uses": 0,
                 "max_uses": None,
             }
         )
-    return sorted(
-        items,
-        key=lambda item: str(item.get("created_at") or ""),
-        reverse=True,
-    )
+    return sorted(items, key=lambda item: str(item.get("created_at") or ""), reverse=True)
 
 
 def _build_activity(
     *,
-    attempts: List[Dict[str, Any]],
-    completed: List[Dict[str, Any]],
-    attempt_index: Dict[str, Dict[str, Any]],
-    notes: List[Dict[str, Any]],
-    note_events: List[Dict[str, Any]],
-    meta_events: List[Dict[str, Any]],
-    guidance: List[Dict[str, Any]],
+    completed: List[AttemptRecord],
+    attempt_index: Dict[str, AttemptRecord],
+    notes: List[Note],
+    note_events: List[NotesEvent],
+    meta_events: List[MetaGuidanceEvent],
+    meta_state: MetaGuidanceState,
+    pool: TaskPool,
     agents: List[Dict[str, Any]],
-    task_pool: Dict[str, Any] | None = None,
 ) -> List[Dict[str, Any]]:
     events: List[Dict[str, Any]] = []
     for agent in agents:
@@ -757,194 +716,151 @@ def _build_activity(
                 "kind": "agent",
                 "title": f"{agent['task_id']} · {agent['activity']}",
                 "detail": f"Agent {agent['agent_id']} — {agent['detail']}",
-                "timestamp": agent.get("launched_at") or _now_iso(),
+                "timestamp": agent["launched_at"] or _now_iso(),
                 "live": True,
             }
         )
     # State-machine outcomes from the evotrias task pool.
-    pool = task_pool or {}
-    pool_completed = pool.get("completed") or {}
-    pool_failed = pool.get("failed") or {}
-    for task_id, payload in pool_completed.items():
-        fitness = _finite_float((payload or {}).get("fitness"))
-        attempt = attempt_index.get(str(task_id)) or {}
+    for task_id, done in pool.completed.items():
+        attempt = attempt_index.get(task_id)
         events.append(
             {
                 "kind": "task",
                 "title": f"{task_id} completed",
-                "detail": f"Fitness {_format_fitness(fitness)}",
-                "timestamp": attempt.get("created_at"),
+                "detail": f"Fitness {_format_fitness(_finite_float(done.fitness))}",
+                "timestamp": attempt.created_at if attempt else done.at,
                 "status": "success",
             }
         )
-    for task_id, payload in pool_failed.items():
-        reason = str((payload or {}).get("reason") or "")
-        attempt = attempt_index.get(str(task_id)) or {}
+    for task_id, failed in pool.failed.items():
+        attempt = attempt_index.get(task_id)
         events.append(
             {
                 "kind": "task",
                 "title": f"{task_id} failed",
-                "detail": reason or "Task failed without a recorded reason.",
-                "timestamp": attempt.get("created_at"),
+                "detail": failed.reason or "Task failed without a recorded reason.",
+                "timestamp": attempt.created_at if attempt else failed.at,
                 "status": "failed",
             }
         )
     # Per-task outcomes derived from attempts, deduped against the pool above.
-    covered = set(pool_completed) | set(pool_failed)
+    covered = set(pool.completed) | set(pool.failed)
     for row in completed[-30:]:
-        task_id = str(row.get("task_id") or "")
-        if task_id in covered:
+        if row.task_id in covered:
             continue
-        attempt = attempt_index.get(str(row.get("artifact_ref") or "")) or {}
-        fitness = _finite_float(row.get("fitness"))
+        fitness = _finite_float(row.verification_result.get("fitness")) if row.in_success_pool else None
         events.append(
             {
                 "kind": "task",
-                "title": f"{row.get('task_id')} completed",
+                "title": f"{row.task_id} completed",
                 "detail": (
                     f"Fitness {_format_fitness(fitness)}"
-                    if row.get("status") == "success"
+                    if row.in_success_pool
                     else "Task finished without a valid candidate"
                 ),
-                "timestamp": attempt.get("created_at"),
-                "status": row.get("status"),
+                "timestamp": row.created_at,
+                "status": "success" if row.in_success_pool else "failure",
             }
         )
     for note in notes[:15]:
         events.append(
             {
                 "kind": "note",
-                "title": note.get("title") or "Run-local note recorded",
-                "detail": note.get("lesson") or note.get("actionable_guidance") or "",
-                "timestamp": note.get("created_at"),
-                "status": note.get("note_type"),
+                "title": note.title or "Run-local note recorded",
+                "detail": note.lesson or note.actionable_guidance or "",
+                "timestamp": note.created_at,
+                "status": note.note_type,
             }
         )
     for event in note_events[-12:]:
-        if event.get("event_type") == "note_committed":
+        if event.event_type == "note_committed":
             continue
-        payload = event.get("payload") or {}
         events.append(
             {
                 "kind": "system",
-                "title": str(event.get("event_type") or "Notes event").replace("_", " ").title(),
-                "detail": payload.get("reason") or "Notes policy updated.",
-                "timestamp": event.get("created_at") or event.get("timestamp"),
+                "title": (event.event_type or "Notes event").replace("_", " ").title(),
+                "detail": event.payload.get("reason") or "Notes policy updated.",
+                "timestamp": event.created_at,
             }
         )
     for event in meta_events[-20:]:
-        event_type = str(event.get("event_type") or "")
-        if event_type not in {"assigned", "recorded"}:
+        if event.event_type not in {"assigned", "recorded"}:
             continue
-        payload = event.get("payload") or {}
+        payload = event.payload
         events.append(
             {
                 "kind": "guidance",
                 "title": (
                     f"{payload.get('guidance_id')} assigned to {payload.get('task_id')}"
-                    if event_type == "assigned"
+                    if event.event_type == "assigned"
                     else f"{payload.get('guidance_id')} outcome recorded"
                 ),
                 "detail": (
                     f"Fitness {_format_fitness(_finite_float(payload.get('fitness')))}"
-                    if event_type == "recorded"
+                    if event.event_type == "recorded"
                     else "A new strategy is being tested."
                 ),
-                "timestamp": event.get("created_at"),
-                "status": event_type,
+                "timestamp": event.created_at,
+                "status": event.event_type,
             }
         )
-    for item in guidance[:8]:
-        if item.get("lifecycle") not in {"pending", "active"}:
-            continue
+    for guidance in meta_state.active_guidance[:8]:
         events.append(
             {
                 "kind": "guidance",
-                "title": item.get("idea") or item.get("guidance_id"),
-                "detail": item.get("description") or "Meta-guidance is active.",
-                "timestamp": item.get("created_at"),
-                "status": item.get("lifecycle"),
+                "title": guidance.idea or guidance.guidance_id,
+                "detail": guidance.description or "Meta-guidance is active.",
+                "timestamp": guidance.created_at,
+                "status": "active",
+            }
+        )
+    pending = meta_state.pending_request
+    if pending is not None:
+        events.append(
+            {
+                "kind": "guidance",
+                "title": "Meta-guidance generation requested",
+                "detail": "The controller detected a plateau and requested a new strategy.",
+                "timestamp": pending.created_at,
+                "status": "pending",
             }
         )
     return sorted(events, key=_activity_sort_key, reverse=True)
 
 
-def _attempt_index(attempts: Iterable[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
-    index: Dict[str, Dict[str, Any]] = {}
+def _note_row(note: Note) -> Dict[str, Any]:
+    return {
+        "note_id": note.note_id,
+        "note_type": note.note_type,
+        "title": note.title,
+        "lesson": note.lesson,
+        "actionable_guidance": note.actionable_guidance,
+        "evidence_summary": note.evidence_summary,
+        "confidence": note.confidence,
+        "created_at": note.created_at,
+    }
+
+
+def _attempt_index(attempts: Iterable[AttemptRecord]) -> Dict[str, AttemptRecord]:
+    index: Dict[str, AttemptRecord] = {}
     for attempt in attempts:
-        artifact_ref = str(attempt.get("artifact_ref") or "")
-        task_id = str(attempt.get("task_id") or "")
-        if artifact_ref:
-            index[artifact_ref] = attempt
-        if task_id:
-            index[task_id] = attempt
+        if attempt.artifact_ref:
+            index[attempt.artifact_ref] = attempt
+        if attempt.task_id:
+            index[attempt.task_id] = attempt
     return index
 
 
-def _available_run_id(run_id: str, workspace_root: Path) -> Optional[str]:
+def _available_run_id(run_id: str) -> Optional[str]:
     """Resolve a run that has controller state, without allowing path traversal."""
     requested = str(run_id).strip()
-    safe = _safe_name(requested)
+    safe = paths._safe_name(requested)
     if not requested or safe != requested:
         return None
-    run_dir = Path(workspace_root).resolve() / paths.run_dir(safe)
+    run_dir = paths.run_dir(safe)
     if not run_dir.is_dir() or run_dir.is_symlink():
         return None
     return safe
-
-
-def _read_json(path: Path, default: Dict[str, Any]) -> Dict[str, Any]:
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-        return data if isinstance(data, dict) else default
-    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
-        return default
-
-
-def _completions(attempts: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """One outcome row per finished task, derived from the attempt log.
-
-    A task succeeded iff one of its attempts entered the success pool; otherwise its
-    last attempt stands for the failure.  Rows keep the shape the progress and
-    lineage builders expect: task_id, fitness, status, artifact_ref.
-    """
-    final: Dict[str, Dict[str, Any]] = {}
-    for attempt in attempts:
-        task_id = str(attempt.get("task_id") or "")
-        if not task_id:
-            continue
-        if attempt.get("in_success_pool") or task_id not in final or not final[task_id].get("in_success_pool"):
-            final[task_id] = attempt
-    rows = []
-    for task_id, attempt in final.items():
-        verification = attempt.get("verification_result") or {}
-        success = bool(attempt.get("in_success_pool"))
-        rows.append(
-            {
-                "task_id": task_id,
-                "fitness": verification.get("fitness") if success else None,
-                "status": "success" if success else "failure",
-                "artifact_ref": attempt.get("artifact_ref") or "",
-            }
-        )
-    return rows
-
-
-def _read_jsonl(path: Path) -> List[Dict[str, Any]]:
-    rows: List[Dict[str, Any]] = []
-    try:
-        with path.open("r", encoding="utf-8") as handle:
-            for line in handle:
-                try:
-                    row = json.loads(line)
-                except json.JSONDecodeError:
-                    # An append may be in flight while the UI polls.
-                    continue
-                if isinstance(row, dict):
-                    rows.append(row)
-    except (OSError, UnicodeDecodeError):
-        pass
-    return rows
 
 
 def _finite_float(value: Any) -> Optional[float]:
@@ -1002,19 +918,16 @@ def _format_fitness(value: Optional[float]) -> str:
 
 
 def _json_safe(value: Any) -> Any:
-    """Replace non-finite numbers in nested verifier metrics with null."""
+    """Replace non-finite numbers with null and enums with their values."""
     if isinstance(value, float):
         return value if math.isfinite(value) else None
+    if isinstance(value, enum.Enum):
+        return value.value
     if isinstance(value, dict):
         return {str(key): _json_safe(item) for key, item in value.items()}
     if isinstance(value, (list, tuple)):
         return [_json_safe(item) for item in value]
     return value
-
-
-def _safe_name(value: str) -> str:
-    safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", str(value).strip())
-    return safe or "default"
 
 
 def _configured_host(value: Optional[str], env_name: str, default: str) -> str:
@@ -1042,7 +955,7 @@ def main() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(description="Serve an EvoTrias run dashboard.")
-    parser.add_argument("run_id", help="Run id under runs/ and controller state.")
+    parser.add_argument("run_id", help="Run id under .evotrias/db/runs/ (relative to cwd).")
     parser.add_argument(
         "--host",
         default=None,
@@ -1054,11 +967,9 @@ def main() -> None:
         help=f"Public URL host (default: ${UI_PUBLIC_HOST_ENV} or bind address).",
     )
     parser.add_argument("--port", type=int, default=DEFAULT_DASHBOARD_PORT)
-    parser.add_argument("--workspace", type=Path, default=Path.cwd())
     args = parser.parse_args()
     server = start_dashboard(
         args.run_id,
-        workspace_root=args.workspace,
         host=args.host,
         public_host=args.public_host,
         preferred_port=args.port,
