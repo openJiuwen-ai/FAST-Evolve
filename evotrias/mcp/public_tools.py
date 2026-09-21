@@ -7,20 +7,55 @@ argument filled in.  ``configure_run`` is the exception — it assembles the
 two flat dicts the controller expects and starts the optional dashboard.
 
 Python wrapper names keep an ``evolve_*`` prefix for direct-import
-compatibility (tests call ``public_tools_module.evolve_*``); the explicit
-``name=`` given to ``@mcp.tool`` is the registered, prefix-free tool name.
+compatibility (tests call ``public_tools_module.evolve_*``); the registered
+name is the prefix-free one passed to ``register_tool``.
+
+Every tool goes through ``register_tool``: it logs inputs/outputs at DEBUG,
+logs failures at ERROR, and re-raises so the exception travels FastMCP's
+normal error channel.
 """
 
 from __future__ import annotations
 
-from typing import Any, Dict
+import functools
+import time
+from typing import Any, Callable, Dict
 
 from evotrias.evolve_ctrl import controller as ctrl
 from evotrias.dashboard.server import start_dashboard
+from evotrias.logger import logger
 from evotrias.mcp.mcp_server import mcp
 
 
-@mcp.tool(name="configure_run", run_in_thread=False)
+def register_tool(name: str) -> Callable:
+    """Register an ``evolve_*`` function as an MCP tool with logging.
+
+    The tool docstring is the agent-facing description; the function body is
+    forwarded untouched.  Inputs, output and duration are logged at DEBUG, and
+    an exception is logged at ERROR with the traceback, then re-raised so
+    FastMCP surfaces it through the protocol error channel.
+    """
+
+    def decorator(fn: Callable) -> Callable:
+        @functools.wraps(fn)
+        def guarded(*args: Any, **kwargs: Any) -> Any:
+            logger.debug(f"tool {name} <- args={args!r} kwargs={kwargs!r}")
+            started = time.monotonic()
+            try:
+                result = fn(*args, **kwargs)
+            except Exception as exc:
+                logger.error(f"tool {name} failed: {type(exc).__name__}: {exc}", exc_info=True)
+                raise
+            elapsed = time.monotonic() - started
+            logger.debug(f"tool {name} -> {result!r} took {elapsed:.3f}s")
+            return result
+
+        return mcp.tool(name=name, run_in_thread=False)(guarded)
+
+    return decorator
+
+
+@register_tool("configure_run")
 def evolve_configure_run(
     run_id: str,
     max_total_tasks: int = 50,
@@ -55,7 +90,7 @@ def evolve_configure_run(
     }
 
 
-@mcp.tool(name="select_parent", run_in_thread=False)
+@register_tool("select_parent")
 def evolve_select_parent(run_id: str, task_id: str) -> Dict[str, Any]:
     """Select a parent and return its id/ref, fitness, and evaluator metrics.
 
@@ -65,7 +100,7 @@ def evolve_select_parent(run_id: str, task_id: str) -> Dict[str, Any]:
     return ctrl.select_parent(run_id, task_id)
 
 
-@mcp.tool(name="select_inspirations", run_in_thread=False)
+@register_tool("select_inspirations")
 def evolve_select_inspirations(run_id: str, task_id: str) -> Dict[str, Any]:
     """Select extra inspiration refs with fitness and evaluator metrics.
 
@@ -75,7 +110,7 @@ def evolve_select_inspirations(run_id: str, task_id: str) -> Dict[str, Any]:
     return ctrl.select_inspirations(run_id, task_id)
 
 
-@mcp.tool(name="record_attempt", run_in_thread=False)
+@register_tool("record_attempt")
 def evolve_record_attempt(
     run_id: str,
     task_id: str,
@@ -100,13 +135,13 @@ def evolve_record_attempt(
     )
 
 
-@mcp.tool(name="get_notes_prompt", run_in_thread=False)
+@register_tool("get_notes_prompt")
 def evolve_get_notes_prompt(run_id: str, task_id: str) -> Dict[str, Any]:
     """Return run-local Notes as a ready-to-inject prompt section."""
     return ctrl.get_notes_prompt(run_id, task_id)
 
 
-@mcp.tool(name="commit_generated_note", run_in_thread=False)
+@register_tool("commit_generated_note")
 def evolve_commit_generated_note(
     run_id: str,
     note_request_id: str,
@@ -116,7 +151,7 @@ def evolve_commit_generated_note(
     return ctrl.commit_generated_note(run_id, note_request_id, generated_note_json)
 
 
-@mcp.tool(name="get_meta_guidance_request", run_in_thread=False)
+@register_tool("get_meta_guidance_request")
 def evolve_get_meta_guidance_request(
     run_id: str,
     request_id: str = "",
@@ -125,7 +160,7 @@ def evolve_get_meta_guidance_request(
     return ctrl.get_meta_guidance_request(run_id, request_id)
 
 
-@mcp.tool(name="commit_meta_guidance", run_in_thread=False)
+@register_tool("commit_meta_guidance")
 def evolve_commit_meta_guidance(
     run_id: str,
     request_id: str,
@@ -135,13 +170,13 @@ def evolve_commit_meta_guidance(
     return ctrl.commit_meta_guidance(run_id, request_id, guidance_json)
 
 
-@mcp.tool(name="get_meta_guidance_prompt", run_in_thread=False)
+@register_tool("get_meta_guidance_prompt")
 def evolve_get_meta_guidance_prompt(run_id: str, task_id: str) -> Dict[str, Any]:
     """Return a ready-to-inject meta-guidance prompt section for a task."""
     return ctrl.get_meta_guidance_prompt(run_id, task_id)
 
 
-@mcp.tool(name="check_convergence", run_in_thread=False)
+@register_tool("check_convergence")
 def evolve_check_convergence(
     run_id: str,
     concurrency: int,
@@ -158,7 +193,7 @@ def evolve_check_convergence(
     return ctrl.check_convergence(run_id, concurrency)
 
 
-@mcp.tool(name="finalize_run", run_in_thread=False)
+@register_tool("finalize_run")
 def evolve_finalize_run(run_id: str, stop_reason: str = "") -> Dict[str, Any]:
     """Write deterministic run summary artifacts and return only refs.
 
