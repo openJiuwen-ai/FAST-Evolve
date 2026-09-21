@@ -7,7 +7,8 @@ place with ``os.replace`` so readers never see a partial file.
 
 Reads are tolerant: a missing file yields the default silently (a first run
 is normal), a corrupt JSON file yields the default with a warning, and a
-malformed JSONL line is skipped with a warning.
+malformed JSONL line is skipped with a warning.  Every write logs one debug
+line with the path and the size written.
 """
 
 from __future__ import annotations
@@ -67,6 +68,7 @@ def write_json_atomic(path: Path, data: Dict[str, Any]) -> None:
         encoding="utf-8",
     )
     os.replace(tmp, path)
+    logger.debug(f"write_json_atomic: {path} ({path.stat().st_size} bytes)")
 
 
 def append_jsonl(path: Path, row: Dict[str, Any]) -> None:
@@ -74,3 +76,4 @@ def append_jsonl(path: Path, row: Dict[str, Any]) -> None:
     line = json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n"
     with path.open("a", encoding="utf-8") as handle:
         handle.write(line)
+    logger.debug(f"append_jsonl: {path} +{len(line.encode('utf-8'))} bytes")

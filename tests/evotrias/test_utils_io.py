@@ -19,6 +19,15 @@ def test_write_json_atomic_leaves_no_tmp_files(tmp_path, log):
     assert [p.name for p in tmp_path.iterdir()] == ["state.json"]
 
 
+def test_write_json_atomic_logs_debug_with_path_and_size(tmp_path, log):
+    path = tmp_path / "state.json"
+    io.write_json_atomic(path, {"k": "v"})
+    debugs = log.messages("debug")
+    assert len(debugs) == 1
+    assert "state.json" in debugs[0]
+    assert f"{path.stat().st_size} bytes" in debugs[0]
+
+
 def test_read_json_missing_file_returns_default_silently(tmp_path, log):
     default = {"fresh": True}
     assert io.read_json(tmp_path / "absent.json", default) is default
@@ -47,6 +56,15 @@ def test_append_jsonl_preserves_order(tmp_path, log):
         io.append_jsonl(path, {"i": i})
     assert io.read_jsonl(path) == [{"i": 0}, {"i": 1}, {"i": 2}]
     assert log.warnings == []
+
+
+def test_append_jsonl_logs_debug_per_row(tmp_path, log):
+    path = tmp_path / "events.jsonl"
+    for i in range(3):
+        io.append_jsonl(path, {"i": i})
+    debugs = log.messages("debug")
+    assert len(debugs) == 3
+    assert all("events.jsonl" in msg and "bytes" in msg for msg in debugs)
 
 
 def test_read_jsonl_skips_malformed_lines_with_warning(tmp_path, log):

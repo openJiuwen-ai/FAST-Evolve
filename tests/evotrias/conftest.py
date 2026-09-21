@@ -4,16 +4,32 @@ from evotrias.utils import io
 
 
 class _Recorder:
-    def __init__(self):
-        self.warnings: list[str] = []
+    """Stand-in for ``evotrias.logger.logger`` that keeps every message by level."""
 
-    def warning(self, msg, **kwargs):
-        self.warnings.append(msg)
+    def __init__(self):
+        self.records: list[tuple[str, str]] = []
+
+    def messages(self, level: str) -> list[str]:
+        return [msg for lvl, msg in self.records if lvl == level]
+
+    @property
+    def warnings(self) -> list[str]:
+        return self.messages("warning")
 
     def debug(self, msg, **kwargs):
-        pass
+        self.records.append(("debug", msg))
 
-    info = error = critical = debug
+    def info(self, msg, **kwargs):
+        self.records.append(("info", msg))
+
+    def warning(self, msg, **kwargs):
+        self.records.append(("warning", msg))
+
+    def error(self, msg, **kwargs):
+        self.records.append(("error", msg))
+
+    def critical(self, msg, **kwargs):
+        self.records.append(("critical", msg))
 
 
 @pytest.fixture
