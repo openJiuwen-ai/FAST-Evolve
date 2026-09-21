@@ -326,3 +326,21 @@ def test_dblist_enum_fields_round_trip_as_values(tmp_path, log):
     assert json.loads((tmp_path / "tagged.jsonl").read_text(encoding="utf-8"))["color"] == "blue"
     [got] = list(log_store)
     assert got.color is _Color.BLUE
+
+
+# --- _rebuild: JSON that does not match the hint is returned as-is ----------
+
+
+def test_rebuild_returns_mismatched_json_as_is_for_dataclass_field(tmp_path, log):
+    path = tmp_path / "state.json"
+    path.write_text(json.dumps({"inner": "oops", "label": "L"}), encoding="utf-8")
+    reloaded = _Outer(path)
+    assert reloaded.inner == "oops"
+    assert reloaded.label == "L"
+
+
+def test_rebuild_returns_mismatched_json_as_is_for_list_field(tmp_path, log):
+    path = tmp_path / "nest.json"
+    path.write_text(json.dumps({"many": {"x": 1}}), encoding="utf-8")
+    reloaded = _Nest(path)
+    assert reloaded.many == {"x": 1}
