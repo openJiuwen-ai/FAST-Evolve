@@ -226,7 +226,7 @@ def _dashboard_ref(run_id: str) -> Dict[str, Any]:
         return {
             "enabled": False,
             "started": False,
-            "reason": "AGENT_EVOLVE_UI_ENABLED disables automatic startup.",
+            "reason": "EVOTRIAS_UI_ENABLED disables automatic startup.",
         }
     return {
         "enabled": True,

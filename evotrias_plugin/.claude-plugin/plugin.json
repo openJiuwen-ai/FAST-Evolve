@@ -1,5 +1,5 @@
 {
-  "name": "agent_evolve_plugin",
+  "name": "evotrias_plugin",
   "description": "Evolution Controller plugin providing skills for memory compression and architecture documentation",
   "version": "1.0.0",
   "author": {

@@ -222,12 +222,8 @@ __marimo__/
 .wiki/
 wiki/
 
-# Local MCP smoke-test state
-agent_evolve_smoke_*/
-.agent_evolve_smoke*/
-
 # Local self-evolution runtime state
-.agent_evolve/
+.evotrias/
 runs/
 
 .claude/settings.local.json
@@ -242,5 +238,3 @@ uv.lock
 .vscode/
 
 azy_demo/
-
-.evotrias/

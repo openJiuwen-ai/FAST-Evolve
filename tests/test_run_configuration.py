@@ -23,8 +23,8 @@ RUN_ID = "run_shape_test"
 @pytest.fixture
 def run_env(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("AGENT_EVOLVE_UI_ENABLED", "0")
-    monkeypatch.setenv("AGENT_EVOLVE_NOTES_ENABLED", "0")
+    monkeypatch.setenv("EVOTRIAS_UI_ENABLED", "0")
+    monkeypatch.setenv("EVOTRIAS_NOTES_ENABLED", "0")
     yield
 
 

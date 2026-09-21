@@ -54,7 +54,7 @@ def _multipart_body(
     filename: str,
     content: bytes,
 ) -> tuple[bytes, str]:
-    boundary = f"----AgentEvolve{uuid.uuid4().hex}"
+    boundary = f"----EvoTrias{uuid.uuid4().hex}"
     chunks: list[bytes] = []
     for key, value in fields.items():
         chunks.extend(

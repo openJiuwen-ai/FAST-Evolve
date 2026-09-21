@@ -90,7 +90,7 @@ references.
 
 Run-local Notes are enabled by default. The run owner may disable them for the
 whole MCP process by setting environment variable
-`AGENT_EVOLVE_NOTES_ENABLED=0` before starting the run.
+`EVOTRIAS_NOTES_ENABLED=0` before starting the run.
 
 Call MCP tool `get_notes_prompt` with:
 - run_id

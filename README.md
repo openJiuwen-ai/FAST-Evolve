@@ -113,13 +113,13 @@ source .venv/bin/activate
 Then start Claude Code with the EvoTrias workflow and benchmark plugins:
 
 ```powershell
-claude --plugin-dir agent_evolve_plugin --plugin-dir benchmarks
+claude --plugin-dir evotrias_plugin --plugin-dir benchmarks
 ```
 
 Then submit an evolution task:
 
 ```text
-/agent_evolve_plugin:evolve run the circle_packing benchmark end to end.
+/evotrias_plugin:evolve run the circle_packing benchmark end to end.
 ```
 
 EvoTrias creates a named run under `runs/`, launches the dashboard, explores
@@ -130,7 +130,7 @@ configured task or time budget is exhausted.
 
 ```text
 evotrias/               Core package: scheduler, hooks, and the controller MCP (evotrias/mcp)
-agent_evolve_plugin/    Workflow skills and task-executor agents
+evotrias_plugin/        Workflow skills and task-executor agents
 benchmarks/             Benchmark skills, evaluators, and references
 docs/                   Integration guides
 tests/                  Testcases
@@ -138,7 +138,7 @@ tests/                  Testcases
 
 The controller MCP tool contract is documented in [docs/mcp_interface.md](docs/mcp_interface.md).
 
-Runtime artifacts are written to the gitignored `runs/` and `.agent_evolve/`
+Runtime artifacts are written to the gitignored `runs/` and `.evotrias/`
 directories. Each completed run includes machine-readable results and a concise
 Markdown summary.
 
@@ -160,23 +160,21 @@ The three scheduling values above can be stated in the evolve request (for
 example "6 initial directions, 8 in parallel, 200 tasks"); they will be confirmed before 
 creating the run and locked when a run is initialized.
 
-Set these environment variables before starting the MCP process:
+Set these environment variables before starting the MCP process; they are
+resolved once by `configure_run` and frozen into the run's `config.json`:
 
 ```powershell
 # Disable meta-guidance while retaining plateau diagnostics and normal selection.
-$env:AGENT_EVOLVE_META_EVOLVE_ENABLED = "0"
+$env:EVOTRIAS_META_EVOLVE_ENABLED = "0"
 
 # Disable run-local Notes.
-$env:AGENT_EVOLVE_NOTES_ENABLED = "0"
+$env:EVOTRIAS_NOTES_ENABLED = "0"
 
 # Disable automatic dashboard startup.
-$env:AGENT_EVOLVE_UI_ENABLED = "0"
+$env:EVOTRIAS_UI_ENABLED = "0"
 
 # Treat relative best-fitness improvement below 1% as plateau.
-$env:AGENT_EVOLVE_PERF_IMPROVEMENT_THRESHOLD = "0.01"
-
-# Store controller state outside the default project-local directory.
-$env:AGENT_EVOLVE_CONTROLLER_DIR = "D:\evotrias-state"
+$env:EVOTRIAS_PERF_IMPROVEMENT_THRESHOLD = "0.01"
 ```
 
 Hard task and time budgets remain active independently of plateau detection.
@@ -184,44 +182,42 @@ Hard task and time budgets remain active independently of plateau detection.
 For remote access, set these before starting EvoTrias:
 
 ```bash
-export AGENT_EVOLVE_UI_HOST=0.0.0.0
-export AGENT_EVOLVE_UI_PUBLIC_HOST="<HOST_OR_IP>"
+export EVOTRIAS_UI_HOST=0.0.0.0
+export EVOTRIAS_UI_PUBLIC_HOST="<HOST_OR_IP>"
 ```
 
 Use the URL printed by EvoTrias. Leave these variables unset for local-only access.
 
 ## Run Artifacts
 
-EvoTrias separates user-facing run outputs from controller-owned state:
+EvoTrias separates the agent workspace from controller-owned state. Both are
+relative to the working directory:
 
 ```text
-runs/<run_id>/
-  completed_tasks.jsonl
-  dashboard.json
-  tasks/<task_id>/attempts/<attempt_id>/solution.py  # or solution.cpp
+runs/<run_id>/                                        agent workspace
+  tasks/<task_id>/direction.txt                       written by init-explorer
+  tasks/<task_id>/attempts/<attempt_id>/solution.py   written by task-executor (or solution.cpp)
   tasks/<task_id>/attempts/<attempt_id>/eval_result.json
-  run_summary.md
+  run_summary.md                                      written by finalize_run
   run_summary.json
 ```
 
 ```text
-.agent_evolve/controller/<run_id>/
-  success_db.json
-  attempts.jsonl
-  task_contexts.json
-  run_state.json
-  notes.json
-  meta_guidance/meta_guidance_state.json
-  meta_guidance/meta_guidance_uses.jsonl
+.evotrias/
+  db/runs/<run_id>/   controller state (config, run state, attempts, notes, meta-guidance, task pool)
+  hooks/              hook-private state
+  locks/              cross-process locks
+  logs/               MCP process logs
 ```
 
-Both locations are local runtime state and are ignored by Git. Share the final
-summaries or a curated benchmark report instead of committing complete run
-directories.
+The per-run state files are listed in [docs/mcp_interface.md](docs/mcp_interface.md)
+(section 3). Both locations are local runtime state and are ignored by Git. Share
+the final summaries or a curated benchmark report instead of committing complete
+run directories.
 
 ## Development
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\python.exe -m compileall evotrias agent_evolve_plugin benchmarks
+.\.venv\Scripts\python.exe -m compileall evotrias evotrias_plugin benchmarks
 ```

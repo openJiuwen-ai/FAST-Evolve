@@ -9,12 +9,12 @@ from evotrias.hooks import hook_manager
 from evotrias.logger import logger
 from evotrias import scheduler
 
-_CONFIGURE_RUN_TOOL = "mcp__plugin_agent_evolve_plugin_ctrl__configure_run"
+_CONFIGURE_RUN_TOOL = "mcp__plugin_evotrias_plugin_evotrias__configure_run"
 
 _AGENT_TYPE_MAP: dict[str, Agents] = {
-    "agent_evolve_plugin:task-executor": Agents.TASK_EXECUTOR,
-    "agent_evolve_plugin:init-explorer": Agents.INIT_EXPLORER,
-    "agent_evolve_plugin:meta-guidance-generator": Agents.META_GUIDANCE_GENERATOR,
+    "evotrias_plugin:task-executor": Agents.TASK_EXECUTOR,
+    "evotrias_plugin:init-explorer": Agents.INIT_EXPLORER,
+    "evotrias_plugin:meta-guidance-generator": Agents.META_GUIDANCE_GENERATOR,
 }
 
 

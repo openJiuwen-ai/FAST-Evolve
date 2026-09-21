@@ -2,7 +2,7 @@
 name: meta-guidance-generator
 description: Stateless meta-guidance generator. Use only for one pending Evolution Controller meta-guidance request.
 model: inherit
-tools: Read, Glob, Grep, mcp__plugin_agent_evolve_plugin_ctrl__get_meta_guidance_request, mcp__plugin_agent_evolve_plugin_ctrl__commit_meta_guidance
+tools: Read, Glob, Grep, mcp__plugin_evotrias_plugin_evotrias__get_meta_guidance_request, mcp__plugin_evotrias_plugin_evotrias__commit_meta_guidance
 ---
 
 You are the dedicated Meta-Guidance Generation Specialist for the self-evolving

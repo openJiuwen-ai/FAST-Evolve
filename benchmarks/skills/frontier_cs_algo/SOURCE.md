@@ -12,7 +12,7 @@ path: examples/frontier_cs_algo/<problem_id>/seed/
 Per-problem names and runtime metadata were extracted from the sibling
 `task.yaml` files. `suite_manifest.json` records the resulting problem IDs and
 SHA-256 hashes. The import deliberately excludes CORAL's grader package because
-this benchmark uses one shared AgentEvolve evaluator.
+this benchmark uses one shared EvoTrias evaluator.
 
 The source files are copied byte-for-byte. This preserves the exact public
 task material in the referenced CORAL checkout, including any source-side text

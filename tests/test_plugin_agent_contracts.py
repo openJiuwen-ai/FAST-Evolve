@@ -11,7 +11,7 @@ from fastmcp import Client
 from evotrias.mcp import mcp, public_tools
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-PLUGIN_ROOT = REPO_ROOT / "agent_evolve_plugin"
+PLUGIN_ROOT = REPO_ROOT / "evotrias_plugin"
 MASTER_SKILL = PLUGIN_ROOT / "skills" / "evolve" / "SKILL.md"
 TASK_SKILL = PLUGIN_ROOT / "skills" / "evolve-task-exec" / "SKILL.md"
 INIT_AGENT = PLUGIN_ROOT / "agents" / "init-explorer.md"
@@ -40,8 +40,8 @@ PUBLIC_TOOL_NAMES = {
 PYTHON_WRAPPER_NAMES = {
     f"evolve_{tool_name}": tool_name for tool_name in PUBLIC_TOOL_NAMES
 }
-MCP_SERVER_NAME = "ctrl"
-MCP_TOOL_PREFIX = "mcp__plugin_agent_evolve_plugin_ctrl__"
+MCP_SERVER_NAME = "evotrias"
+MCP_TOOL_PREFIX = "mcp__plugin_evotrias_plugin_evotrias__"
 GET_REQUEST_TOOL = f"{MCP_TOOL_PREFIX}get_meta_guidance_request"
 COMMIT_GUIDANCE_TOOL = f"{MCP_TOOL_PREFIX}commit_meta_guidance"
 
@@ -123,8 +123,8 @@ def test_complete_claude_tool_names_fit_without_hash_aliases():
     mcp_config = json.loads(MCP_CONFIG.read_text(encoding="utf-8"))
     server_names = set(mcp_config["mcpServers"])
 
-    assert mcp.name == "agent_evolve"
-    assert manifest["name"] == "agent_evolve_plugin"
+    assert mcp.name == "evotrias"
+    assert manifest["name"] == "evotrias_plugin"
     assert server_names == {MCP_SERVER_NAME}
 
     complete_names = {
@@ -246,16 +246,15 @@ def test_orchestrator_uses_aligned_evotrias_dashboard_banner():
 
     assert "┌─ 🦖 EvoTrias UI" in master
     assert "└─ 🖥️  <dashboard.url>" in master
-    assert "🚀 AGENT EVOLVE UI" not in master
 
 
 def test_orchestrator_forbids_worktree_isolation_for_persistent_workers():
     master = MASTER_SKILL.read_text(encoding="utf-8")
 
     for agent_name in (
-        "agent_evolve_plugin:init-explorer",
-        "agent_evolve_plugin:task-executor",
-        "agent_evolve_plugin:meta-guidance-generator",
+        "evotrias_plugin:init-explorer",
+        "evotrias_plugin:task-executor",
+        "evotrias_plugin:meta-guidance-generator",
     ):
         assert agent_name in master
     assert "MUST NOT contain an `isolation` field" in master
@@ -286,7 +285,7 @@ def test_shared_workspace_hook_strips_isolation_for_persistent_workers():
             "isolation": "worktree",
             "model": "sonnet",
             "prompt": "run_id: example",
-            "subagent_type": "agent_evolve_plugin:init-explorer",
+            "subagent_type": "evotrias_plugin:init-explorer",
         },
     }
 

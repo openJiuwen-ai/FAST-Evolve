@@ -23,9 +23,9 @@ The dispatch prompt MUST be produced by filling in the appropriate template belo
 
 ### Main-Repository Dispatch Constraint (ALL subagent dispatches)
 
-Every dispatch to `agent_evolve_plugin:init-explorer`,
-`agent_evolve_plugin:task-executor`, or
-`agent_evolve_plugin:meta-guidance-generator` MUST run in the main repository
+Every dispatch to `evotrias_plugin:init-explorer`,
+`evotrias_plugin:task-executor`, or
+`evotrias_plugin:meta-guidance-generator` MUST run in the main repository
 working directory. The `Agent` input MUST NOT contain an `isolation` field:
 omit it entirely, rather than setting `"worktree"`, `"remote"`, or any other
 isolation mode. All persistent artifacts,
@@ -134,12 +134,12 @@ parameters. They are independent knobs — never derive one from another:
 
 ## Step 1.5: Generate Initial Exploration Directions
 
-Invoke the `agent_evolve_plugin:init-explorer` agent using the **init-explorer dispatch template** (see Dispatch Template Constraint in Orchestrator Boundary Constraint section). Fill in:
+Invoke the `evotrias_plugin:init-explorer` agent using the **init-explorer dispatch template** (see Dispatch Template Constraint in Orchestrator Boundary Constraint section). Fill in:
 - `run_id`: the current run_id
 - `task_description`: the user's original input verbatim
 - `num_directions`: `LINEAGE_ROOT_NUMBER`
 
-Wait for `agent_evolve_plugin:init-explorer` to complete before proceeding to Step 2.
+Wait for `evotrias_plugin:init-explorer` to complete before proceeding to Step 2.
 
 ---
 
@@ -241,13 +241,13 @@ Fitness is always maximized. `best_fitness` MUST be `convergence.diagnostics.cur
 8. Success and failure both count as task completion. Both should trigger a `check_convergence` call. Do not stop replenishment on failure.
 9. Every task-executor dispatch MUST set `run_in_background: true` and include `max_attempts` (10 for the first `LINEAGE_ROOT_NUMBER` dispatches — the root tasks — and 3 thereafter).
 10. Plateau, WATCHING, `request_meta_guidance`, and failed meta-guidance generation are NOT stop signals.
-11. The orchestrator must never retrieve the pending meta-guidance payload, read its artifact/evaluator evidence, generate the guidance JSON, or commit it. It passes only `run_id` and `request_id` to `agent_evolve_plugin:meta-guidance-generator`.
+11. The orchestrator must never retrieve the pending meta-guidance payload, read its artifact/evaluator evidence, generate the guidance JSON, or commit it. It passes only `run_id` and `request_id` to `evotrias_plugin:meta-guidance-generator`.
 12. Never print or repeat the meta worker's request payload or guidance. Its compact result is the only worker content allowed in orchestrator context.
 
 ### Meta-Guidance Worker Dispatch
 
 When `check_convergence` returns `action == "request_meta_guidance"`, invoke
-`agent_evolve_plugin:meta-guidance-generator` with the exact dispatch template
+`evotrias_plugin:meta-guidance-generator` with the exact dispatch template
 (fill: `run_id`, `request_id` from `c.request_id`). Pass only the two 
 identifiers; the worker retrieves the persisted request and commits its own 
 output. Wait in the foreground so a successful commit becomes active before 

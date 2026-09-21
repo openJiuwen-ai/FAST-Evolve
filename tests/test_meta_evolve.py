@@ -174,7 +174,7 @@ def test_hard_budget_still_stops(tmp_path, monkeypatch):
 
 
 def test_retries_do_not_consume_task_budget(tmp_path, monkeypatch):
-    monkeypatch.setenv("AGENT_EVOLVE_NOTES_ENABLED", "0")
+    monkeypatch.setenv("EVOTRIAS_NOTES_ENABLED", "0")
     run_id = _run(tmp_path, monkeypatch, max_total_tasks=3)
 
     for index in range(1, 4):
@@ -205,7 +205,7 @@ def test_retries_do_not_consume_task_budget(tmp_path, monkeypatch):
 
 
 def test_second_success_for_same_task_does_not_reenter_pool(tmp_path, monkeypatch):
-    monkeypatch.setenv("AGENT_EVOLVE_NOTES_ENABLED", "0")
+    monkeypatch.setenv("EVOTRIAS_NOTES_ENABLED", "0")
     run_id = _run(tmp_path, monkeypatch, max_total_tasks=5)
 
     def record(attempt_id: str, fitness: float):

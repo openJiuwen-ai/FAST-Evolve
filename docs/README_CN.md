@@ -104,13 +104,13 @@ source .venv/bin/activate
 然后加载 EvoTrias 工作流与基准插件并启动 Claude Code：
 
 ```powershell
-claude --plugin-dir agent_evolve_plugin --plugin-dir benchmarks
+claude --plugin-dir evotrias_plugin --plugin-dir benchmarks
 ```
 
 然后提交进化任务：
 
 ```text
-/agent_evolve_plugin:evolve run the circle_packing benchmark end to end.
+/evotrias_plugin:evolve run the circle_packing benchmark end to end.
 ```
 
 EvoTrias 会在 `runs/` 下创建具名运行，启动仪表盘，探索多个初始方向，并持续调度
@@ -120,7 +120,7 @@ EvoTrias 会在 `runs/` 下创建具名运行，启动仪表盘，探索多个�
 
 ```text
 evotrias/               核心包：调度、hooks 与控制器 MCP（evotrias/mcp）
-agent_evolve_plugin/    工作流技能与任务执行智能体
+evotrias_plugin/        工作流技能与任务执行智能体
 benchmarks/             基准技能、评估器与参考资料
 docs/                   集成指南
 tests/                  测试用例
@@ -128,7 +128,7 @@ tests/                  测试用例
 
 控制器 MCP 的工具契约见 [docs/mcp_interface_CN.md](mcp_interface_CN.md)。
 
-运行产物保存在 Git 忽略的 `runs/` 和 `.agent_evolve/` 目录中。每次完成的运行都会
+运行产物保存在 Git 忽略的 `runs/` 和 `.evotrias/` 目录中。每次完成的运行都会
 生成机器可读结果和简洁的 Markdown 总结。
 
 ## 默认设置与运行时开关
@@ -148,52 +148,56 @@ tests/                  测试用例
 上表前三个调度参数可以直接写在进化请求里（例如"6 initial directions, 8 in parallel, 200 tasks"）；
 它们会在创建运行前得到确认，并在运行初始化后锁定。
 
-下列环境变量需要在 MCP 进程启动前设置：
+下列环境变量需要在 MCP 进程启动前设置；它们由 `configure_run` 一次性解析并固化到该 run 的
+`config.json`：
 
 ```powershell
 # 关闭元指导，但保留停滞诊断和正常选择逻辑。
-$env:AGENT_EVOLVE_META_EVOLVE_ENABLED = "0"
+$env:EVOTRIAS_META_EVOLVE_ENABLED = "0"
 
 # 关闭本轮 Notes。
-$env:AGENT_EVOLVE_NOTES_ENABLED = "0"
+$env:EVOTRIAS_NOTES_ENABLED = "0"
 
 # 关闭仪表盘自动启动。
-$env:AGENT_EVOLVE_UI_ENABLED = "0"
+$env:EVOTRIAS_UI_ENABLED = "0"
 
 # 将低于 1% 的相对最优适应度提升视为停滞。
-$env:AGENT_EVOLVE_PERF_IMPROVEMENT_THRESHOLD = "0.01"
-
-# 将控制器状态保存到项目默认目录之外。
-$env:AGENT_EVOLVE_CONTROLLER_DIR = "D:\evotrias-state"
+$env:EVOTRIAS_PERF_IMPROVEMENT_THRESHOLD = "0.01"
 ```
 
 无论是否检测到停滞，任务预算和时间预算始终有效。
 
+如需远程访问仪表盘，在启动 EvoTrias 前设置：
+
+```bash
+export EVOTRIAS_UI_HOST=0.0.0.0
+export EVOTRIAS_UI_PUBLIC_HOST="<HOST_OR_IP>"
+```
+
+使用 EvoTrias 打印的 URL 访问。仅本机访问时不要设置这两个变量。
+
 ## 运行产物
 
-EvoTrias 将面向用户的运行输出与控制器内部状态分开保存：
+EvoTrias 将 agent 工作区与控制器内部状态分开保存，两者都相对当前工作目录：
 
 ```text
-runs/<run_id>/
-  completed_tasks.jsonl
-  dashboard.json
-  tasks/<task_id>/attempts/<attempt_id>/solution.py  # 或 solution.cpp
+runs/<run_id>/                                        agent 工作区
+  tasks/<task_id>/direction.txt                       由 init-explorer 写入
+  tasks/<task_id>/attempts/<attempt_id>/solution.py   由 task-executor 写入（或 solution.cpp）
   tasks/<task_id>/attempts/<attempt_id>/eval_result.json
-  run_summary.md
+  run_summary.md                                      由 finalize_run 写入
   run_summary.json
 ```
 
 ```text
-.agent_evolve/controller/<run_id>/
-  success_db.json
-  attempts.jsonl
-  task_contexts.json
-  run_state.json
-  notes.json
-  meta_guidance/meta_guidance_state.json
-  meta_guidance/meta_guidance_uses.jsonl
+.evotrias/
+  db/runs/<run_id>/   控制器状态（config、run state、attempts、notes、meta-guidance、task pool）
+  hooks/              hook 私有状态
+  locks/              跨进程锁
+  logs/               MCP 进程日志
 ```
 
+每个 run 的状态文件清单见 [docs/mcp_interface_CN.md](mcp_interface_CN.md) 第 3 节。
 这两个位置都属于本地运行状态，并已被 Git 忽略。需要分享结果时，应使用最终总结或
 经过整理的基准报告，而不是提交完整运行目录。
 
@@ -201,5 +205,5 @@ runs/<run_id>/
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\python.exe -m compileall evotrias agent_evolve_plugin benchmarks
+.\.venv\Scripts\python.exe -m compileall evotrias evotrias_plugin benchmarks
 ```

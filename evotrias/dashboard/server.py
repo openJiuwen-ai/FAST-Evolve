@@ -37,9 +37,9 @@ from evotrias.logger import logger
 DEFAULT_DASHBOARD_HOST = "127.0.0.1"
 DEFAULT_DASHBOARD_PORT = 4000
 DASHBOARD_PORT_SEARCH_LIMIT = 100
-UI_ENABLED_ENV = "AGENT_EVOLVE_UI_ENABLED"
-UI_HOST_ENV = "AGENT_EVOLVE_UI_HOST"
-UI_PUBLIC_HOST_ENV = "AGENT_EVOLVE_UI_PUBLIC_HOST"
+UI_ENABLED_ENV = "EVOTRIAS_UI_ENABLED"
+UI_HOST_ENV = "EVOTRIAS_UI_HOST"
+UI_PUBLIC_HOST_ENV = "EVOTRIAS_UI_PUBLIC_HOST"
 FALSE_ENV_VALUES = {"0", "false", "off", "no", "disabled"}
 
 
@@ -307,7 +307,7 @@ def _handler_factory(run_id: str) -> type[BaseHTTPRequestHandler]:
     static_root = Path(__file__).with_name("static")
 
     class Handler(BaseHTTPRequestHandler):
-        server_version = "AgentEvolveDashboard/1.0"
+        server_version = "EvoTriasDashboard/1.0"
 
         def do_GET(self) -> None:  # noqa: N802 - stdlib callback name
             parsed = urlparse(self.path)
@@ -975,7 +975,7 @@ def main() -> None:
         preferred_port=args.port,
     )
     if server is None:
-        raise SystemExit("Dashboard startup is disabled by AGENT_EVOLVE_UI_ENABLED.")
+        raise SystemExit("Dashboard startup is disabled by EVOTRIAS_UI_ENABLED.")
     print(f"EvoTrias UI: {server.url}", flush=True)
     try:
         while True:

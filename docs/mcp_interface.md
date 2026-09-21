@@ -50,7 +50,7 @@ Notes:
   finished); the latter caps in-flight tasks in every phase. Neither is derived
   from the other; both default to 4 and are clamped to at least 1.
 - The three numeric knobs are written to `config.json` together with every
-  other run setting. Environment overrides (`AGENT_EVOLVE_*`; the list is in
+  other run setting. Environment overrides (`EVOTRIAS_*`; the list is in
   the top-level README under "Defaults and Runtime Switches") are resolved once
   at this moment and frozen into the file, so the persisted config is the
   complete configuration for the rest of the run.

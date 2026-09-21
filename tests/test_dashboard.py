@@ -196,8 +196,8 @@ def test_configure_run_freezes_feature_flags_into_config(tmp_path, monkeypatch):
         captured["kwargs"] = kwargs
         return FakeDashboardServer()
 
-    monkeypatch.setenv("AGENT_EVOLVE_META_EVOLVE_ENABLED", "0")
-    monkeypatch.setenv("AGENT_EVOLVE_NOTES_ENABLED", "0")
+    monkeypatch.setenv("EVOTRIAS_META_EVOLVE_ENABLED", "0")
+    monkeypatch.setenv("EVOTRIAS_NOTES_ENABLED", "0")
     monkeypatch.setattr(public_tools_module, "start_dashboard", fake_start_dashboard)
 
     result = public_tools_module.evolve_configure_run(run_id, max_total_tasks=20)
@@ -274,8 +274,8 @@ def test_dashboard_uses_next_port_and_serves_snapshot(tmp_path):
 
 
 def test_dashboard_uses_remote_bind_and_public_hosts_from_environment(tmp_path, monkeypatch):
-    monkeypatch.setenv("AGENT_EVOLVE_UI_HOST", "0.0.0.0")
-    monkeypatch.setenv("AGENT_EVOLVE_UI_PUBLIC_HOST", "gpu.example.test")
+    monkeypatch.setenv("EVOTRIAS_UI_HOST", "0.0.0.0")
+    monkeypatch.setenv("EVOTRIAS_UI_PUBLIC_HOST", "gpu.example.test")
 
     server = dashboard_module.start_dashboard(RUN_ID, preferred_port=0)
     assert server is not None
@@ -293,8 +293,8 @@ def test_dashboard_uses_remote_bind_and_public_hosts_from_environment(tmp_path, 
 
 
 def test_dashboard_keeps_loopback_default_when_remote_hosts_are_unset(tmp_path, monkeypatch):
-    monkeypatch.delenv("AGENT_EVOLVE_UI_HOST", raising=False)
-    monkeypatch.delenv("AGENT_EVOLVE_UI_PUBLIC_HOST", raising=False)
+    monkeypatch.delenv("EVOTRIAS_UI_HOST", raising=False)
+    monkeypatch.delenv("EVOTRIAS_UI_PUBLIC_HOST", raising=False)
 
     server = dashboard_module.start_dashboard(RUN_ID, preferred_port=0)
     assert server is not None

@@ -34,7 +34,7 @@ configure_run(
 
 - 必须在同一 run 的其他 controller MCP tool 之前调用。
 - `lineage_root_number` 与 `max_concurrent_tasks` 是两个独立的旋钮：前者决定初始探索方向数量，是根任务总数的上限（根任务全部结束前不会创建演化任务）；后者决定所有阶段的并行 task 上限。二者互不推导，默认都是 4，最小钳到 1。
-- 三个数值参数连同其余全部 run 设置写入 `config.json`。环境变量覆盖（`AGENT_EVOLVE_*`，清单见顶层 README 的 "Defaults and Runtime Switches" 一节）在此时一次性解析并固化进文件，之后整个 run 都以该文件为完整配置。
+- 三个数值参数连同其余全部 run 设置写入 `config.json`。环境变量覆盖（`EVOTRIAS_*`，清单见顶层 README 的 "Defaults and Runtime Switches" 一节）在此时一次性解析并固化进文件，之后整个 run 都以该文件为完整配置。
 - `task_description` 保存在 `run_state.json`，供后续 meta-guidance request 使用。
 - 同一 `run_id` 重复调用会被忽略，返回已锁定的配置且 `configured: false`（包括其他进程已配置、落盘的情况）。
 - 可选的 dashboard 在此启动，状态在 `dashboard` 字段返回，启动失败不影响 run。
