@@ -1,11 +1,14 @@
-"""Public MCP tool registration.
+"""MCP tool registration for evotrias.
 
-This module is the only layer that should expose FastMCP tools.  Each function
-keeps the public schema small and delegates immediately to the internal
-controller. The separation is intentional: MCP callers see compact operations,
-while algorithms and persistence remain ordinary Python modules. Python wrapper
-names retain their ``evolve_*`` prefix for direct-import compatibility; explicit
-MCP registration names omit that redundant prefix.
+This is the only layer that exposes FastMCP tools, and it stays a thin shell:
+each tool declares the agent-facing contract (argument names, defaults,
+docstring) and forwards to ``evotrias.evolve_ctrl.controller`` with every
+argument filled in.  ``configure_run`` is the exception — it assembles the
+two flat dicts the controller expects and starts the optional dashboard.
+
+Python wrapper names keep an ``evolve_*`` prefix for direct-import
+compatibility (tests call ``public_tools_module.evolve_*``); the explicit
+``name=`` given to ``@mcp.tool`` is the registered, prefix-free tool name.
 """
 
 from __future__ import annotations
@@ -27,12 +30,10 @@ def evolve_configure_run(
 ) -> Dict[str, Any]:
     """Configure evolution run parameters before starting tasks.
 
-    Must be called BEFORE any other controller tool for the same run_id.
-    Subsequent calls for the same run_id are ignored (the configuration
-    is locked after the first call). ``lineage_root_number`` caps the root
-    phase: at most that many tasks are minted (one root per exploration
-    direction) and all must finish before evolution tasks start.
-    ``max_concurrent_tasks`` is the in-flight task target in every phase.
+    Must be called BEFORE any other controller tool for the same run_id;
+    the first call writes ``config.json`` and later calls are ignored (the
+    configuration is locked). Returns ``configured``, a ``message``, and the
+    recorded knobs.
     """
     configured, config, message = ctrl.configure_run(
         run_id,
