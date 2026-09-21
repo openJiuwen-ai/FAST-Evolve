@@ -102,14 +102,14 @@ class LineageAwareParentSelector:
             fitnesses = [stats.best_fitness for stats in all_stats.values()]
             min_fitness = min(fitnesses)
             max_fitness = max(fitnesses)
-            scores = {}
+            scores: dict[str, float] = {}
             for root_id, stats in all_stats.items():
                 normalized_quality = (stats.best_fitness - min_fitness) / (
                     max_fitness - min_fitness + 1e-9
                 )
                 quality_bonus = 1.0 + self.quality_bonus_strength * normalized_quality
                 scores[root_id] = deficits[root_id] * quality_bonus
-            return max(scores, key=scores.get)
+            return max(scores, key=lambda root_id: scores[root_id])
 
         return self._roulette(deficits)
 

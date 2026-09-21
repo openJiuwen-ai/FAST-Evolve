@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Callable
+from typing import Any, Callable, TypeVar
 
 from evotrias.db.agent_index import AgentInfo
 from evotrias.enums import Agents, Decisions, Tools
@@ -9,10 +9,11 @@ from evotrias.permissions.handler_base import Handler, DEFAULT_ALLOW_REASON
 
 
 _pipelines: dict[Agents, list[type[Handler]]] = {}
+_H = TypeVar("_H", bound=type[Handler])
 
 
-def register(agent_type: Agents, priority: int = 0) -> Callable[[type[Handler]], type[Handler]]:
-    def _wrap(cls: type[Handler]) -> type[Handler]:
+def register(agent_type: Agents, priority: int = 0) -> Callable[[_H], _H]:
+    def _wrap(cls: _H) -> _H:
         cls.priority = priority
         _pipelines.setdefault(agent_type, []).append(cls)
         _pipelines[agent_type].sort(key=lambda c: -c.priority)

@@ -43,9 +43,9 @@ def remember_session_run(payload: dict, result: dict, extra_data: Any) -> dict[s
     if tool_name != _CONFIGURE_RUN_TOOL:
         return result
 
-    tool_input = payload.get("tool_input")
-    run_id = tool_input.get("run_id")
-    session_id = payload.get("session_id")
+    tool_input = payload.get("tool_input") or {}
+    run_id = str(tool_input.get("run_id") or "")
+    session_id = str(payload.get("session_id") or "")
     scheduler.remember_session_run(session_id, run_id)
     return result
 

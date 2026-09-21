@@ -372,7 +372,7 @@ def _handler_factory(run_id: str) -> type[BaseHTTPRequestHandler]:
             self.end_headers()
             self.wfile.write(payload)
 
-        def log_message(self, _format: str, *_args: Any) -> None:
+        def log_message(self, format: str, *args: Any) -> None:
             # Dashboard polling should not add noise to the MCP/agent terminal.
             return
 

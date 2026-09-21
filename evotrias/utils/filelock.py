@@ -9,6 +9,7 @@ instead of stalling. Deliberately free of any EvoTrias domain knowledge —
 from __future__ import annotations
 
 import os
+import sys
 import time
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
@@ -18,21 +19,19 @@ _LockOps = tuple[Callable[[int], None], Callable[[int], None]]
 
 def _lock_ops() -> _LockOps | None:
     """Return (lock, unlock) for this platform, or None when no OS lock exists."""
-    try:
-        import fcntl  # type: ignore[import-not-found]
-
-        return (
-            lambda fd: fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB),
-            lambda fd: fcntl.flock(fd, fcntl.LOCK_UN),
-        )
-    except ImportError:
-        pass
-    try:
-        import msvcrt  # type: ignore[import-not-found]
+    if sys.platform == "win32":
+        import msvcrt
 
         return (
             lambda fd: msvcrt.locking(fd, msvcrt.LK_NBLCK, 1),
             lambda fd: msvcrt.locking(fd, msvcrt.LK_UNLCK, 1),
+        )
+    try:
+        import fcntl
+
+        return (
+            lambda fd: fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB),
+            lambda fd: fcntl.flock(fd, fcntl.LOCK_UN),
         )
     except ImportError:
         return None

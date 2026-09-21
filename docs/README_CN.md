@@ -205,5 +205,6 @@ runs/<run_id>/                                        agent 工作区
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\pyright
 .\.venv\Scripts\python.exe -m compileall evotrias evotrias_plugin benchmarks
 ```

@@ -331,7 +331,7 @@ class MetaGuidanceManager:
                 actual_anchor_fitness = _coerce_float(anchor_fitness)
             delta_vs_anchor = (
                 fitness - actual_anchor_fitness
-                if valid_result and actual_anchor_fitness is not None
+                if fitness is not None and valid_result and actual_anchor_fitness is not None
                 else None
             )
             relative_delta_vs_anchor = (

@@ -104,8 +104,8 @@ def remember_session_run(payload: dict, result: dict, extra_data: Any) -> dict[s
     if input_.get("tool") != _CONFIGURE_RUN_TOOL:
         return result
 
-    run_id = (input_.get("args") or {}).get("run_id")
-    session_id = input_.get("sessionID")
+    run_id = str((input_.get("args") or {}).get("run_id") or "")
+    session_id = str(input_.get("sessionID") or "")
     scheduler.remember_session_run(session_id, run_id)
     return result
 

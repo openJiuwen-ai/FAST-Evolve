@@ -40,7 +40,7 @@ def _normalize_tool_param(tool_type: Tools, tool_input: dict[str, Any]) -> dict[
     return {"raw_tool_name": str(tool_input.get("tool_name", "")), "raw_tool_input": tool_input}
 
 
-def _build_output(decision: Decisions, reason: str) -> dict[str, Any] | None:
+def _build_output(decision: Decisions, reason: str) -> dict[str, Any]:
     if decision == Decisions.ALLOW:
         return {
             "hookSpecificOutput": {
@@ -63,9 +63,9 @@ def _build_output(decision: Decisions, reason: str) -> dict[str, Any] | None:
 @hook_manager.register("claude", "pre_tool_use", priority=0)
 def claude_tool_permission_gate(payload: dict, result: dict, extra_data: Any) -> dict[str, Any] | None:
     logger.debug(f'permission gate invoked with: {payload=}, {result=}, {extra_data=}')
-    tool_name = payload.get("tool_name")
-    tool_input = payload.get("tool_input")
-    session_id = payload.get("session_id")
+    tool_name = str(payload.get("tool_name") or "")
+    tool_input = payload.get("tool_input") or {}
+    session_id = str(payload.get("session_id") or "")
     agent_id = payload.get("agent_id")
 
     run_id = scheduler.lookup_run_by_session(session_id)

@@ -9,6 +9,7 @@ import pytest
 from evotrias import scheduler as sched
 from evotrias.db.agent_index import AgentInfo
 from evotrias.db.attempts import AttemptRecord, Attempts
+from evotrias.db.session_map import SessionMap
 from evotrias.enums import Agents
 from evotrias.hooks import broker
 from evotrias.hooks import hook_manager
@@ -308,6 +309,19 @@ def test_configure_run_post_records_session_run(tmp_env):
     out = hook_manager.dispatch("claude", "post_tool_use", payload)
     assert out is None
     assert sched.lookup_run_by_session("sess-9") == "run-9"
+
+
+def test_configure_run_post_without_session_id_registers_nothing(tmp_env):
+    # A bare payload.get("session_id") used to hand None to the scheduler,
+    # which str()-ed it into a literal "None" session key.
+    payload = {
+        "tool_name": "mcp__plugin_evotrias_plugin_evotrias__configure_run",
+        "tool_input": {"run_id": "run-9", "max_total_tasks": 50},
+        "hook_event_name": "PostToolUse",
+    }
+    out = hook_manager.dispatch("claude", "post_tool_use", payload)
+    assert out is None
+    assert SessionMap().sessions == {}
 
 
 def test_subagent_stop_completes_task_from_recorded_success(tmp_env):

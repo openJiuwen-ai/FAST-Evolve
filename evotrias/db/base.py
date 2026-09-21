@@ -24,7 +24,7 @@ import enum
 import types
 import typing
 from pathlib import Path
-from typing import Any, Dict, Iterator
+from typing import Any, ClassVar, Dict, Iterator
 
 from evotrias.utils.io import append_jsonl, read_json, read_jsonl, write_json_atomic
 from evotrias.utils.time import utc_now_iso
@@ -125,6 +125,10 @@ class DBObject:
     see only the payload -- which is why ``__exit__`` adds them to the dumped
     dict by hand.
     """
+
+    # Set on every subclass by the dataclass decorator in __init_subclass__;
+    # declared here so type checkers accept the base as a DataclassInstance.
+    __dataclass_fields__: ClassVar[Dict[str, dataclasses.Field[Any]]]
 
     _path: Path
     created_at: str

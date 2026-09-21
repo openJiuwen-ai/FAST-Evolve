@@ -219,5 +219,6 @@ run directories.
 
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\pyright
 .\.venv\Scripts\python.exe -m compileall evotrias evotrias_plugin benchmarks
 ```

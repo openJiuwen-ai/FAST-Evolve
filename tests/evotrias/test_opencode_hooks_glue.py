@@ -15,6 +15,7 @@ from evotrias import scheduler as sched
 from evotrias.db import paths
 from evotrias.db.agent_index import AgentInfo
 from evotrias.db.attempts import AttemptRecord, Attempts
+from evotrias.db.session_map import SessionMap
 from evotrias.enums import Agents
 from evotrias.hooks import broker
 from evotrias.hooks import hook_manager
@@ -125,6 +126,19 @@ def test_configure_run_after_records_session_run(tmp_env):
     out = hook_manager.dispatch("opencode", "tool.execute.after", payload)
     assert out is None
     assert sched.lookup_run_by_session("ses-9") == "run-9"
+
+
+def test_configure_run_after_without_session_id_registers_nothing(tmp_env):
+    # A bare input_.get("sessionID") used to hand None to the scheduler,
+    # which str()-ed it into a literal "None" session key.
+    payload = {
+        "input": {"tool": "evotrias_configure_run", "callID": "c0",
+                  "args": {"run_id": "run-9", "max_total_tasks": 50}},
+        "output": {"content": [], "structuredContent": {"configured": True}, "isError": False},
+    }
+    out = hook_manager.dispatch("opencode", "tool.execute.after", payload)
+    assert out is None
+    assert SessionMap().sessions == {}
 
 
 def test_executor_full_chain_observed_order(tmp_env):

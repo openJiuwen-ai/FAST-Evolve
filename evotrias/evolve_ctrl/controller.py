@@ -102,6 +102,7 @@ def select_parent(run_id: str, task_id: str) -> Dict[str, Any]:
             if current_best is not None
             else None
         )
+        parent = None
         if guidance is not None:
             parent = pool.get(guidance.anchor_parent_id)
             if parent is not None:
