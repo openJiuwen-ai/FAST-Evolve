@@ -5,7 +5,9 @@ from typing import Any
 
 from evotrias.db import paths
 from evotrias.db.agent_index import AgentInfo
+from evotrias.db.attempts import Attempts
 from evotrias.db.config import Config
+from evotrias.db.task_contexts import TaskContexts
 from evotrias.enums import Agents, Decisions, Tools
 from evotrias.permissions.handler_base import Handler
 from evotrias.permissions.pipeline import register
@@ -103,4 +105,44 @@ class TaskExecutorOnlyWritesOwnAttempts(Handler):
                 return Decisions.ALLOW, f"task-executor writing inside its own attempt directory {raw!r}."
         return Decisions.DENY, (
             f"Write to {raw!r} denied: task-executor may only write under {attempts_dir.as_posix()}/attempt_NNN/."
+        )
+
+
+@register(Agents.TASK_EXECUTOR, priority=0)
+class TaskExecutorReadAllowlistUnderRuns(Handler):
+    rule_name = "task_executor_read_allowlist_under_runs"
+
+    @staticmethod
+    def filter(
+        tool_type: Tools, tool_param: dict[str, Any], run_id: str, agent_info: AgentInfo
+    ) -> bool:
+        return tool_type in (Tools.READ, Tools.GLOB, Tools.GREP)
+
+    @staticmethod
+    def check(
+        tool_type: Tools, tool_param: dict[str, Any], run_id: str, agent_info: AgentInfo
+    ) -> tuple[Decisions, str]:
+        raw = str(tool_param.get("file_path" if tool_type == Tools.READ else "path") or "")
+        if not raw:
+            return Decisions.BYPASS, "No explicit path to judge."
+        target = resolve_path(raw)
+        if not target.is_relative_to(resolve_path(paths.RUNS_ROOT)):
+            return Decisions.BYPASS, f"{raw!r} is outside {paths.RUNS_ROOT.as_posix()}/."
+        task_id = agent_info.attrs.get("task_id")
+        if not task_id:
+            return Decisions.DENY, f"Read of {raw!r} denied: task-executor has no task bound yet."
+        task_dir = paths.public_run_dir(run_id) / "tasks" / str(task_id)
+        if target.is_relative_to(resolve_path(task_dir)):
+            return Decisions.ALLOW, f"task-executor reading inside its own task directory {raw!r}."
+        context = TaskContexts(run_id).get(str(task_id))
+        selected = [i for i in [context.parent_id, *context.inspiration_ids] if i] if context else []
+        successes = Attempts(run_id).successes
+        artifacts = {
+            resolve_path(successes[i].artifact_ref) for i in selected if i in successes and successes[i].artifact_ref
+        }
+        if target in artifacts:
+            return Decisions.ALLOW, f"task-executor reading a selected parent/inspiration artifact {raw!r}."
+        return Decisions.DENY, (
+            f"Read of {raw!r} denied: under {paths.RUNS_ROOT.as_posix()}/ task-executor may only read "
+            f"{task_dir.as_posix()}/ and the artifact_ref files returned by select_parent/select_inspirations."
         )

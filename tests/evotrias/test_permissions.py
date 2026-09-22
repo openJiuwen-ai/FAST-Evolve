@@ -3,7 +3,9 @@ from __future__ import annotations
 import pytest
 
 from evotrias.db.agent_index import AgentInfo
+from evotrias.db.attempts import AttemptRecord, Attempts
 from evotrias.db.config import Config
+from evotrias.db.task_contexts import TaskContexts
 from evotrias.enums import Agents, Decisions, Tools
 from evotrias.permissions import evaluate_permission
 
@@ -114,10 +116,10 @@ def test_evaluator_denied_even_inside_own_workspace():
     assert decision == Decisions.DENY
 
 
-def test_non_evaluator_read_bypasses():
+def test_non_evaluator_read_outside_runs_bypasses():
     decision, _ = evaluate_permission(
         Tools.READ,
-        {"file_path": "runs/run-X/tasks/task_001/solution.py"},
+        {"file_path": "benchmarks/skills/foo/scripts/solution.py"},
         RUN,
         _task_info(),
     )
@@ -333,3 +335,187 @@ def test_task_executor_bash_and_read_are_not_write_scoped():
 def test_task_executor_write_scope_does_not_apply_to_init_explorer(configured_run):
     decision, _ = evaluate_permission(Tools.WRITE, _write(f"{OWN_ATTEMPT}/solution.py"), RUN, _explorer_info())
     assert decision == Decisions.DENY
+
+
+# --- task_executor_read_allowlist_under_runs --------------------------------
+
+
+def _artifact(task: str) -> str:
+    return f"runs/{RUN}/tasks/{task}/attempts/attempt_001/solution.py"
+
+
+def _record_success(task: str, artifact_ref: str | None = None) -> None:
+    Attempts(RUN).append(
+        AttemptRecord(
+            id="attempt_001",
+            run_id=RUN,
+            task_id=task,
+            subagent_id="agent",
+            artifact_ref=_artifact(task) if artifact_ref is None else artifact_ref,
+            parent_id=None,
+            inspiration_ids=[],
+            generation=0,
+            verification_result={"status": "success", "fitness": 1.0},
+            in_success_pool=True,
+        )
+    )
+
+
+def _select_for(task: str, parent: str, inspirations: list[str]) -> None:
+    with TaskContexts(RUN) as contexts:
+        context = contexts.get(task, create=True)
+        context.parent_id = parent
+        context.inspiration_ids = inspirations
+        context.parent_selected = True
+        context.inspirations_selected = True
+
+
+EXECUTOR = "task_005"
+
+
+@pytest.fixture
+def selected_context():
+    # task_001..task_003 all succeeded; task_005 was handed task_001 as parent
+    # and task_002 as its only inspiration, so task_003 is a success it must
+    # not see.
+    for task in ("task_001", "task_002", "task_003"):
+        _record_success(task)
+    _select_for(EXECUTOR, parent="task_001", inspirations=["task_002"])
+
+
+def _read(file_path: str):
+    return {"file_path": file_path}
+
+
+def test_task_executor_allows_read_of_parent_artifact(selected_context):
+    decision, _ = evaluate_permission(Tools.READ, _read(_artifact("task_001")), RUN, _task_info(EXECUTOR))
+    assert decision == Decisions.ALLOW
+
+
+def test_task_executor_allows_read_of_inspiration_artifact(selected_context):
+    decision, _ = evaluate_permission(Tools.READ, _read(_artifact("task_002")), RUN, _task_info(EXECUTOR))
+    assert decision == Decisions.ALLOW
+
+
+def test_task_executor_allows_read_of_selected_artifact_by_absolute_path(selected_context, cwd):
+    decision, _ = evaluate_permission(Tools.READ, _read(str(cwd / _artifact("task_001"))), RUN, _task_info(EXECUTOR))
+    assert decision == Decisions.ALLOW
+
+
+def test_task_executor_allows_read_when_artifact_ref_was_recorded_absolute(cwd):
+    # record_attempt stores artifact_ref verbatim; executors may have passed an absolute path.
+    _record_success("task_001", artifact_ref=str(cwd / _artifact("task_001")))
+    _select_for(EXECUTOR, parent="task_001", inspirations=[])
+    decision, _ = evaluate_permission(Tools.READ, _read(_artifact("task_001")), RUN, _task_info(EXECUTOR))
+    assert decision == Decisions.ALLOW
+
+
+def test_task_executor_denies_read_of_unselected_success_artifact(selected_context):
+    decision, reason = evaluate_permission(Tools.READ, _read(_artifact("task_003")), RUN, _task_info(EXECUTOR))
+    assert decision == Decisions.DENY
+    assert "select_parent/select_inspirations" in reason
+
+
+@pytest.mark.parametrize(
+    "sibling",
+    [
+        f"runs/{RUN}/tasks/task_001/attempts/attempt_001/eval_result.json",
+        f"runs/{RUN}/tasks/task_001/direction.txt",
+        f"runs/{RUN}/tasks/task_001/attempts/attempt_001",
+    ],
+)
+def test_task_executor_denies_read_of_parent_files_other_than_artifact(selected_context, sibling):
+    decision, _ = evaluate_permission(Tools.READ, _read(sibling), RUN, _task_info(EXECUTOR))
+    assert decision == Decisions.DENY
+
+
+@pytest.mark.parametrize(
+    "own",
+    [
+        f"runs/{RUN}/tasks/{EXECUTOR}/direction.txt",
+        f"runs/{RUN}/tasks/{EXECUTOR}/attempts/attempt_001/eval_result.json",
+        f"runs/{RUN}/tasks/{EXECUTOR}/attempts/attempt_002/solution.py",
+        f"runs/{RUN}/tasks/{EXECUTOR}",
+    ],
+)
+def test_task_executor_allows_read_inside_own_task_dir(selected_context, own):
+    decision, _ = evaluate_permission(Tools.READ, _read(own), RUN, _task_info(EXECUTOR))
+    assert decision == Decisions.ALLOW
+
+
+def test_task_executor_denies_read_under_other_run(selected_context):
+    decision, _ = evaluate_permission(
+        Tools.READ, _read("runs/run-Y/tasks/task_005/direction.txt"), RUN, _task_info(EXECUTOR)
+    )
+    assert decision == Decisions.DENY
+
+
+def test_task_executor_denies_read_traversal_out_of_own_task_dir(selected_context):
+    traversal = f"runs/{RUN}/tasks/{EXECUTOR}/../task_003/attempts/attempt_001/solution.py"
+    decision, _ = evaluate_permission(Tools.READ, _read(traversal), RUN, _task_info(EXECUTOR))
+    assert decision == Decisions.DENY
+
+
+def test_task_executor_reads_under_runs_before_selection_only_own_task_dir():
+    # No task_contexts entry yet (select_parent not called): nothing but the own dir is readable.
+    _record_success("task_001")
+    own_direction = f"runs/{RUN}/tasks/{EXECUTOR}/direction.txt"
+    own, _ = evaluate_permission(Tools.READ, _read(own_direction), RUN, _task_info(EXECUTOR))
+    other, _ = evaluate_permission(Tools.READ, _read(_artifact("task_001")), RUN, _task_info(EXECUTOR))
+    assert own == Decisions.ALLOW
+    assert other == Decisions.DENY
+
+
+def test_task_executor_glob_and_grep_are_judged_by_path(selected_context):
+    own_glob, _ = evaluate_permission(
+        Tools.GLOB, {"pattern": "*.json", "path": f"runs/{RUN}/tasks/{EXECUTOR}/attempts"}, RUN, _task_info(EXECUTOR)
+    )
+    foreign_glob, _ = evaluate_permission(
+        Tools.GLOB, {"pattern": "*.py", "path": f"runs/{RUN}/tasks"}, RUN, _task_info(EXECUTOR)
+    )
+    parent_grep, _ = evaluate_permission(
+        Tools.GREP, {"pattern": "def", "path": _artifact("task_001"), "glob": None}, RUN, _task_info(EXECUTOR)
+    )
+    foreign_grep, _ = evaluate_permission(
+        Tools.GREP, {"pattern": "def", "path": "runs", "glob": None}, RUN, _task_info(EXECUTOR)
+    )
+    assert own_glob == Decisions.ALLOW
+    assert foreign_glob == Decisions.DENY
+    assert parent_grep == Decisions.ALLOW
+    assert foreign_grep == Decisions.DENY
+
+
+def test_task_executor_glob_and_grep_without_path_bypass(selected_context):
+    glob, _ = evaluate_permission(Tools.GLOB, {"pattern": "**/*.py", "path": None}, RUN, _task_info(EXECUTOR))
+    grep, _ = evaluate_permission(Tools.GREP, {"pattern": "def", "path": None, "glob": None}, RUN, _task_info(EXECUTOR))
+    assert glob == Decisions.BYPASS
+    assert grep == Decisions.BYPASS
+
+
+def test_task_executor_read_under_runs_denied_when_task_not_bound(selected_context):
+    unbound = AgentInfo(Agents.TASK_EXECUTOR, {})
+    under_runs, reason = evaluate_permission(Tools.READ, _read(_artifact("task_001")), RUN, unbound)
+    outside, _ = evaluate_permission(Tools.READ, _read("benchmarks/foo/SKILL.md"), RUN, unbound)
+    assert under_runs == Decisions.DENY
+    assert "no task bound" in reason
+    assert outside == Decisions.BYPASS
+
+
+def test_task_executor_read_outside_runs_bypasses(selected_context):
+    decision, _ = evaluate_permission(Tools.READ, _read("benchmarks/foo/SKILL.md"), RUN, _task_info(EXECUTOR))
+    assert decision == Decisions.BYPASS
+
+
+def test_task_executor_evaluator_inside_own_task_dir_still_denied(selected_context):
+    # The allowlist ALLOWs the own dir, but NoEvaluatorAccess's DENY wins in the pipeline.
+    decision, reason = evaluate_permission(
+        Tools.READ, _read(f"runs/{RUN}/tasks/{EXECUTOR}/attempts/attempt_001/evaluator.py"), RUN, _task_info(EXECUTOR)
+    )
+    assert decision == Decisions.DENY
+    assert "evaluator script" in reason
+
+
+def test_read_allowlist_does_not_apply_to_other_agents(selected_context):
+    for info in (_explorer_info(), AgentInfo(Agents.META_GUIDANCE_GENERATOR)):
+        decision, _ = evaluate_permission(Tools.READ, _read(_artifact("task_003")), RUN, info)
+        assert decision == Decisions.BYPASS, info.agent_type

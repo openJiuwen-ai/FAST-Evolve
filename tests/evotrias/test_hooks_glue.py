@@ -360,15 +360,31 @@ def test_subagent_stop_fails_task_with_last_message(tmp_env):
     assert "verifier timed out" in reason
 
 
-def test_pre_tool_use_bypasses_task_executor_read_in_workspace(tmp_env):
-    # Non-evaluator reads are not decided by the gate; the hook stays silent.
+def test_pre_tool_use_allows_task_executor_read_in_own_task_dir(tmp_env):
     sched.remember_session_run("sess-1", "run-R")
     sched.top_up_tasks("run-R", target=1, max_tasks=100)
     _start_executor("run-R", "agent-20")
     payload = _make_task_executor_payload(
         "agent-20",
         "Read",
-        {"file_path": "runs/run-R/tasks/task_001/solution.py"},
+        {"file_path": "runs/run-R/tasks/task_001/direction.txt"},
+        "run-R",
+        "task_001",
+    )
+    out = hook_manager.dispatch("claude", "pre_tool_use", payload)
+    assert out is not None
+    assert out["hookSpecificOutput"]["permissionDecision"] == "allow"
+
+
+def test_pre_tool_use_bypasses_task_executor_read_outside_runs(tmp_env):
+    # Reads outside runs/ are not decided by the gate; the hook stays silent.
+    sched.remember_session_run("sess-1", "run-R")
+    sched.top_up_tasks("run-R", target=1, max_tasks=100)
+    _start_executor("run-R", "agent-20")
+    payload = _make_task_executor_payload(
+        "agent-20",
+        "Read",
+        {"file_path": "benchmarks/skills/foo/SKILL.md"},
         "run-R",
         "task_001",
     )
