@@ -137,14 +137,15 @@ class TaskExecutorReadAllowlistUnderRuns(Handler):
         context = TaskContexts(run_id).get(str(task_id))
         selected = [i for i in [context.parent_id, *context.inspiration_ids] if i] if context else []
         successes = Attempts(run_id).successes
-        artifacts = {
-            resolve_path(successes[i].artifact_ref) for i in selected if i in successes and successes[i].artifact_ref
+        allowed_dirs = {
+            resolve_path(successes[i].artifact_ref).parent
+            for i in selected if i in successes and successes[i].artifact_ref
         }
-        if target in artifacts:
-            return Decisions.ALLOW, f"task-executor reading a selected parent/inspiration artifact {raw!r}."
+        if target in allowed_dirs or any(target.is_relative_to(d) for d in allowed_dirs):
+            return Decisions.ALLOW, f"task-executor reading a selected parent/inspiration artifact dir {raw!r}."
         return Decisions.DENY, (
             f"Read of {raw!r} denied: under {paths.RUNS_ROOT.as_posix()}/ task-executor may only read "
-            f"{task_dir.as_posix()}/ and the artifact_ref files returned by select_parent/select_inspirations."
+            f"{task_dir.as_posix()}/ and the artifact_ref directories returned by select_parent/select_inspirations."
         )
 
 

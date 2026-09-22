@@ -420,12 +420,30 @@ def test_task_executor_denies_read_of_unselected_success_artifact(selected_conte
     "sibling",
     [
         f"runs/{RUN}/tasks/task_001/attempts/attempt_001/eval_result.json",
-        f"runs/{RUN}/tasks/task_001/direction.txt",
         f"runs/{RUN}/tasks/task_001/attempts/attempt_001",
+        f"runs/{RUN}/tasks/task_001/attempts/attempt_001/src/helper.py",
     ],
 )
-def test_task_executor_denies_read_of_parent_files_other_than_artifact(selected_context, sibling):
+def test_task_executor_allows_read_of_files_in_selected_artifact_dir(selected_context, sibling):
+    # The whole directory holding a selected parent/inspiration artifact is readable,
+    # not just the artifact_ref file itself.
     decision, _ = evaluate_permission(Tools.READ, _read(sibling), RUN, _task_info(EXECUTOR))
+    assert decision == Decisions.ALLOW
+
+
+def test_task_executor_denies_read_of_parent_direction_txt(selected_context):
+    # direction.txt sits in the task dir, outside the artifact's attempt directory.
+    decision, _ = evaluate_permission(
+        Tools.READ, _read(f"runs/{RUN}/tasks/task_001/direction.txt"), RUN, _task_info(EXECUTOR)
+    )
+    assert decision == Decisions.DENY
+
+
+def test_task_executor_denies_read_of_parent_attempt_dir_other_than_selected(selected_context):
+    # The parent's own other attempt directory (attempt_002) was not the selected artifact.
+    decision, _ = evaluate_permission(
+        Tools.READ, _read(f"runs/{RUN}/tasks/task_001/attempts/attempt_002/solution.py"), RUN, _task_info(EXECUTOR)
+    )
     assert decision == Decisions.DENY
 
 
