@@ -519,3 +519,95 @@ def test_read_allowlist_does_not_apply_to_other_agents(selected_context):
     for info in (_explorer_info(), AgentInfo(Agents.META_GUIDANCE_GENERATOR)):
         decision, _ = evaluate_permission(Tools.READ, _read(_artifact("task_003")), RUN, info)
         assert decision == Decisions.BYPASS, info.agent_type
+
+
+# --- no_cross_run_access ----------------------------------------------------
+
+ISOLATED_AGENTS = (Agents.INIT_EXPLORER, Agents.META_GUIDANCE_GENERATOR, Agents.TASK_EXECUTOR)
+PATH_TOOLS = (Tools.READ, Tools.WRITE, Tools.EDIT, Tools.GLOB, Tools.GREP)
+OTHER_RUN_FILE = "runs/run-Y/tasks/task_001/attempts/attempt_001/solution.py"
+
+
+def _info(agent: Agents) -> AgentInfo:
+    return _task_info() if agent == Agents.TASK_EXECUTOR else AgentInfo(agent)
+
+
+def _param(tool: Tools, path: str) -> dict:
+    if tool == Tools.GLOB:
+        return {"pattern": "*", "path": path}
+    if tool == Tools.GREP:
+        return {"pattern": "x", "path": path, "glob": None}
+    if tool == Tools.WRITE:
+        return _write(path)
+    if tool == Tools.EDIT:
+        return _edit(path)
+    return _read(path)
+
+
+@pytest.mark.parametrize("agent", ISOLATED_AGENTS)
+@pytest.mark.parametrize("tool", PATH_TOOLS)
+def test_cross_run_access_denied_for_every_isolated_agent_and_path_tool(agent, tool):
+    decision, reason = evaluate_permission(tool, _param(tool, OTHER_RUN_FILE), RUN, _info(agent))
+    assert decision == Decisions.DENY
+    assert "other runs" in reason and RUN in reason
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "runs/run-Y/tasks/task_001/direction.txt",
+        "runs/run-X/../run-Y/tasks/task_001/direction.txt",
+        "runs/run-XY/tasks/task_001/direction.txt",
+        "runs",
+        "runs/stray.txt",
+    ],
+)
+def test_cross_run_access_denied_paths(path):
+    decision, _ = evaluate_permission(Tools.READ, _read(path), RUN, AgentInfo(Agents.META_GUIDANCE_GENERATOR))
+    assert decision == Decisions.DENY
+
+
+def test_cross_run_access_denied_by_absolute_path(cwd):
+    absolute = str(cwd / "runs" / "run-Y" / "tasks" / "task_001" / "direction.txt")
+    decision, _ = evaluate_permission(Tools.READ, _read(absolute), RUN, AgentInfo(Agents.META_GUIDANCE_GENERATOR))
+    assert decision == Decisions.DENY
+
+
+@pytest.mark.parametrize("agent", [Agents.INIT_EXPLORER, Agents.META_GUIDANCE_GENERATOR])
+def test_own_run_read_is_not_decided_by_cross_run_rule(agent):
+    # Neither agent has a read rule under runs/, so the pipeline answer is this rule's alone: no opinion.
+    decision, _ = evaluate_permission(Tools.READ, _read(_artifact("task_001")), RUN, AgentInfo(agent))
+    assert decision == Decisions.BYPASS
+
+
+def test_cross_run_rule_ignores_paths_outside_runs():
+    decision, _ = evaluate_permission(
+        Tools.WRITE, _write("benchmarks/foo/x.py"), RUN, AgentInfo(Agents.META_GUIDANCE_GENERATOR)
+    )
+    assert decision == Decisions.BYPASS
+
+
+def test_cross_run_rule_not_registered_for_main():
+    decision, _ = evaluate_permission(Tools.READ, _read(OTHER_RUN_FILE), RUN, AgentInfo(Agents.MAIN))
+    assert decision == Decisions.BYPASS
+
+
+@pytest.mark.parametrize(
+    ("tool", "scope_reason"),
+    [(Tools.WRITE, "may only write"), (Tools.READ, "may only read")],
+)
+def test_cross_run_reason_outranks_task_executor_scope_rules(tool, scope_reason):
+    decision, reason = evaluate_permission(tool, _param(tool, OTHER_RUN_FILE), RUN, _task_info())
+    assert decision == Decisions.DENY
+    assert "other runs" in reason
+    assert scope_reason not in reason
+
+
+def test_cross_run_rule_bypasses_bash_and_empty_paths():
+    info = AgentInfo(Agents.META_GUIDANCE_GENERATOR)
+    bash, _ = evaluate_permission(Tools.BASH, {"command": "cat runs/run-Y/x"}, RUN, info)
+    glob, _ = evaluate_permission(Tools.GLOB, {"pattern": "*", "path": None}, RUN, info)
+    read, _ = evaluate_permission(Tools.READ, _read(""), RUN, info)
+    assert bash == Decisions.BYPASS
+    assert glob == Decisions.BYPASS
+    assert read == Decisions.BYPASS

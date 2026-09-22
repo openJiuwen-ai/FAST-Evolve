@@ -146,3 +146,32 @@ class TaskExecutorReadAllowlistUnderRuns(Handler):
             f"Read of {raw!r} denied: under {paths.RUNS_ROOT.as_posix()}/ task-executor may only read "
             f"{task_dir.as_posix()}/ and the artifact_ref files returned by select_parent/select_inspirations."
         )
+
+
+@register(Agents.INIT_EXPLORER, priority=10)
+@register(Agents.META_GUIDANCE_GENERATOR, priority=10)
+@register(Agents.TASK_EXECUTOR, priority=10)
+class NoCrossRunAccess(Handler):
+    rule_name = "no_cross_run_access"
+
+    @staticmethod
+    def filter(
+        tool_type: Tools, tool_param: dict[str, Any], run_id: str, agent_info: AgentInfo
+    ) -> bool:
+        return tool_type in (Tools.READ, Tools.WRITE, Tools.EDIT, Tools.GLOB, Tools.GREP)
+
+    @staticmethod
+    def check(
+        tool_type: Tools, tool_param: dict[str, Any], run_id: str, agent_info: AgentInfo
+    ) -> tuple[Decisions, str]:
+        raw = str(tool_param.get("path" if tool_type in (Tools.GLOB, Tools.GREP) else "file_path") or "")
+        if not raw:
+            return Decisions.BYPASS, "No explicit path to judge."
+        target = resolve_path(raw)
+        own_run = paths.public_run_dir(run_id)
+        if target.is_relative_to(resolve_path(paths.RUNS_ROOT)) and not target.is_relative_to(resolve_path(own_run)):
+            return Decisions.DENY, (
+                f"Access to {raw!r} denied: it is outside this run's workspace {own_run.as_posix()}/; "
+                f"agents of run {run_id!r} must not touch other runs."
+            )
+        return Decisions.BYPASS, f"{raw!r} is not another run's file."
