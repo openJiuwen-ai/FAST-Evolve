@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from evotrias.db import paths
@@ -72,4 +73,34 @@ class InitExplorerOnlyWritesRootDirection(Handler):
         return Decisions.DENY, (
             f"Write to {raw!r} denied: init-explorer may only write "
             f"{tasks_dir.as_posix()}/task_NNN/direction.txt for root tasks task_001..task_{root_number:03d}."
+        )
+
+
+@register(Agents.TASK_EXECUTOR, priority=0)
+class TaskExecutorOnlyWritesOwnAttempts(Handler):
+    rule_name = "task_executor_only_writes_own_attempts"
+
+    @staticmethod
+    def filter(
+        tool_type: Tools, tool_param: dict[str, Any], run_id: str, agent_info: AgentInfo
+    ) -> bool:
+        return tool_type in (Tools.WRITE, Tools.EDIT)
+
+    @staticmethod
+    def check(
+        tool_type: Tools, tool_param: dict[str, Any], run_id: str, agent_info: AgentInfo
+    ) -> tuple[Decisions, str]:
+        raw = str(tool_param.get("file_path", ""))
+        task_id = agent_info.attrs.get("task_id")
+        if not task_id:
+            return Decisions.DENY, f"Write to {raw!r} denied: task-executor has no task bound yet."
+        attempts_dir = paths.public_run_dir(run_id) / "tasks" / str(task_id) / "attempts"
+        attempts_root = resolve_path(attempts_dir)
+        target = resolve_path(raw)
+        if target.is_relative_to(attempts_root) and target != attempts_root:
+            attempt_id, *rest = target.relative_to(attempts_root).parts
+            if rest and re.fullmatch(r"attempt_\d{3}", attempt_id):
+                return Decisions.ALLOW, f"task-executor writing inside its own attempt directory {raw!r}."
+        return Decisions.DENY, (
+            f"Write to {raw!r} denied: task-executor may only write under {attempts_dir.as_posix()}/attempt_NNN/."
         )

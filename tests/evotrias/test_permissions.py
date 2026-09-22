@@ -124,15 +124,17 @@ def test_non_evaluator_read_bypasses():
     assert decision == Decisions.BYPASS
 
 
-def test_write_bypasses_even_for_evaluator_path():
-    # The rule only guards read-like tools (READ/GLOB/GREP); writes pass through.
-    decision, _ = evaluate_permission(
+def test_write_to_evaluator_path_is_denied_by_write_scope_not_evaluator_rule():
+    # NoEvaluatorAccess only guards read-like tools (READ/GLOB/GREP); the write
+    # is refused by the executor's write scope, so the reason names that scope.
+    decision, reason = evaluate_permission(
         Tools.WRITE,
         {"file_path": "benchmarks/skills/foo/scripts/evaluator.py", "content": "x"},
         RUN,
         _task_info(),
     )
-    assert decision == Decisions.BYPASS
+    assert decision == Decisions.DENY
+    assert "task-executor may only write" in reason
 
 
 def test_unknown_tool_bypasses():
@@ -229,3 +231,105 @@ def test_init_explorer_write_scope_does_not_apply_to_task_executor(configured_ru
         Tools.WRITE, _write("runs/run-X/tasks/task_001/direction.txt"), RUN, _task_info()
     )
     assert decision != Decisions.ALLOW
+
+
+# --- task_executor_only_writes_own_attempts ---------------------------------
+
+OWN_ATTEMPT = "runs/run-X/tasks/task_001/attempts/attempt_001"
+
+
+def test_task_executor_allows_write_in_own_attempt_dir_relative():
+    decision, _ = evaluate_permission(Tools.WRITE, _write(f"{OWN_ATTEMPT}/solution.py"), RUN, _task_info())
+    assert decision == Decisions.ALLOW
+
+
+def test_task_executor_allows_write_in_own_attempt_dir_absolute(cwd):
+    absolute = str(cwd / "runs" / "run-X" / "tasks" / "task_001" / "attempts" / "attempt_010" / "eval_result.json")
+    decision, _ = evaluate_permission(Tools.WRITE, _write(absolute), RUN, _task_info())
+    assert decision == Decisions.ALLOW
+
+
+def test_task_executor_allows_nested_path_inside_attempt_dir():
+    decision, _ = evaluate_permission(Tools.WRITE, _write(f"{OWN_ATTEMPT}/src/pkg/module.py"), RUN, _task_info())
+    assert decision == Decisions.ALLOW
+
+
+def test_task_executor_denies_file_directly_under_attempts():
+    decision, _ = evaluate_permission(
+        Tools.WRITE, _write("runs/run-X/tasks/task_001/attempts/solution.py"), RUN, _task_info()
+    )
+    assert decision == Decisions.DENY
+
+
+def test_task_executor_denies_attempt_dir_itself_as_file():
+    decision, _ = evaluate_permission(Tools.WRITE, _write(OWN_ATTEMPT), RUN, _task_info())
+    assert decision == Decisions.DENY
+
+
+@pytest.mark.parametrize("bad", ["attempt_1", "attempt_0001", "attempt-001", "attempts_001", "final", "attempt_00a"])
+def test_task_executor_denies_malformed_attempt_id(bad):
+    decision, _ = evaluate_permission(
+        Tools.WRITE, _write(f"runs/run-X/tasks/task_001/attempts/{bad}/solution.py"), RUN, _task_info()
+    )
+    assert decision == Decisions.DENY
+
+
+def test_task_executor_denies_own_direction_txt():
+    decision, _ = evaluate_permission(
+        Tools.WRITE, _write("runs/run-X/tasks/task_001/direction.txt"), RUN, _task_info()
+    )
+    assert decision == Decisions.DENY
+
+
+def test_task_executor_denies_other_tasks_attempt_dir():
+    decision, reason = evaluate_permission(
+        Tools.WRITE, _write("runs/run-X/tasks/task_002/attempts/attempt_001/solution.py"), RUN, _task_info("task_001")
+    )
+    assert decision == Decisions.DENY
+    assert "task_001/attempts" in reason
+
+
+def test_task_executor_denies_attempt_dir_of_other_run():
+    decision, _ = evaluate_permission(
+        Tools.WRITE, _write("runs/run-Y/tasks/task_001/attempts/attempt_001/solution.py"), RUN, _task_info()
+    )
+    assert decision == Decisions.DENY
+
+
+def test_task_executor_denies_write_outside_runs():
+    decision, _ = evaluate_permission(Tools.WRITE, _write("benchmarks/foo/solution.py"), RUN, _task_info())
+    assert decision == Decisions.DENY
+
+
+def test_task_executor_denies_path_traversal_out_of_attempt_dir():
+    decision, _ = evaluate_permission(Tools.WRITE, _write(f"{OWN_ATTEMPT}/../../direction.txt"), RUN, _task_info())
+    assert decision == Decisions.DENY
+
+
+def test_task_executor_edit_is_scoped_like_write():
+    allowed, _ = evaluate_permission(Tools.EDIT, _edit(f"{OWN_ATTEMPT}/solution.py"), RUN, _task_info())
+    denied, _ = evaluate_permission(Tools.EDIT, _edit("runs/run-X/tasks/task_001/direction.txt"), RUN, _task_info())
+    assert allowed == Decisions.ALLOW
+    assert denied == Decisions.DENY
+
+
+@pytest.mark.parametrize("attrs", [{"task_id": None}, {}])
+def test_task_executor_denies_write_when_task_not_bound(attrs):
+    # SubagentStart can index the executor before executor_bind_agent backfills task_id.
+    decision, reason = evaluate_permission(
+        Tools.WRITE, _write(f"{OWN_ATTEMPT}/solution.py"), RUN, AgentInfo(Agents.TASK_EXECUTOR, attrs)
+    )
+    assert decision == Decisions.DENY
+    assert "no task bound" in reason
+
+
+def test_task_executor_bash_and_read_are_not_write_scoped():
+    bash, _ = evaluate_permission(Tools.BASH, {"command": f"mkdir -p {OWN_ATTEMPT}"}, RUN, _task_info())
+    read, _ = evaluate_permission(Tools.READ, {"file_path": "benchmarks/foo/SKILL.md"}, RUN, _task_info())
+    assert bash == Decisions.BYPASS
+    assert read == Decisions.BYPASS
+
+
+def test_task_executor_write_scope_does_not_apply_to_init_explorer(configured_run):
+    decision, _ = evaluate_permission(Tools.WRITE, _write(f"{OWN_ATTEMPT}/solution.py"), RUN, _explorer_info())
+    assert decision == Decisions.DENY
