@@ -1,25 +1,24 @@
+"""Path canonicalisation shared by the permission rules.
+
+Tool calls hand us paths in whatever shape the host produced -- absolute or
+cwd-relative, forward or back slashes, any letter case on Windows -- while
+``evotrias.db.paths`` builds cwd-relative ``Path`` objects.  Comparing the
+two only works once both are in the same canonical form.
+"""
+
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 
-def norm_path(p: str | None) -> str:
-    if not p:
-        return ""
-    return os.path.normpath(p).replace("\\", "/")
+def resolve_path(raw: str | os.PathLike[str]) -> Path:
+    """Absolute, ``..``-free form of ``raw``; case-folded where the filesystem is.
 
-
-def path_within(child: str, parent: str) -> bool:
-    if not child or not parent:
-        return False
-    child = norm_path(child)
-    parent = norm_path(parent)
-    if child == parent:
-        return True
-    return child.startswith(parent.rstrip("/") + "/")
-
-
-def task_workspace(run_id: str | None, task_id: str | None) -> str:
-    if not run_id or not task_id:
-        return ""
-    return norm_path(os.path.join("runs", str(run_id), "tasks", str(task_id)))
+    Relative paths resolve against the cwd, matching ``evotrias.db.paths``.
+    Symlinks are followed and the file need not exist.
+    """
+    path = Path(raw).expanduser()
+    if not path.is_absolute():
+        path = Path.cwd() / path
+    return Path(os.path.normcase(str(path.resolve())))
