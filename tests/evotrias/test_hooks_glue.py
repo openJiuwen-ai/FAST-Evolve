@@ -2,27 +2,56 @@
 
 from __future__ import annotations
 
-import json
 import os
 
 import pytest
 
 from evotrias import scheduler as sched
+from evotrias.db.agent_index import AgentInfo
+from evotrias.db.attempts import AttemptRecord, Attempts
+from evotrias.db.session_map import SessionMap
 from evotrias.enums import Agents
 from evotrias.hooks import broker
 from evotrias.hooks import hook_manager
 from evotrias.hooks.claude import permission_hooks as perm_glue, scheduler_hooks as sched_glue
 
 
+def _record_success(run_id: str, task_id: str, fitness: float) -> None:
+    """Stand in for the controller's record_attempt: one successful attempt on disk."""
+    Attempts(run_id).append(
+        AttemptRecord(
+            id="attempt_001",
+            run_id=run_id,
+            task_id=task_id,
+            subagent_id="agent",
+            artifact_ref=f"runs/{run_id}/tasks/{task_id}/attempts/attempt_001/solution.py",
+            parent_id=None,
+            inspiration_ids=[],
+            generation=0,
+            verification_result={"status": "success", "fitness": fitness},
+            in_success_pool=True,
+        )
+    )
+
+
+
+def _agents(bucket):
+    """queued/running -> {task_id: agent_id}, dropping the timestamp."""
+    return {tid: held.agent_id for tid, held in bucket.items()}
+
+
+def _fitness(bucket):
+    return {tid: done.fitness for tid, done in bucket.items()}
+
+
+def _reasons(bucket):
+    return {tid: failed.reason for tid, failed in bucket.items()}
+
 @pytest.fixture
 def tmp_env(monkeypatch, tmp_path):
     repo = tmp_path / "repo"
     os.makedirs(repo, exist_ok=True)
-    # _STATE_DIR is a cwd-relative constant; pin it to an absolute path under
-    # the temp repo so the path-building helpers stay untouched and no state
-    # leaks into the real .evotrias/.
-    monkeypatch.setattr(sched, "_STATE_DIR", repo / ".evotrias" / "state")
-    # runs/ workspace also lives under the repo root for completed_tasks.jsonl
+    # .evotrias is cwd-relative: chdir into the temp repo so no state leaks.
     monkeypatch.chdir(repo)
     # Reset handler registry and re-import the glue modules so their
     # @register side effects repopulate the broker against a clean slate.
@@ -38,7 +67,7 @@ def _spawn_tool_input(prompt="task_description: number guessing"):
     return {
         "description": "Execute replenishment task",
         "prompt": prompt,
-        "subagent_type": "agent_evolve_plugin:task-executor",
+        "subagent_type": "evotrias_plugin:task-executor",
         "run_in_background": True,
     }
 
@@ -53,7 +82,7 @@ def _start_executor(run_id, agent_id):
         {
             "session_id": "sess-1",
             "agent_id": agent_id,
-            "agent_type": "agent_evolve_plugin:task-executor",
+            "agent_type": "evotrias_plugin:task-executor",
             "hook_event_name": "SubagentStart",
         },
     )
@@ -65,7 +94,7 @@ def _make_task_executor_payload(agent_id, tool_name, tool_input, run_id, task_id
     return {
         "session_id": "sess-1",
         "agent_id": agent_id,
-        "agent_type": "agent_evolve_plugin:task-executor",
+        "agent_type": "evotrias_plugin:task-executor",
         "hook_event_name": "PreToolUse",
         "tool_name": tool_name,
         "tool_input": tool_input,
@@ -92,11 +121,11 @@ def test_executor_spawn_full_chain(tmp_env):
     updated = out["hookSpecificOutput"]["updatedInput"]
     assert updated["description"] == "task_001"
     assert updated["prompt"].endswith("\nrun_id:run-Z\ntask_id:task_001\n")
-    assert updated["subagent_type"] == "agent_evolve_plugin:task-executor"
+    assert updated["subagent_type"] == "evotrias_plugin:task-executor"
     assert updated["run_in_background"] is True
     snap = sched.pool_snapshot("run-Z")
-    assert snap["created"] == ["task_002"]
-    assert snap["pending"] == ["task_001"]
+    assert snap.created == ["task_002"]
+    assert snap.pending == ["task_001"]
 
     # 2. PostToolUse: bind the spawned agentId to the task. No indexing yet.
     out = hook_manager.dispatch(
@@ -112,8 +141,8 @@ def test_executor_spawn_full_chain(tmp_env):
     )
     assert out is None
     snap = sched.pool_snapshot("run-Z")
-    assert snap["pending"] == []
-    assert snap["queued"] == {"task_001": "agent-5"}
+    assert snap.pending == []
+    assert _agents(snap.queued) == {"task_001": "agent-5"}
     assert sched.lookup_agent("run-Z", "agent-5") is None, "agent_index is subagent_start's job"
 
     # 3. SubagentStart: index the agent with its task and move it to running.
@@ -123,18 +152,15 @@ def test_executor_spawn_full_chain(tmp_env):
         {
             "session_id": "sess-1",
             "agent_id": "agent-5",
-            "agent_type": "agent_evolve_plugin:task-executor",
+            "agent_type": "evotrias_plugin:task-executor",
             "hook_event_name": "SubagentStart",
         },
     )
     assert out is None
-    assert sched.lookup_agent("run-Z", "agent-5") == {
-        "agent_type": Agents.TASK_EXECUTOR,
-        "task_id": "task_001",
-    }
+    assert sched.lookup_agent("run-Z", "agent-5") == AgentInfo(Agents.TASK_EXECUTOR, {"task_id": "task_001"})
     snap = sched.pool_snapshot("run-Z")
-    assert snap["queued"] == {}
-    assert snap["running"] == {"task_001": "agent-5"}
+    assert snap.queued == {}
+    assert _agents(snap.running) == {"task_001": "agent-5"}
 
 
 def test_executor_bind_backfills_index_when_subagent_start_ran_first(tmp_env):
@@ -151,15 +177,12 @@ def test_executor_bind_backfills_index_when_subagent_start_ran_first(tmp_env):
         {
             "session_id": "sess-1",
             "agent_id": "agent-5",
-            "agent_type": "agent_evolve_plugin:task-executor",
+            "agent_type": "evotrias_plugin:task-executor",
             "hook_event_name": "SubagentStart",
         },
     )
     assert out is None
-    assert sched.lookup_agent("run-race", "agent-5") == {
-        "agent_type": Agents.TASK_EXECUTOR,
-        "task_id": None,
-    }
+    assert sched.lookup_agent("run-race", "agent-5") == AgentInfo(Agents.TASK_EXECUTOR, {"task_id": None})
 
     hook_manager.dispatch(
         "claude",
@@ -172,13 +195,10 @@ def test_executor_bind_backfills_index_when_subagent_start_ran_first(tmp_env):
             "tool_response": {"isAsync": True, "agentId": "agent-5", "description": "task_001"},
         },
     )
-    assert sched.lookup_agent("run-race", "agent-5") == {
-        "agent_type": Agents.TASK_EXECUTOR,
-        "task_id": "task_001",
-    }
+    assert sched.lookup_agent("run-race", "agent-5") == AgentInfo(Agents.TASK_EXECUTOR, {"task_id": "task_001"})
     snap = sched.pool_snapshot("run-race")
-    assert snap["queued"] == {}
-    assert snap["running"] == {"task_001": "agent-5"}
+    assert snap.queued == {}
+    assert _agents(snap.running) == {"task_001": "agent-5"}
 
 
 def test_executor_spawn_passes_through_on_empty_pool(tmp_env):
@@ -219,7 +239,7 @@ def test_subagent_start_skips_when_no_run_for_session(tmp_env):
     payload = {
         "session_id": "sess-unknown",
         "agent_id": "agent-7",
-        "agent_type": "agent_evolve_plugin:task-executor",
+        "agent_type": "evotrias_plugin:task-executor",
         "hook_event_name": "SubagentStart",
     }
     out = hook_manager.dispatch("claude", "subagent_start", payload)
@@ -235,10 +255,10 @@ def test_subagent_start_indexes_non_executors_without_claiming_a_task(tmp_env):
     sched.remember_session_run("sess-1", "run-mixed")
     sched.top_up_tasks("run-mixed", target=2, max_tasks=100)
     expected = {
-        "agent_evolve_plugin:init-explorer": {"agent_type": Agents.INIT_EXPLORER},
-        "agent_evolve_plugin:meta-guidance-generator": {"agent_type": Agents.META_GUIDANCE_GENERATOR},
-        "general-purpose": {"agent_type": Agents.UNKNOWN, "origin_agent_type": "general-purpose"},
-        "Explore": {"agent_type": Agents.UNKNOWN, "origin_agent_type": "Explore"},
+        "evotrias_plugin:init-explorer": AgentInfo(Agents.INIT_EXPLORER),
+        "evotrias_plugin:meta-guidance-generator": AgentInfo(Agents.META_GUIDANCE_GENERATOR),
+        "general-purpose": AgentInfo(Agents.UNKNOWN, {"origin_agent_type": "general-purpose"}),
+        "Explore": AgentInfo(Agents.UNKNOWN, {"origin_agent_type": "Explore"}),
     }
     for agent_type, want in expected.items():
         out = hook_manager.dispatch(
@@ -255,16 +275,13 @@ def test_subagent_start_indexes_non_executors_without_claiming_a_task(tmp_env):
         assert sched.lookup_agent("run-mixed", f"agent-{agent_type}") == want
 
     snap = sched.pool_snapshot("run-mixed")
-    assert snap["created"] == ["task_001", "task_002"], "created pool must be untouched"
-    assert snap["running"] == {}
+    assert snap.created == ["task_001", "task_002"], "created pool must be untouched"
+    assert snap.running == {}
 
     # A task-executor in the same session still lands its slot via the chain.
     task_id = _start_executor("run-mixed", "agent-exec")
     assert task_id == "task_001"
-    assert sched.lookup_agent("run-mixed", "agent-exec") == {
-        "agent_type": Agents.TASK_EXECUTOR,
-        "task_id": "task_001",
-    }
+    assert sched.lookup_agent("run-mixed", "agent-exec") == AgentInfo(Agents.TASK_EXECUTOR, {"task_id": "task_001"})
 
     # A run-scoped agent's normal sign-off must not land as a failure reason.
     hook_manager.dispatch(
@@ -278,14 +295,14 @@ def test_subagent_start_indexes_non_executors_without_claiming_a_task(tmp_env):
             "last_assistant_message": "Here is the summary you asked for.",
         },
     )
-    assert sched.pool_snapshot("run-mixed")["failed"] == {}
-    assert sched.pool_snapshot("run-mixed")["running"] == {"task_001": "agent-exec"}
+    assert sched.pool_snapshot("run-mixed").failed == {}
+    assert _agents(sched.pool_snapshot("run-mixed").running) == {"task_001": "agent-exec"}
 
 
 def test_configure_run_post_records_session_run(tmp_env):
     payload = {
         "session_id": "sess-9",
-        "tool_name": "mcp__plugin_agent_evolve_plugin_ctrl__configure_run",
+        "tool_name": "mcp__plugin_evotrias_plugin_evotrias__configure_run",
         "tool_input": {"run_id": "run-9", "max_total_tasks": 50},
         "hook_event_name": "PostToolUse",
     }
@@ -294,24 +311,34 @@ def test_configure_run_post_records_session_run(tmp_env):
     assert sched.lookup_run_by_session("sess-9") == "run-9"
 
 
-def test_subagent_stop_completes_task_from_jsonl(tmp_env):
+def test_configure_run_post_without_session_id_registers_nothing(tmp_env):
+    # A bare payload.get("session_id") used to hand None to the scheduler,
+    # which str()-ed it into a literal "None" session key.
+    payload = {
+        "tool_name": "mcp__plugin_evotrias_plugin_evotrias__configure_run",
+        "tool_input": {"run_id": "run-9", "max_total_tasks": 50},
+        "hook_event_name": "PostToolUse",
+    }
+    out = hook_manager.dispatch("claude", "post_tool_use", payload)
+    assert out is None
+    assert SessionMap().sessions == {}
+
+
+def test_subagent_stop_completes_task_from_recorded_success(tmp_env):
     sched.remember_session_run("sess-1", "run-W")
     sched.top_up_tasks("run-W", target=1, max_tasks=100)
     _start_executor("run-W", "agent-10")
-    # Write a completion record for task_001
-    os.makedirs("runs/run-W", exist_ok=True)
-    with open("runs/run-W/completed_tasks.jsonl", "w", encoding="utf-8") as f:
-        f.write(json.dumps({"task_id": "task_001", "fitness": 0.91, "status": "success", "artifact_ref": "x"}) + "\n")
+    _record_success("run-W", "task_001", 0.91)
     payload = {
         "session_id": "sess-1",
         "agent_id": "agent-10",
-        "agent_type": "agent_evolve_plugin:task-executor",
+        "agent_type": "evotrias_plugin:task-executor",
         "hook_event_name": "SubagentStop",
     }
     hook_manager.dispatch("claude", "subagent_stop", payload)
     snap = sched.pool_snapshot("run-W")
-    assert snap["completed"] == {"task_001": {"fitness": 0.91}}
-    assert snap["running"] == {}
+    assert _fitness(snap.completed) == {"task_001": 0.91}
+    assert snap.running == {}
 
 
 def test_subagent_stop_fails_task_with_last_message(tmp_env):
@@ -321,14 +348,14 @@ def test_subagent_stop_fails_task_with_last_message(tmp_env):
     payload = {
         "session_id": "sess-1",
         "agent_id": "agent-11",
-        "agent_type": "agent_evolve_plugin:task-executor",
+        "agent_type": "evotrias_plugin:task-executor",
         "hook_event_name": "SubagentStop",
         "last_assistant_message": "I could not produce a solution: verifier timed out repeatedly." * 5,
     }
     hook_manager.dispatch("claude", "subagent_stop", payload)
     snap = sched.pool_snapshot("run-V")
-    assert "task_001" in snap["failed"]
-    reason = snap["failed"]["task_001"]["reason"]
+    assert "task_001" in snap.failed
+    reason = snap.failed["task_001"].reason
     assert len(reason) <= 200
     assert "verifier timed out" in reason
 

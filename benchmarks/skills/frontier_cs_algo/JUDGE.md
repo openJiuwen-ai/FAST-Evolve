@@ -1,6 +1,6 @@
 # Frontier-CS judge prerequisite
 
-The AgentEvolve evaluator is a normal host-side Python process. It does not
+The EvoTrias evaluator is a normal host-side Python process. It does not
 need to run in a container and it never invokes Docker.
 
 Frontier-CS algorithmic scoring still requires an official-compatible judge
@@ -30,4 +30,4 @@ path: algorithmic/
 ```
 
 That judge deployment may use Docker/go-judge; it remains outside this
-repository and outside the AgentEvolve evaluator process.
+repository and outside the EvoTrias evaluator process.

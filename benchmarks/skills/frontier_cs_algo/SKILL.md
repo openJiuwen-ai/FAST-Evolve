@@ -16,8 +16,8 @@ Read the numeric `problem_id` from the original task description. Supported
 forms include:
 
 ```text
-/agent_evolve_plugin:evolve frontier_cs_algo problem_id=0
-/agent_evolve_plugin:evolve frontier_cs_algo 0
+/evotrias_plugin:evolve frontier_cs_algo problem_id=0
+/evotrias_plugin:evolve frontier_cs_algo 0
 ```
 
 Do not infer the Frontier-CS problem from the evolution `task_id`, and do not

@@ -11,9 +11,10 @@ from __future__ import annotations
 import pytest
 
 from evotrias.mcp import public_tools as public_tools_module
-from evotrias.mcp.controller import EvolutionController
-from evotrias.mcp.models import SuccessRecord
-from evotrias.mcp.state_store import RunStateStore
+from evotrias.evolve_ctrl import controller as ctrl
+from evotrias.db.attempts import AttemptRecord, Attempts
+from evotrias.db.config import Config
+from evotrias.db.run_state import RunState
 from evotrias import scheduler as sched
 
 RUN_ID = "run_shape_test"
@@ -21,15 +22,10 @@ RUN_ID = "run_shape_test"
 
 @pytest.fixture
 def run_env(tmp_path, monkeypatch):
-    monkeypatch.setenv(
-        "AGENT_EVOLVE_CONTROLLER_DIR", str(tmp_path / ".agent_evolve" / "controller")
-    )
-    monkeypatch.setenv("AGENT_EVOLVE_UI_ENABLED", "0")
-    monkeypatch.setenv("AGENT_EVOLVE_NOTES_ENABLED", "0")
-    monkeypatch.setattr(sched, "_STATE_DIR", tmp_path / ".evotrias" / "state")
-    public_tools_module._controllers.pop(RUN_ID, None)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("EVOTRIAS_UI_ENABLED", "0")
+    monkeypatch.setenv("EVOTRIAS_NOTES_ENABLED", "0")
     yield
-    public_tools_module._controllers.pop(RUN_ID, None)
 
 
 def _start_one_task(run_id: str, agent_id: str) -> str:
@@ -60,11 +56,28 @@ def test_configure_run_records_and_returns_run_shape(run_env):
     assert result["max_total_tasks"] == 30
     assert result["lineage_root_number"] == 6
     assert result["max_concurrent_tasks"] == 2
-    assert RunStateStore(RUN_ID).load().run_config == {
-        "max_total_tasks": 30,
-        "lineage_root_number": 6,
-        "max_concurrent_tasks": 2,
-    }
+    config = Config(RUN_ID)
+    assert (
+        config.budget.max_total_tasks,
+        config.scheduler.lineage_root_number,
+        config.scheduler.max_concurrent_tasks,
+    ) == (30, 6, 2)
+
+
+def test_configure_run_returns_locked_config_with_message(run_env):
+    knobs = {"max_total_tasks": 30, "lineage_root_number": 6, "max_concurrent_tasks": 2}
+    first = ctrl.configure_run(RUN_ID, {"task_description": "first"}, knobs)
+    second = ctrl.configure_run(
+        RUN_ID,
+        {"task_description": "second"},
+        {"max_total_tasks": 99, "lineage_root_number": 1, "max_concurrent_tasks": 9},
+    )
+
+    assert first[0] is True and first[2] == "Run configured."
+    assert second[0] is False and second[2]
+    assert second[1].budget.max_total_tasks == 30
+    assert second[1].scheduler.lineage_root_number == 6
+    assert RunState(RUN_ID).task_description == "first"
 
 
 def test_configure_run_is_locked_in_process(run_env):
@@ -85,9 +98,8 @@ def test_configure_run_is_locked_across_process_restarts(run_env):
     public_tools_module.evolve_configure_run(
         RUN_ID, max_total_tasks=30, lineage_root_number=6, max_concurrent_tasks=2
     )
-    # A new MCP process has an empty controller cache but the same disk state.
-    public_tools_module._controllers.pop(RUN_ID, None)
-
+    # Nothing is cached in-process: the lock is config.json on disk, so a
+    # restarted MCP server sees exactly the same answer.
     second = public_tools_module.evolve_configure_run(
         RUN_ID, max_total_tasks=99, lineage_root_number=1, max_concurrent_tasks=9
     )
@@ -129,12 +141,14 @@ def test_root_phase_caps_minting_and_barrier_gates_evolution(run_env):
     assert check() == 2  # every root finished: evolution fill to concurrency
     _finish_one_task(RUN_ID, "agent_3")
     assert check() == 1  # steady state: top up to 2 after each completion
-    # check_convergence rewrites run state; the recorded shape must survive it.
-    assert RunStateStore(RUN_ID).load().run_config == {
-        "max_total_tasks": 30,
-        "lineage_root_number": 3,
-        "max_concurrent_tasks": 2,
-    }
+    # check_convergence rewrites run state; the recorded shape lives in
+    # config.json and must be untouched by it.
+    config = Config(RUN_ID)
+    assert (
+        config.budget.max_total_tasks,
+        config.scheduler.lineage_root_number,
+        config.scheduler.max_concurrent_tasks,
+    ) == (30, 3, 2)
 
 
 def test_small_root_budget_finishes_before_wider_concurrency(run_env):
@@ -172,19 +186,28 @@ def test_check_convergence_rejects_non_positive_concurrency(run_env):
 def test_root_tasks_get_no_parent_even_after_early_root_success(run_env):
     # max_concurrent_tasks=2, lineage_root_number=3: task_003 is minted after
     # task_001 already succeeded, yet it is still a root — no parent, no
-    # inspirations, regardless of SuccessDB content.
+    # inspirations, regardless of success pool content.
     public_tools_module.evolve_configure_run(
         RUN_ID, max_total_tasks=30, lineage_root_number=3, max_concurrent_tasks=2
     )
-    controller = public_tools_module._controllers[RUN_ID]
-
     assert public_tools_module.evolve_check_convergence(RUN_ID, concurrency=2)[
         "tasks_to_create"
     ] == 2
     task_1 = _start_one_task(RUN_ID, "agent_0")
     task_2 = _start_one_task(RUN_ID, "agent_1")
-    controller.db.add(
-        SuccessRecord(id=task_1, run_id=RUN_ID, fitness=1.0, artifact_ref="a.py")
+    Attempts(RUN_ID).append(
+        AttemptRecord(
+            id="attempt_001",
+            run_id=RUN_ID,
+            task_id=task_1,
+            subagent_id="agent",
+            artifact_ref="a.py",
+            parent_id=None,
+            inspiration_ids=[],
+            generation=0,
+            verification_result={"status": "success", "fitness": 1.0},
+            in_success_pool=True,
+        )
     )
     sched.complete_task(RUN_ID, task_1, fitness=1.0)
 
@@ -215,8 +238,8 @@ def test_restarted_controller_recovers_recorded_config(run_env):
         RUN_ID, max_total_tasks=30, lineage_root_number=6, max_concurrent_tasks=2
     )
 
-    restarted = EvolutionController(RUN_ID)
+    restarted = Config(RUN_ID)
 
-    assert restarted.config.budget.max_total_tasks == 30
-    assert restarted.config.scheduler.lineage_root_number == 6
-    assert restarted.config.scheduler.max_concurrent_tasks == 2
+    assert restarted.budget.max_total_tasks == 30
+    assert restarted.scheduler.lineage_root_number == 6
+    assert restarted.scheduler.max_concurrent_tasks == 2

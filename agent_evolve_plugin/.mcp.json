@@ -1,8 +1,0 @@
-{
-  "mcpServers": {
-    "ctrl": {
-      "command": "python",
-      "args": ["-m", "evotrias.mcp"]
-    }
-  }
-}

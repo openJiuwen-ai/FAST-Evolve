@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
-import json
-import os
-from pathlib import Path
-from typing import Any, Optional
+from dataclasses import dataclass, field
+from typing import Any, Dict
 
+from evotrias.db import paths
+from evotrias.db.agent_index import AgentInfo
+from evotrias.db.attempts import Attempts
+from evotrias.db.base import DBObject
 from evotrias.enums import Agents
 from evotrias.hooks import hook_manager
 from evotrias.logger import logger
@@ -21,46 +23,34 @@ _AGENT_TYPE_MAP: dict[str, Agents] = {
     "meta-guidance-generator": Agents.META_GUIDANCE_GENERATOR,
 }
 
-class _Registry:
-    """Cross-process store stitching hook events: before->after (calls), created->idle (sessions)."""
+@dataclass
+class PendingCall:
+    """A task-tool call seen at ``tool.execute.before``, awaiting its ``after``."""
 
-    PATH = Path(".evotrias") / "state" / "opencode_registry.json"
+    run_id: str
+    task_id: str
 
-    @staticmethod
-    def _read() -> dict[str, Any]:
-        try:
-            data = json.loads(_Registry.PATH.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            data = None
-        if not isinstance(data, dict):
-            data = {}
-        data.setdefault("sessions", {})
-        data.setdefault("calls", {})
-        return data
 
-    @staticmethod
-    def _write(data: dict[str, Any]) -> None:
-        _Registry.PATH.parent.mkdir(parents=True, exist_ok=True)
-        tmp = _Registry.PATH.with_name(f".{_Registry.PATH.name}.{os.getpid()}.tmp")
-        tmp.write_text(
-            json.dumps(data, ensure_ascii=False, separators=(",", ":")) + "\n",
-            encoding="utf-8",
-        )
-        os.replace(tmp, _Registry.PATH)
+@dataclass
+class PendingSession:
+    """A subagent session seen at ``session.created``, awaiting its ``idle``."""
 
-    @staticmethod
-    def put(section: str, key: str, value: dict[str, Any]) -> None:
-        data = _Registry._read()
-        data[section][key] = value
-        _Registry._write(data)
+    agent: str
+    parent_id: str
 
-    @staticmethod
-    def pop(section: str, key: str) -> Optional[dict[str, Any]]:
-        data = _Registry._read()
-        value = data[section].pop(key, None)
-        if value is not None:
-            _Registry._write(data)
-        return value
+
+class _Registry(DBObject):
+    """Cross-process store stitching hook events: before->after (calls), created->idle (sessions).
+
+    Private to the opencode hooks, so it lives here rather than in ``evotrias.db``;
+    it still borrows the db base class for atomic JSON IO.
+    """
+
+    calls: Dict[str, PendingCall] = field(default_factory=dict)
+    sessions: Dict[str, PendingSession] = field(default_factory=dict)
+
+    def __init__(self):
+        super().__init__(paths.OPENCODE_REGISTRY)
 
 
 def _spawn_args(payload: dict) -> dict[str, Any]:
@@ -77,27 +67,6 @@ def _is_executor_spawn(payload: dict) -> bool:
         return False
     raw = str(_spawn_args(payload).get("subagent_type") or "").strip().lower()
     return _AGENT_TYPE_MAP.get(raw) == Agents.TASK_EXECUTOR
-
-
-def _find_completed_task(run_id: str, task_id: str) -> Optional[dict[str, Any]]:
-    path = os.path.join("runs", run_id, "completed_tasks.jsonl")
-    if not os.path.exists(path):
-        return None
-    try:
-        with open(path, encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    rec = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if rec.get("task_id") == task_id:
-                    return rec
-    except OSError:
-        pass
-    return None
 
 
 @hook_manager.register("opencode", "tool.execute.before", priority=0)
@@ -118,7 +87,8 @@ def executor_allocate_task(payload: dict, result: dict, extra_data: Any) -> dict
         return result
 
     call_id = str(input_.get("callID") or "")
-    _Registry.put("calls", call_id, {"run_id": run_id, "task_id": task_id})
+    with _Registry() as registry:
+        registry.calls[call_id] = PendingCall(run_id=run_id, task_id=task_id)
 
     args = dict(_spawn_args(payload))
     args["description"] = task_id
@@ -134,8 +104,8 @@ def remember_session_run(payload: dict, result: dict, extra_data: Any) -> dict[s
     if input_.get("tool") != _CONFIGURE_RUN_TOOL:
         return result
 
-    run_id = (input_.get("args") or {}).get("run_id")
-    session_id = input_.get("sessionID")
+    run_id = str((input_.get("args") or {}).get("run_id") or "")
+    session_id = str(input_.get("sessionID") or "")
     scheduler.remember_session_run(session_id, run_id)
     return result
 
@@ -146,11 +116,12 @@ def executor_bind_agent(payload: dict, result: dict, extra_data: Any) -> dict[st
         return result
 
     input_ = payload.get("input") or {}
-    call = _Registry.pop("calls", str(input_.get("callID") or ""))
+    with _Registry() as registry:
+        call = registry.calls.pop(str(input_.get("callID") or ""), None)
     if call is None:
         # No allocation happened for this call (unknown session or empty pool).
         return result
-    run_id, task_id = str(call["run_id"]), str(call["task_id"])
+    run_id, task_id = call.run_id, call.task_id
 
     metadata = (payload.get("output") or {}).get("metadata") or {}
     agent_id = str(metadata.get("sessionId") or "")
@@ -164,10 +135,10 @@ def executor_bind_agent(payload: dict, result: dict, extra_data: Any) -> dict[st
     # session.created usually fires between before and after, leaving the
     # executor indexed with task_id=None; backfill it now.
     agent_info = scheduler.lookup_agent(run_id, agent_id)
-    if agent_info is not None and agent_info.get("task_id") is None:
-        agent_info["task_id"] = scheduler.start_task(run_id, agent_id)
+    if agent_info is not None and agent_info.attrs.get("task_id") is None:
+        agent_info.attrs["task_id"] = scheduler.start_task(run_id, agent_id)
         scheduler.remember_agent(run_id, agent_id, agent_info)
-        logger.info(f"scheduler hook: backfilled task_id={agent_info['task_id']} "
+        logger.info(f"scheduler hook: backfilled task_id={agent_info.attrs['task_id']} "
                     f"for agent {agent_id} in run {run_id}")
     return result
 
@@ -188,15 +159,16 @@ def remember_agent(payload: dict, result: dict, extra_data: Any) -> dict[str, An
     agent_name = str(info.get("agent") or "").strip().lower()
     agent_type = _AGENT_TYPE_MAP.get(agent_name, Agents.UNKNOWN)
 
-    _Registry.put("sessions", session_id, {"agent": agent_name, "parent_id": parent_id})
+    with _Registry() as registry:
+        registry.sessions[session_id] = PendingSession(agent=agent_name, parent_id=parent_id)
 
-    agent_info: dict[str, Any] = {"agent_type": agent_type}
+    agent_info = AgentInfo(agent_type=agent_type)
     if agent_type == Agents.UNKNOWN:
-        agent_info["origin_agent_type"] = info.get("agent")
+        agent_info.attrs["origin_agent_type"] = info.get("agent")
     elif agent_type == Agents.TASK_EXECUTOR:
         # queued -> running; None when this fires before executor_bind_agent
         # (usual opencode ordering), which then backfills the index itself
-        agent_info["task_id"] = scheduler.start_task(run_id, session_id)
+        agent_info.attrs["task_id"] = scheduler.start_task(run_id, session_id)
 
     scheduler.remember_agent(run_id, session_id, agent_info)
     return result
@@ -205,15 +177,16 @@ def remember_agent(payload: dict, result: dict, extra_data: Any) -> dict[str, An
 @hook_manager.register("opencode", "session.idle", priority=0)
 def executor_report_complete(payload: dict, result: dict, extra_data: Any) -> dict[str, Any] | None:
     session_id = str(((payload.get("properties") or {}).get("sessionID")) or "")
-    entry = _Registry.pop("sessions", session_id)
+    with _Registry() as registry:
+        entry = registry.sessions.pop(session_id, None)
     if entry is None:
         # Main session or a subagent outside any evolve run.
         return result
 
-    if _AGENT_TYPE_MAP.get(str(entry.get("agent") or "")) != Agents.TASK_EXECUTOR:
+    if _AGENT_TYPE_MAP.get(entry.agent) != Agents.TASK_EXECUTOR:
         return result
 
-    run_id = scheduler.lookup_run_by_session(str(entry.get("parent_id") or ""))
+    run_id = scheduler.lookup_run_by_session(entry.parent_id)
     if not run_id:
         return result
 
@@ -222,18 +195,18 @@ def executor_report_complete(payload: dict, result: dict, extra_data: Any) -> di
         logger.error(f"scheduler hook: failed to find agent info run={run_id} agent={session_id}")
         return result
 
-    task_id = agent_info.get("task_id")
+    task_id = agent_info.attrs.get("task_id")
     if not task_id:
         logger.error(f"scheduler hook: agent {session_id} has no task_id in run {run_id}")
         return result
 
-    completed = _find_completed_task(run_id, task_id)
-    if completed is not None:
-        fitness = completed.get("fitness")
+    success = Attempts(run_id).successes.get(task_id)
+    if success is not None:
+        fitness = success.verification_result.get("fitness")
         scheduler.complete_task(run_id, task_id, fitness)
         logger.info(f"scheduler hook: session idle complete run={run_id} task={task_id} fitness={fitness!r}")
     else:
-        reason = "no completion record on session idle"
+        reason = "no successful attempt recorded on session idle"
         scheduler.fail_task(run_id, task_id, reason)
         logger.info(f"scheduler hook: session idle fail run={run_id} task={task_id} reason={reason!r}")
     return result

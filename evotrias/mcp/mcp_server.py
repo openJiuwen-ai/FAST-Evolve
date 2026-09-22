@@ -1,5 +1,5 @@
-"""FastMCP server object for the Agent Evolve controller."""
+"""FastMCP server object for the EvoTrias controller."""
 
 from fastmcp import FastMCP
 
-mcp = FastMCP("agent_evolve")
+mcp = FastMCP("evotrias")

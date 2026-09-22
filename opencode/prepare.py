@@ -1,8 +1,8 @@
 """One-way sync of agents and skills into the opencode workspace.
 
 Sources (read-only, single source of truth):
-  agent_evolve_plugin/agents/*.md   -> .opencode/agents/
-  agent_evolve_plugin/skills/*      -> .opencode/skills/
+  evotrias_plugin/agents/*.md   -> .opencode/agents/
+  evotrias_plugin/skills/*      -> .opencode/skills/
   benchmarks/skills/<p>, p in PROBLEMS -> .opencode/skills/
 
 Every copied file goes through one rule pipeline; a file that matches
@@ -23,8 +23,8 @@ SKILLS_DST = WORKSPACE / ".opencode" / "skills"
 
 # Content rules: plain text replacements applied to every copied .md file.
 CONTENT_RULES = [
-    ("mcp__plugin_agent_evolve_plugin_ctrl__", "evotrias_"),  # MCP tool name format
-    ("agent_evolve_plugin:", ""),                             # subagent_type is a bare name
+    ("mcp__plugin_evotrias_plugin_evotrias__", "evotrias_"),  # MCP tool name format
+    ("evotrias_plugin:", ""),                             # subagent_type is a bare name
     ("run_in_background", "background"),                      # task tool arg name
     ("benchmarks/skills/", "../benchmarks/skills/"),          # cwd is opencode/
 ]
@@ -101,11 +101,11 @@ def main() -> None:
         shutil.rmtree(d, ignore_errors=True)
         d.mkdir(parents=True)
 
-    for src in sorted((ROOT / "agent_evolve_plugin" / "agents").glob("*.md")):
+    for src in sorted((ROOT / "evotrias_plugin" / "agents").glob("*.md")):
         text = apply_content_rules(src.read_text(encoding="utf-8"))
         (AGENTS_DST / src.name).write_text(convert_agent(text), encoding="utf-8")
 
-    skill_dirs = sorted(p for p in (ROOT / "agent_evolve_plugin" / "skills").iterdir() if p.is_dir())
+    skill_dirs = sorted(p for p in (ROOT / "evotrias_plugin" / "skills").iterdir() if p.is_dir())
     skill_dirs += [ROOT / "benchmarks" / "skills" / p for p in PROBLEMS]
     for src_dir in skill_dirs:
         sync_skill(src_dir)

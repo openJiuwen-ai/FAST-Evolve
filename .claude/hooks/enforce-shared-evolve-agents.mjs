@@ -1,7 +1,7 @@
 const sharedWorkspaceAgents = new Set([
-  "agent_evolve_plugin:init-explorer",
-  "agent_evolve_plugin:task-executor",
-  "agent_evolve_plugin:meta-guidance-generator",
+  "evotrias_plugin:init-explorer",
+  "evotrias_plugin:task-executor",
+  "evotrias_plugin:meta-guidance-generator",
 ]);
 
 let input = "";
@@ -33,7 +33,7 @@ process.stdin.on("end", () => {
         hookEventName: "PreToolUse",
         permissionDecision: "allow",
         permissionDecisionReason:
-          "AgentEvolve persistent workers must use the shared main repository.",
+          "EvoTrias persistent workers must use the shared main repository.",
         updatedInput,
       },
     }),

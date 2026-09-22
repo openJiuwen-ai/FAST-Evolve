@@ -1,42 +1,61 @@
-"""Public MCP tool registration.
+"""MCP tool registration for evotrias.
 
-This module is the only layer that should expose FastMCP tools.  Each function
-keeps the public schema small and delegates immediately to the internal
-controller. The separation is intentional: MCP callers see compact operations,
-while algorithms and persistence remain ordinary Python modules. Python wrapper
-names retain their ``evolve_*`` prefix for direct-import compatibility; explicit
-MCP registration names omit that redundant prefix.
+This is the only layer that exposes FastMCP tools, and it stays a thin shell:
+each tool declares the agent-facing contract (argument names, defaults,
+docstring) and forwards to ``evotrias.evolve_ctrl.controller`` with every
+argument filled in.  ``configure_run`` is the exception — it assembles the
+two flat dicts the controller expects and starts the optional dashboard.
+
+Python wrapper names keep an ``evolve_*`` prefix for direct-import
+compatibility (tests call ``public_tools_module.evolve_*``); the registered
+name is the prefix-free one passed to ``register_tool``.
+
+Every tool goes through ``register_tool``: it logs inputs/outputs at DEBUG,
+logs failures at ERROR, and re-raises so the exception travels FastMCP's
+normal error channel.
 """
 
 from __future__ import annotations
 
-from typing import Any, Dict
+import functools
+import time
+from typing import Any, Callable, Dict
 
-from evotrias.mcp.config import load_evolution_controller_config
-from evotrias.mcp.controller import EvolutionController
-from evotrias.mcp.dashboard import start_dashboard
+from evotrias.evolve_ctrl import controller as ctrl
+from evotrias.dashboard.server import start_dashboard
+from evotrias.logger import logger
 from evotrias.mcp.mcp_server import mcp
-from evotrias.mcp.notes import notes_enabled
-from evotrias.mcp.state_store import RunStateStore
-
-_controllers: Dict[str, EvolutionController] = {}
 
 
-def _controller(run_id: str) -> EvolutionController:
-    """Return the cached controller for a run id.
+def register_tool(name: str) -> Callable:
+    """Register an ``evolve_*`` function as an MCP tool with logging.
 
-    Controllers are lightweight facades over disk-backed state.  They still
-    reload SuccessDB on each operation, so this cache is a convenience rather
-    than the source of truth.
+    The tool docstring is the agent-facing description; the function body is
+    forwarded untouched.  Inputs, output and duration are logged at DEBUG, and
+    an exception is logged at ERROR with the traceback, then re-raised so
+    FastMCP surfaces it through the protocol error channel.
     """
-    controller = _controllers.get(run_id)
-    if controller is None:
-        controller = EvolutionController(run_id)
-        _controllers[run_id] = controller
-    return controller
+
+    def decorator(fn: Callable) -> Callable:
+        @functools.wraps(fn)
+        def guarded(*args: Any, **kwargs: Any) -> Any:
+            logger.debug(f"tool {name} <- args={args!r} kwargs={kwargs!r}")
+            started = time.monotonic()
+            try:
+                result = fn(*args, **kwargs)
+            except Exception as exc:
+                logger.error(f"tool {name} failed: {type(exc).__name__}: {exc}", exc_info=True)
+                raise
+            elapsed = time.monotonic() - started
+            logger.debug(f"tool {name} -> {result!r} took {elapsed:.3f}s")
+            return result
+
+        return mcp.tool(name=name, run_in_thread=False)(guarded)
+
+    return decorator
 
 
-@mcp.tool(name="configure_run", run_in_thread=False)
+@register_tool("configure_run")
 def evolve_configure_run(
     run_id: str,
     max_total_tasks: int = 50,
@@ -46,81 +65,52 @@ def evolve_configure_run(
 ) -> Dict[str, Any]:
     """Configure evolution run parameters before starting tasks.
 
-    Must be called BEFORE any other controller tool for the same run_id.
-    Subsequent calls for the same run_id are ignored (the configuration
-    is locked after the first call). ``lineage_root_number`` caps the root
-    phase: at most that many tasks are minted (one root per exploration
-    direction) and all must finish before evolution tasks start.
-    ``max_concurrent_tasks`` is the in-flight task target in every phase.
+    Must be called BEFORE any other controller tool for the same run_id;
+    the first call writes ``config.json`` and later calls are ignored (the
+    configuration is locked). Returns ``configured``, a ``message``, and the
+    recorded knobs.
     """
-    controller = _controllers.get(run_id)
-    if controller is None and RunStateStore(run_id).load().run_config:
-        # A previous process already configured this run: recover the recorded
-        # values instead of re-configuring with the caller's new ones.
-        controller = EvolutionController(run_id)
-        _controllers[run_id] = controller
-    if controller is not None:
-        config = controller.config
-        return {
-            "configured": False,
-            "reason": "Run already configured for this run_id; configuration locked.",
-            "max_total_tasks": config.budget.max_total_tasks,
-            "lineage_root_number": config.scheduler.lineage_root_number,
-            "max_concurrent_tasks": config.scheduler.max_concurrent_tasks,
-            "meta_evolve": _meta_evolve_config_ref(config),
-            "dashboard": _dashboard_ref(
-                run_id,
-                max_total_tasks=config.budget.max_total_tasks,
-                task_description=task_description,
-                meta_guidance_enabled=config.meta_evolve.enabled,
-                notes_feature_enabled=notes_enabled(),
-            ),
-        }
-    config = load_evolution_controller_config(
-        max_total_tasks=max_total_tasks,
-        lineage_root_number=lineage_root_number,
-        max_concurrent_tasks=max_concurrent_tasks,
+    configured, config, message = ctrl.configure_run(
+        run_id,
+        task_info={"task_description": task_description},
+        configs={
+            "max_total_tasks": max_total_tasks,
+            "lineage_root_number": lineage_root_number,
+            "max_concurrent_tasks": max_concurrent_tasks,
+        },
     )
-    controller = EvolutionController(run_id, config=config)
-    controller.configure_run(task_description=task_description)
-    _controllers[run_id] = controller
     return {
-        "configured": True,
+        "configured": configured,
+        "message": message,
         "max_total_tasks": config.budget.max_total_tasks,
         "lineage_root_number": config.scheduler.lineage_root_number,
         "max_concurrent_tasks": config.scheduler.max_concurrent_tasks,
         "meta_evolve": _meta_evolve_config_ref(config),
-        "dashboard": _dashboard_ref(
-            run_id,
-            max_total_tasks=config.budget.max_total_tasks,
-            task_description=task_description,
-            meta_guidance_enabled=config.meta_evolve.enabled,
-            notes_feature_enabled=notes_enabled(),
-        ),
+        "dashboard": _dashboard_ref(run_id),
     }
 
 
-@mcp.tool(name="select_parent", run_in_thread=False)
+@register_tool("select_parent")
 def evolve_select_parent(run_id: str, task_id: str) -> Dict[str, Any]:
     """Select a parent and return its id/ref, fitness, and evaluator metrics.
 
     The controller stores the parent choice in local task context so later tool
     calls do not need the agent to repeat ``parent_id``.
     """
-    return _controller(run_id).select_parent(task_id=task_id)
+    return ctrl.select_parent(run_id, task_id)
 
 
-@mcp.tool(name="select_inspirations", run_in_thread=False)
+@register_tool("select_inspirations")
 def evolve_select_inspirations(run_id: str, task_id: str) -> Dict[str, Any]:
     """Select extra inspiration refs with fitness and evaluator metrics.
 
     The parent is not repeated in this response.  The controller reads the
     task's cached parent choice from local task context.
     """
-    return _controller(run_id).select_inspirations(task_id=task_id)
+    return ctrl.select_inspirations(run_id, task_id)
 
 
-@mcp.tool(name="record_attempt", run_in_thread=False)
+@register_tool("record_attempt")
 def evolve_record_attempt(
     run_id: str,
     task_id: str,
@@ -133,65 +123,60 @@ def evolve_record_attempt(
 
     The controller reads the JSON result, restores parent/inspiration ids from
     task context, records the attempt, adds successful attempts with top-level
-    numeric fitness to SuccessDB, and returns any Notes requests.
+    numeric fitness to the success pool, and returns any Notes requests.
     """
-    return _controller(run_id).record_attempt(
-        task_id=task_id,
-        verification_result_ref=verification_result_ref,
+    return ctrl.record_attempt(
+        run_id,
+        task_id,
+        verification_result_ref,
         attempt_id=attempt_id or None,
         artifact_ref=artifact_ref or None,
         max_attempts=max_attempts,
     )
 
 
-@mcp.tool(name="get_notes_prompt", run_in_thread=False)
+@register_tool("get_notes_prompt")
 def evolve_get_notes_prompt(run_id: str, task_id: str) -> Dict[str, Any]:
     """Return run-local Notes as a ready-to-inject prompt section."""
-    return _controller(run_id).get_notes_prompt(task_id=task_id)
+    return ctrl.get_notes_prompt(run_id, task_id)
 
 
-@mcp.tool(name="commit_generated_note", run_in_thread=False)
+@register_tool("commit_generated_note")
 def evolve_commit_generated_note(
     run_id: str,
     note_request_id: str,
     generated_note_json: Any,
 ) -> Dict[str, Any]:
     """Validate and commit one LLM-generated run-local note."""
-    return _controller(run_id).commit_generated_note(
-        note_request_id=note_request_id,
-        generated_note_json=generated_note_json,
-    )
+    return ctrl.commit_generated_note(run_id, note_request_id, generated_note_json)
 
 
-@mcp.tool(name="get_meta_guidance_request", run_in_thread=False)
+@register_tool("get_meta_guidance_request")
 def evolve_get_meta_guidance_request(
     run_id: str,
     request_id: str = "",
 ) -> Dict[str, Any]:
     """Return a pending meta-guidance request for the dedicated worker."""
-    return _controller(run_id).get_meta_guidance_request(request_id=request_id)
+    return ctrl.get_meta_guidance_request(run_id, request_id)
 
 
-@mcp.tool(name="commit_meta_guidance", run_in_thread=False)
+@register_tool("commit_meta_guidance")
 def evolve_commit_meta_guidance(
     run_id: str,
     request_id: str,
     guidance_json: Any,
 ) -> Dict[str, Any]:
     """Validate and activate structured meta-guidance."""
-    return _controller(run_id).commit_meta_guidance(
-        request_id=request_id,
-        guidance_json=guidance_json,
-    )
+    return ctrl.commit_meta_guidance(run_id, request_id, guidance_json)
 
 
-@mcp.tool(name="get_meta_guidance_prompt", run_in_thread=False)
+@register_tool("get_meta_guidance_prompt")
 def evolve_get_meta_guidance_prompt(run_id: str, task_id: str) -> Dict[str, Any]:
     """Return a ready-to-inject meta-guidance prompt section for a task."""
-    return _controller(run_id).get_meta_guidance_prompt(task_id=task_id)
+    return ctrl.get_meta_guidance_prompt(run_id, task_id)
 
 
-@mcp.tool(name="check_convergence", run_in_thread=False)
+@register_tool("check_convergence")
 def evolve_check_convergence(
     run_id: str,
     concurrency: int,
@@ -205,10 +190,10 @@ def evolve_check_convergence(
     must finish before evolution tasks are created (meanwhile ``continue`` is
     returned with ``tasks_to_create`` 0).
     """
-    return _controller(run_id).check_convergence(concurrency=concurrency)
+    return ctrl.check_convergence(run_id, concurrency)
 
 
-@mcp.tool(name="finalize_run", run_in_thread=False)
+@register_tool("finalize_run")
 def evolve_finalize_run(run_id: str, stop_reason: str = "") -> Dict[str, Any]:
     """Write deterministic run summary artifacts and return only refs.
 
@@ -216,7 +201,7 @@ def evolve_finalize_run(run_id: str, stop_reason: str = "") -> Dict[str, Any]:
     Normal convergence and budget stops should leave it empty so the controller
     uses the reason already stored in run state.
     """
-    return _controller(run_id).finalize_run(stop_reason=stop_reason or None)
+    return ctrl.finalize_run(run_id, stop_reason or None)
 
 
 def _meta_evolve_config_ref(config: Any) -> Dict[str, Any]:
@@ -227,25 +212,10 @@ def _meta_evolve_config_ref(config: Any) -> Dict[str, Any]:
     }
 
 
-def _dashboard_ref(
-    run_id: str,
-    *,
-    max_total_tasks: int,
-    task_description: str,
-    meta_guidance_enabled: bool,
-    notes_feature_enabled: bool,
-) -> Dict[str, Any]:
+def _dashboard_ref(run_id: str) -> Dict[str, Any]:
     """Start the optional UI without making observability run-critical."""
     try:
-        server = start_dashboard(
-            run_id,
-            max_total_tasks=max_total_tasks,
-            task_description=task_description,
-            feature_flags={
-                "meta_guidance": meta_guidance_enabled,
-                "notes": notes_feature_enabled,
-            },
-        )
+        server = start_dashboard(run_id)
     except (OSError, RuntimeError) as exc:
         return {
             "enabled": True,
@@ -256,7 +226,7 @@ def _dashboard_ref(
         return {
             "enabled": False,
             "started": False,
-            "reason": "AGENT_EVOLVE_UI_ENABLED disables automatic startup.",
+            "reason": "EVOTRIAS_UI_ENABLED disables automatic startup.",
         }
     return {
         "enabled": True,

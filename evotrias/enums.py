@@ -25,3 +25,11 @@ class Decisions(Enum):
     ALLOW = "allow"    # endorses the call, bypasses the native permission prompt
     DENY = "deny"      # forbids the call; reason surfaced to Claude
     BYPASS = "bypass"  # no opinion -> native permission flow runs
+
+
+class SearchState(Enum):
+    """Search phase of one run, persisted in run_state.json."""
+
+    EXPLORING = "exploring"
+    WATCHING = "watching"
+    STOPPED = "stopped"

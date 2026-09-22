@@ -6,12 +6,12 @@ import tarfile
 import traceback
 from datetime import datetime, timezone
 
+from evotrias.db import paths
 from evotrias.utils.filelock import blocking_filelock
 
 _LOGGER_NAME = "evotrias"
 _LOG_DIR = os.path.join(".", ".evotrias", "logs")
 _LOG_PATH = os.path.join(_LOG_DIR, "latest.log")
-_LOCK_PATH = os.path.join(".", ".evotrias", "logs.lock")
 _ROTATE_BYTES = 1 * 1024 * 1024
 _FORMAT = "%(asctime)s %(levelname)s <%(process)d> %(filename)s:%(lineno)d[%(funcName)s] %(message)s"
 _DATEFMT = "%Y-%m-%dT%H:%M:%S%z"
@@ -37,7 +37,7 @@ class _RotatingFileHandler(logging.Handler):
         try:
             msg = self.format(record) + "\n"
             os.makedirs(_LOG_DIR, exist_ok=True)
-            with blocking_filelock(_LOCK_PATH, timeout=5.0) as held:
+            with blocking_filelock(paths.LOGS_LOCK, timeout=5.0) as held:
                 # held=False only after timeout: better an unguarded write
                 # than a lost line; rotation is skipped, it has fallbacks.
                 with open(_LOG_PATH, "a", encoding="utf-8") as f:
@@ -52,7 +52,7 @@ class _RotatingFileHandler(logging.Handler):
             try:
                 ts = datetime.now().astimezone().strftime(_DATEFMT)
                 line = f"{ts} ERROR <{os.getpid()}> LOGGER EMIT FAILED:\n{traceback.format_exc()}"
-                with blocking_filelock(_LOCK_PATH, timeout=1.0):
+                with blocking_filelock(paths.LOGS_LOCK, timeout=1.0):
                     with open(_LOG_PATH, "a", encoding="utf-8") as f:
                         f.write(line)
             except Exception:

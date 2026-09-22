@@ -69,7 +69,7 @@ def evaluate(program_path: str):
     except Exception as e:
         return {"combined_score": 0.0, "error": str(e)}
 # =============================================================================
-# Standalone Agent Evolve CLI
+# Standalone EvoTrias CLI
 # =============================================================================
 
 import argparse

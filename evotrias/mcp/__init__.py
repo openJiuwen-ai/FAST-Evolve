@@ -1,4 +1,12 @@
-"""Agent Evolve MCP package exports."""
+"""MCP entry point: the FastMCP server object plus tool registration.
+
+This package is a thin shell.  ``public_tools`` declares the agent-facing
+contract (tool names, arguments, defaults, docstrings) and forwards every call
+to ``evotrias.evolve_ctrl.controller``; nothing here touches db objects.
+Dependency direction is ``mcp -> evolve_ctrl -> db``; the read-only dashboard
+is started from ``configure_run`` as a side effect.  The contract is documented
+in ``docs/mcp_interface.md``.
+"""
 
 from evotrias.mcp.mcp_server import mcp
 

@@ -1,16 +1,12 @@
 from __future__ import annotations
 
-import os
 from typing import Any, Callable, Optional
 
+from evotrias.db import paths
 from evotrias.logger import logger
 from evotrias.utils.filelock import blocking_filelock
 
 _handlers: dict[tuple[str, str], list[tuple[int, Callable[..., Any], Any]]] = {}
-
-# Global cross-process queue lock: hook dispatches from concurrent processes
-# run one at a time, in lock-acquisition order.
-_DISPATCH_LOCK_PATH = os.path.join(".", ".evotrias", "state", "hook_queue.lock")
 
 
 class HookManager:
@@ -30,8 +26,10 @@ class HookManager:
         if not entries:
             return None
         result = dict()
-        # Handlers must never re-enter dispatch (self-deadlock on the queue lock).
-        with blocking_filelock(_DISPATCH_LOCK_PATH) as held:
+        # Global cross-process queue lock: dispatches from concurrent processes
+        # run one at a time, in lock-acquisition order.  Handlers must never
+        # re-enter dispatch (self-deadlock on the queue lock).
+        with blocking_filelock(paths.HOOK_QUEUE_LOCK) as held:
             if not held:
                 logger.critical(f'dispatch lock unavailable after timeout ({agent_type=}, {event=})')
                 return None
