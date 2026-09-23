@@ -19,19 +19,10 @@ Then execute the following steps in EXACT ORDER:
 ## Step 1: Understand Task
 
 1. Locate and read the problem SKILL.md if it exists. The problem SKILL.md is typically found in the project root or in a benchmark directory.
-2. Follow the problem SKILL.md's public instance-selection instructions using
-   the original `task_description`. If the skill requires an instance or problem
-   ID, validate it and read the public statement/metadata it declares. Never
-   infer a benchmark instance from an evolution `task_id`.
-3. Resolve the initial reference declared by the problem SKILL.md. It may be a
-   problem-specific path such as
-   `problems/<problem_id>/initial_program.cpp`. If the skill does not declare
-   one, fall back to a sibling `initial_program.py` when present. Read the
-   resolved file as `initial_program_reference`.
+2. Follow the problem SKILL.md's public instance-selection instructions using the original `task_description`. If the skill requires an instance or problem ID, validate it and read the public statement/metadata it declares. Never infer a benchmark instance from an evolution `task_id`.
+3. Resolve the initial reference declared by the problem SKILL.md. It may be a problem-specific path such as `problems/<problem_id>/initial_program.cpp`. If the skill does not declare one, fall back to a sibling `initial_program.py` when present. Read the resolved file as `initial_program_reference`.
 4. Understand the verification method, what constitutes a successful solution, and the reference program's main algorithmic approach if one exists.
-5. Do not read verifier/evaluator scripts or judge-side resources. Only read
-   the problem SKILL.md and the public problem resources and initial reference
-   it explicitly declares.
+5. Do not read verifier/evaluator scripts or judge-side resources. Only read the problem SKILL.md and the public problem resources and initial reference it explicitly declares.
 
 ---
 
@@ -62,11 +53,7 @@ Generate exactly `num_directions` different directions. Each direction must be:
 - Actionable, focusing on a specific approach
 - Feasible and meaningful for the given task
 
-If an `initial_program_reference` exists, use it as important context for
-the task interface, baseline algorithm, and known feasible starting route.
-Directions may improve, specialize, simplify, or deliberately depart from that
-reference. Keep the set diverse; do not generate four directions that merely
-restate the initial program's current approach.
+If an `initial_program_reference` exists, use it as important context for the task interface, baseline algorithm, and known feasible starting route. Directions may improve, specialize, simplify, or deliberately depart from that reference. Keep the set diverse; do not generate four directions that merely restate the initial program's current approach.
 
 Directions MUST be diverse enough so that following them produces significantly different solutions. Use the problem analysis from Step 2 to identify **problem-specific** axes of divergence — the decision points unique to this particular problem — rather than applying generic coding-style axes.
 
