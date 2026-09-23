@@ -9,13 +9,7 @@ You are now running the **self-evolution master skill**, the orchestrator. Your 
 
 ## Orchestrator Boundary Constraint
 
-The orchestrator only handles queue scheduling, compact MCP control-plane calls,
-and exact-template agent dispatches. It must not read task-content project
-files, invoke task-content skills, retrieve a pending meta-guidance request,
-generate guidance, inspect the current-best candidate or verifier/evaluator, or
-commit guidance. Initial exploration, task execution, and meta-guidance
-generation are executed by dedicated agents with separate conversation contexts
-but one shared main-repository working directory.
+The orchestrator only handles queue scheduling, compact MCP control-plane calls, and exact-template agent dispatches. It must not read task-content project files, invoke task-content skills, retrieve a pending meta-guidance request, generate guidance, inspect the current-best candidate or verifier/evaluator, or commit guidance. Initial exploration, task execution, and meta-guidance generation are executed by dedicated agents with separate conversation contexts but one shared main-repository working directory.
 
 ### Dispatch Template Constraint (ALL subagent dispatches)
 
@@ -23,14 +17,7 @@ The dispatch prompt MUST be produced by filling in the appropriate template belo
 
 ### Main-Repository Dispatch Constraint (ALL subagent dispatches)
 
-Every dispatch to `evotrias_plugin:init-explorer`,
-`evotrias_plugin:task-executor`, or
-`evotrias_plugin:meta-guidance-generator` MUST run in the main repository
-working directory. The `Agent` input MUST NOT contain an `isolation` field:
-omit it entirely, rather than setting `"worktree"`, `"remote"`, or any other
-isolation mode. All persistent artifacts,
-including `runs/<run_id>/...`, MUST be read from and written to the main
-repository, never to `.claude/worktrees/...`.
+Every dispatch to `evotrias_plugin:init-explorer`, `evotrias_plugin:task-executor`, or `evotrias_plugin:meta-guidance-generator` MUST run in the main repository working directory. The `Agent` input MUST NOT contain an `isolation` field: omit it entirely, rather than setting `"worktree"`, `"remote"`, or any other isolation mode. All persistent artifacts, including `runs/<run_id>/...`, MUST be read from and written to the main repository, never to `.claude/worktrees/...`.
 
 **Template for init-explorer dispatch:**
 ```
@@ -79,10 +66,9 @@ These templates are **exclusive** — they define the exact and complete content
 
 ---
 
-## Step 0: Confirm Run Parameters
+## Step 1: Confirm Run Parameters
 
-Before any run creation or MCP call, determine and confirm the three run
-parameters. They are independent knobs — never derive one from another:
+Before any run creation or MCP call, determine and confirm the three run parameters. They are independent knobs — never derive one from another:
 
 | Parameter | Meaning | Default |
 |---|---|---|
@@ -95,16 +81,12 @@ parameters. They are independent knobs — never derive one from another:
    - `LINEAGE_ROOT_NUMBER`: an initial direction/lineage/root count (e.g., "6 initial directions", "6 lineages", "start from 6 roots").
    - `MAX_CONCURRENT_TASKS`: a parallelism level (e.g., "8 in parallel", "concurrency 8", "8 workers at a time").
 2. For any value not stated, use its default from the table.
-3. Present all three to the user in one compact message — name, chosen value,
-   whether it was extracted or defaulted, and a one-line meaning — and ask for
-   confirmation or adjustments.
-4. Only after the user confirms, proceed to Step 1 with the confirmed values.
-   These confirmed values are referenced by name throughout the rest of this
-   skill.
+3. Present all three to the user in one compact message — name, chosen value, whether it was extracted or defaulted, and a one-line meaning — and ask for confirmation or adjustments.
+4. Only after the user confirms, proceed to Step 2 with the confirmed values. These confirmed values are referenced by name throughout the rest of this skill.
 
 ---
 
-## Step 1: Run Initialization
+## Step 2: Run Initialization
 
 1. Derive `task_slug` from the user's original input.
    - When the input contains the word `benchmark`, use the nearest preceding ASCII snake-case identifier as the benchmark name. For example, use `minimizing_max_min_dist_3` for `run the minimizing_max_min_dist_3 benchmark end to end.`.
@@ -132,18 +114,18 @@ parameters. They are independent knobs — never derive one from another:
 
 ---
 
-## Step 1.5: Generate Initial Exploration Directions
+## Step 3: Generate Initial Exploration Directions
 
 Invoke the `evotrias_plugin:init-explorer` agent using the **init-explorer dispatch template** (see Dispatch Template Constraint in Orchestrator Boundary Constraint section). Fill in:
 - `run_id`: the current run_id
 - `task_description`: the user's original input verbatim
 - `num_directions`: `LINEAGE_ROOT_NUMBER`
 
-Wait for `evotrias_plugin:init-explorer` to complete before proceeding to Step 2.
+Wait for `evotrias_plugin:init-explorer` to complete before proceeding to Step 4.
 
 ---
 
-## Step 2: Task Queue Scheduling
+## Step 4: Task Queue Scheduling
 
 The MCP owns all batch sizing: `check_convergence` tells you how many tasks to create via `tasks_to_create`, and you dispatch exactly that many — never more, never fewer, never inferred. Any returned value, including 0, is a normal scheduling decision; on 0 dispatch nothing and keep looping.
 
@@ -212,7 +194,7 @@ WHILE true:
 
 END WHILE
 
-// After the while loop exits (action == budget_exhausted), wait for any still-running task-executors to finish, finally do finalization (see Step 3).
+// After the while loop exits (action == budget_exhausted), wait for any still-running task-executors to finish, finally do finalization (see Step 5).
 ```
 
 ### Compact Terminal Progress
@@ -246,34 +228,25 @@ Fitness is always maximized. `best_fitness` MUST be `convergence.diagnostics.cur
 
 ### Meta-Guidance Worker Dispatch
 
-When `check_convergence` returns `action == "request_meta_guidance"`, invoke
-`evotrias_plugin:meta-guidance-generator` with the exact dispatch template
-(fill: `run_id`, `request_id` from `c.request_id`). Pass only the two 
-identifiers; the worker retrieves the persisted request and commits its own 
-output. Wait in the foreground so a successful commit becomes active before 
-the re-check.
+When `check_convergence` returns `action == "request_meta_guidance"`, invoke `evotrias_plugin:meta-guidance-generator` with the exact dispatch template (fill: `run_id`, `request_id` from `c.request_id`). Pass only the two identifiers; the worker retrieves the persisted request and commits its own output. Wait in the foreground so a successful commit becomes active before the re-check.
 
-The worker returns only its compact result contract. After it returns, set
-`just_after_meta = true` and loop back to `check_convergence`.
+The worker returns only its compact result contract. After it returns, set `just_after_meta = true` and loop back to `check_convergence`.
 
 ---
 
-## Step 3: Run Finalization
+## Step 5: Run Finalization
 
-### 3.1 Final Compact Progress Update
+### 5.1 Final Compact Progress Update
 
-After the scheduling loop exits (`action == "budget_exhausted`) and all still-running
-task-executors have finished, emit one final compact progress line using the
-format below, taking `best_fitness` from the latest `check_convergence`
-diagnostics. Do not print a table or artifact paths.
+After the scheduling loop exits (`action == "budget_exhausted`) and all still-running task-executors have finished, emit one final compact progress line using the format below, taking `best_fitness` from the latest `check_convergence` diagnostics. Do not print a table or artifact paths.
 
-### 3.2 Final Convergence Check & Finalize
+### 5.2 Final Convergence Check & Finalize
 
 ```text
 finalize_result = finalize_run(run_id)
 ```
 
-### 3.3 Report
+### 5.3 Report
 
 On normal stop, report only:
 
