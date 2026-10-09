@@ -238,7 +238,7 @@ The worker returns only its compact result contract. After it returns, set `just
 
 ### 5.1 Final Compact Progress Update
 
-After the scheduling loop exits (`action == "budget_exhausted`) and all still-running task-executors have finished, emit one final compact progress line using the format below, taking `best_fitness` from the latest `check_convergence` diagnostics. Do not print a table or artifact paths.
+After the scheduling loop exits (`action == "budget_exhausted"`) and all still-running task-executors have finished, emit one final compact progress line using the format below, taking `best_fitness` from the latest `check_convergence` diagnostics. Do not print a table or artifact paths.
 
 ### 5.2 Final Convergence Check & Finalize
 
