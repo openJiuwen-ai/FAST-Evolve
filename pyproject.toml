@@ -28,6 +28,7 @@ known-first-party = ["evotrias"]
 
 [tool.pyright]
 include = ["evo_trias/evotrias"]
+extraPaths = ["evo_trias"]
 pythonVersion = "3.10"
 typeCheckingMode = "standard"
 
