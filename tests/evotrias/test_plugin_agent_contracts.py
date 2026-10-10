@@ -10,7 +10,7 @@ from fastmcp import Client
 
 from evotrias.mcp import mcp, public_tools
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = Path(__file__).resolve().parents[2]
 PLUGIN_ROOT = REPO_ROOT / "evotrias_plugin"
 MASTER_SKILL = PLUGIN_ROOT / "skills" / "evolve" / "SKILL.md"
 TASK_SKILL = PLUGIN_ROOT / "skills" / "evolve-task-exec" / "SKILL.md"

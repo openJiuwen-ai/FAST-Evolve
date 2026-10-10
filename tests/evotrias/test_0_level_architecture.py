@@ -12,8 +12,9 @@ import ast
 from pathlib import Path
 from typing import Dict, Set
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-PACKAGE_ROOT = REPO_ROOT / "evotrias"
+import evotrias
+
+PACKAGE_ROOT = Path(evotrias.__file__).resolve().parent
 
 
 def _top_level(name: str) -> str | None:
@@ -24,7 +25,7 @@ def _top_level(name: str) -> str | None:
 
 
 def _imports_by_module() -> Dict[str, Set[str]]:
-    """Map each ``evotrias/**/*.py`` (repo-relative, posix) to the evotrias top-level packages it imports."""
+    """Map each ``evotrias/**/*.py`` (relative to the package's parent directory, posix) to the evotrias top-level packages it imports."""
     result: Dict[str, Set[str]] = {}
     for path in sorted(PACKAGE_ROOT.rglob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -42,7 +43,7 @@ def _imports_by_module() -> Dict[str, Set[str]]:
                     top = _top_level(node.module)
                     if top:
                         targets.add(top)
-        result[path.relative_to(REPO_ROOT).as_posix()] = targets
+        result[path.relative_to(PACKAGE_ROOT.parent).as_posix()] = targets
     return result
 
 
