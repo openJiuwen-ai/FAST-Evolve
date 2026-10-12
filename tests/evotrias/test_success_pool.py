@@ -90,7 +90,9 @@ def test_from_attempt_maps_fields():
 
 
 def test_profile_falls_back_to_metrics_when_absent():
-    attempt = _attempt("task_001", "attempt_01", verification_result={"status": "success", "fitness": 1.0, "metrics": {"m": 1}})
+    attempt = _attempt(
+        "task_001", "attempt_01", verification_result={"status": "success", "fitness": 1.0, "metrics": {"m": 1}}
+    )
     record = SuccessRecord.from_attempt(attempt)
     assert record.profile == {"m": 1}
 

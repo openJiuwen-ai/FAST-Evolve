@@ -14,8 +14,8 @@ import math
 import random
 from typing import Dict, Optional
 
-from evotrias.evolve_ctrl.lineage_tree import LineageTree
 from evotrias.db.config import ParentSelectionConfig
+from evotrias.evolve_ctrl.lineage_tree import LineageTree
 from evotrias.evolve_ctrl.success_pool import SuccessPool, SuccessRecord
 
 
@@ -82,9 +82,7 @@ class LineageAwareParentSelector:
         max_fitness = max(fitnesses)
         fitness_range = max_fitness - min_fitness
         potentials = {
-            root_id: (
-                (stats.best_fitness - min_fitness) / fitness_range if fitness_range > 1e-9 else 0.0
-            )
+            root_id: ((stats.best_fitness - min_fitness) / fitness_range if fitness_range > 1e-9 else 0.0)
             for root_id, stats in all_stats.items()
         }
         deserved = self._softmax(potentials, tau)
@@ -93,10 +91,7 @@ class LineageAwareParentSelector:
         epsilon = 1.0 / max(total_records, 1)
         # A lineage has deficit > 1 when it has received less exploration than
         # its deserved share.  This is the "soft island" negative feedback.
-        deficits = {
-            root_id: deserved[root_id] / (stats.share + epsilon)
-            for root_id, stats in all_stats.items()
-        }
+        deficits = {root_id: deserved[root_id] / (stats.share + epsilon) for root_id, stats in all_stats.items()}
 
         if random.random() < p_exploit:
             fitnesses = [stats.best_fitness for stats in all_stats.values()]
@@ -104,9 +99,7 @@ class LineageAwareParentSelector:
             max_fitness = max(fitnesses)
             scores: dict[str, float] = {}
             for root_id, stats in all_stats.items():
-                normalized_quality = (stats.best_fitness - min_fitness) / (
-                    max_fitness - min_fitness + 1e-9
-                )
+                normalized_quality = (stats.best_fitness - min_fitness) / (max_fitness - min_fitness + 1e-9)
                 quality_bonus = 1.0 + self.quality_bonus_strength * normalized_quality
                 scores[root_id] = deficits[root_id] * quality_bonus
             return max(scores, key=lambda root_id: scores[root_id])
@@ -122,9 +115,7 @@ class LineageAwareParentSelector:
         """Choose one record within a lineage using rank quality plus UCB."""
         all_records = success_pool.get_all()
         lineage_records = [
-            record
-            for record in all_records
-            if self.lineage_tree.get_lineage_root(record.id) == lineage_id
+            record for record in all_records if self.lineage_tree.get_lineage_root(record.id) == lineage_id
         ]
         if not lineage_records:
             return None
@@ -145,9 +136,7 @@ class LineageAwareParentSelector:
             effective_selection_count = record.selection_count
             if rank <= elite_cutoff:
                 effective_selection_count *= 1.0 - shield
-            exploration = c_local * math.sqrt(
-                math.log(lineage_selection_count + 1) / (effective_selection_count + 1)
-            )
+            exploration = c_local * math.sqrt(math.log(lineage_selection_count + 1) / (effective_selection_count + 1))
             score = quality + exploration
             if score > best_score:
                 best_score = score
@@ -168,9 +157,7 @@ class LineageAwareParentSelector:
         """Numerically stable softmax with temperature."""
         max_value = max(values.values())
         temperature = max(temperature, 1e-9)
-        exp_values = {
-            key: math.exp((value - max_value) / temperature) for key, value in values.items()
-        }
+        exp_values = {key: math.exp((value - max_value) / temperature) for key, value in values.items()}
         total = sum(exp_values.values())
         if total < 1e-15:
             share = 1.0 / len(values)

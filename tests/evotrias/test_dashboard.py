@@ -30,7 +30,9 @@ def cwd(monkeypatch, tmp_path):
     return tmp_path
 
 
-def _attempt(run_id: str, task_id: str, *, fitness: float, generation: int, parent_id, created_at: str, metrics=None) -> AttemptRecord:
+def _attempt(
+    run_id: str, task_id: str, *, fitness: float, generation: int, parent_id, created_at: str, metrics=None
+) -> AttemptRecord:
     return AttemptRecord(
         id="attempt_001",
         run_id=run_id,
@@ -55,12 +57,28 @@ def _seed_run():
     with TaskPool(RUN_ID) as pool:
         pool.running["task_003"] = TaskAssigned(agent_id="agent-live-3", at="2026-07-15T01:02:50+00:00")
     log = Attempts(RUN_ID)
-    log.append(_attempt(RUN_ID, "task_001", fitness=0.4, generation=0, parent_id=None,
-                        created_at="2026-07-15T01:01:00+00:00",
-                        metrics={"accuracy_score": 0.4, "bad": float("nan")}))
-    log.append(_attempt(RUN_ID, "task_002", fitness=0.7, generation=1, parent_id="task_001",
-                        created_at="2026-07-15T01:02:00+00:00",
-                        metrics={"accuracy_score": 0.7, "bad": float("nan")}))
+    log.append(
+        _attempt(
+            RUN_ID,
+            "task_001",
+            fitness=0.4,
+            generation=0,
+            parent_id=None,
+            created_at="2026-07-15T01:01:00+00:00",
+            metrics={"accuracy_score": 0.4, "bad": float("nan")},
+        )
+    )
+    log.append(
+        _attempt(
+            RUN_ID,
+            "task_002",
+            fitness=0.7,
+            generation=1,
+            parent_id="task_001",
+            created_at="2026-07-15T01:02:00+00:00",
+            metrics={"accuracy_score": 0.7, "bad": float("nan")},
+        )
+    )
     with RunState(RUN_ID) as state:
         state.search_state = SearchState.WATCHING
         state.task_description = "Improve the benchmark candidate."
@@ -101,8 +119,7 @@ def _seed_history_run() -> str:
     with TaskPool(run_id):
         pass
     Attempts(run_id).append(
-        _attempt(run_id, "task_001", fitness=0.2, generation=0, parent_id=None,
-                 created_at="2026-07-14T01:02:00+00:00")
+        _attempt(run_id, "task_001", fitness=0.2, generation=0, parent_id=None, created_at="2026-07-14T01:02:00+00:00")
     )
     with RunState(run_id) as state:
         state.search_state = SearchState.STOPPED
@@ -283,9 +300,7 @@ def test_dashboard_uses_remote_bind_and_public_hosts_from_environment(tmp_path, 
         assert server.host == "0.0.0.0"
         assert server.public_host == "gpu.example.test"
         assert server.url == f"http://gpu.example.test:{server.port}"
-        with urllib.request.urlopen(
-            f"http://127.0.0.1:{server.port}/api/health", timeout=3
-        ) as response:
+        with urllib.request.urlopen(f"http://127.0.0.1:{server.port}/api/health", timeout=3) as response:
             assert json.loads(response.read()) == {"status": "ok", "run_id": RUN_ID}
     finally:
         server.stop()

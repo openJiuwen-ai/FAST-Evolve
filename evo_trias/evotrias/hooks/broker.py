@@ -21,7 +21,7 @@ class HookManager:
 
     @staticmethod
     def dispatch(agent_type: str, event: str, payload: dict) -> Optional[dict]:
-        logger.debug(f'Hook broker dispatch. {agent_type=} {event=} {payload=}')
+        logger.debug(f"Hook broker dispatch. {agent_type=} {event=} {payload=}")
         entries = _handlers.get((agent_type, event))
         if not entries:
             return None
@@ -31,17 +31,19 @@ class HookManager:
         # re-enter dispatch (self-deadlock on the queue lock).
         with blocking_filelock(paths.HOOK_QUEUE_LOCK) as held:
             if not held:
-                logger.critical(f'dispatch lock unavailable after timeout ({agent_type=}, {event=})')
+                logger.critical(f"dispatch lock unavailable after timeout ({agent_type=}, {event=})")
                 return None
             for priority, handler, extra_data in entries:
                 try:
                     new_result = handler(payload, result, extra_data)
                     if new_result != result:
-                        logger.info(f'Hook handler {handler.__name__}({priority}) returned: {new_result}')
+                        logger.info(f"Hook handler {handler.__name__}({priority}) returned: {new_result}")
                     result = new_result
                 except Exception:
                     logger.error(
-                        f'Error in hook handler {handler.__name__} for agent_type={agent_type}, event={event}, priority={priority}', exc_info=True)
+                        f"Error in hook handler {handler.__name__} for agent_type={agent_type}, event={event}, priority={priority}",
+                        exc_info=True,
+                    )
                     continue
         if not result:
             return None

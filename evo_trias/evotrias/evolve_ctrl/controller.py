@@ -133,9 +133,7 @@ def select_inspirations(run_id: str, task_id: str) -> Dict[str, Any]:
     pool = SuccessPool(run_id)
     existing = TaskContexts(run_id).get(task_id)
     if existing is None or not existing.parent_selected:
-        raise ValueError(
-            "Call select_parent before select_inspirations for this task."
-        )
+        raise ValueError("Call select_parent before select_inspirations for this task.")
     if existing.inspirations_selected:
         return _inspiration_refs(pool, existing.inspiration_ids)
 
@@ -153,14 +151,11 @@ def select_inspirations(run_id: str, task_id: str) -> Dict[str, Any]:
         selector = LineageBoltzmannInspirationSelector(config.inspiration, _lineage(pool))
         inspirations = selector.select(parent, pool, _progress(run_id, config))
         context.inspiration_ids = [
-            str(item["id"])
-            for item in inspirations
-            if not item.get("is_parent") and item.get("id") != parent.id
+            str(item["id"]) for item in inspirations if not item.get("is_parent") and item.get("id") != parent.id
         ]
         context.inspirations_selected = True
         logger.info(
-            f"run {run_id}: task {task_id} inspirations "
-            f"{len(context.inspiration_ids)} {context.inspiration_ids}"
+            f"run {run_id}: task {task_id} inspirations " f"{len(context.inspiration_ids)} {context.inspiration_ids}"
         )
     return _inspiration_refs(pool, context.inspiration_ids)
 
@@ -217,32 +212,20 @@ def record_attempt(
     verification_result = _load_verification_result(verification_result_ref)
     resolved_artifact_ref = str(artifact_ref or verification_result.get("artifact_ref") or "")
     if not resolved_artifact_ref:
-        raise ValueError(
-            "artifact_ref must be supplied or present in verification_result_ref JSON."
-        )
+        raise ValueError("artifact_ref must be supplied or present in verification_result_ref JSON.")
 
     # A verifier path like .../attempt_001/eval_result.json names its attempt.
     parent_name = Path(verification_result_ref).parent.name
     inferred_attempt_id = parent_name if parent_name.startswith("attempt_") else None
     resolved_attempt_id = str(
-        attempt_id
-        or verification_result.get("attempt_id")
-        or inferred_attempt_id
-        or task_id
-        or uuid4()
+        attempt_id or verification_result.get("attempt_id") or inferred_attempt_id or task_id or uuid4()
     )
     existing_attempt = attempts.find_by_task_attempt(task_id, resolved_attempt_id)
     if existing_attempt is not None:
         existing_ref = existing_attempt.verification_result_ref
         if existing_ref and existing_ref != verification_result_ref:
-            raise ValueError(
-                "Attempt log already contains this task/attempt with a different verification_result_ref."
-            )
-        note_requests = (
-            notes.public_requests_for_attempt(task_id, resolved_attempt_id)
-            if config.notes.enabled
-            else []
-        )
+            raise ValueError("Attempt log already contains this task/attempt with a different verification_result_ref.")
+        note_requests = notes.public_requests_for_attempt(task_id, resolved_attempt_id) if config.notes.enabled else []
         return _record_response_from_attempt(
             existing_attempt,
             note_requests=note_requests,
@@ -318,9 +301,7 @@ def record_attempt(
             fitness=fitness,
             anchor_fitness=anchor_record.fitness if anchor_record is not None else None,
             metrics=verification_metrics,
-            anchor_metrics=(
-                dict(anchor_record.metrics or {}) if anchor_record is not None else {}
-            ),
+            anchor_metrics=(dict(anchor_record.metrics or {}) if anchor_record is not None else {}),
             best_fitness_before=best_before,
             best_fitness_after=best_after,
         )
@@ -383,9 +364,7 @@ def check_convergence(run_id: str, concurrency: int) -> Dict[str, Any]:
     Every phase is additionally capped by the ``max_total_tasks`` budget.
     """
     if concurrency < 1:
-        raise ValueError(
-            f"concurrency must be a positive integer, got {concurrency!r}"
-        )
+        raise ValueError(f"concurrency must be a positive integer, got {concurrency!r}")
     config = _config(run_id)
     pool = SuccessPool(run_id)
     tree = _lineage(pool)

@@ -12,8 +12,8 @@ import math
 import random
 from typing import Any, Dict, List, Optional, Set
 
-from evotrias.evolve_ctrl.lineage_tree import LineageTree
 from evotrias.db.config import InspirationSelectionConfig
+from evotrias.evolve_ctrl.lineage_tree import LineageTree
 from evotrias.evolve_ctrl.success_pool import SuccessPool, SuccessRecord
 
 
@@ -68,8 +68,7 @@ class LineageBoltzmannInspirationSelector:
         local_pool = [
             record
             for record in all_records
-            if record.id != parent.id
-            and self.lineage_tree.get_lineage_root(record.id) == parent_lineage
+            if record.id != parent.id and self.lineage_tree.get_lineage_root(record.id) == parent_lineage
         ]
         foreign_elites = self._build_foreign_elites(all_records, parent.id, parent_lineage)
 
@@ -93,9 +92,7 @@ class LineageBoltzmannInspirationSelector:
                     inspiration = self._boltzmann_sample(available, T)
                 else:
                     fallback = [
-                        record
-                        for record in all_records
-                        if record.id != parent.id and record.id not in selected_ids
+                        record for record in all_records if record.id != parent.id and record.id not in selected_ids
                     ]
                     if fallback:
                         inspiration = self._boltzmann_sample(fallback, T)
@@ -107,14 +104,10 @@ class LineageBoltzmannInspirationSelector:
         # Present local high-quality examples before migrated examples.  This
         # keeps the parent lineage visually prominent in the generator prompt.
         local_selected = [
-            record
-            for record in selected
-            if self.lineage_tree.get_lineage_root(record.id) == parent_lineage
+            record for record in selected if self.lineage_tree.get_lineage_root(record.id) == parent_lineage
         ]
         foreign_selected = [
-            record
-            for record in selected
-            if self.lineage_tree.get_lineage_root(record.id) != parent_lineage
+            record for record in selected if self.lineage_tree.get_lineage_root(record.id) != parent_lineage
         ]
         local_selected.sort(key=lambda record: record.fitness, reverse=True)
         foreign_selected.sort(key=lambda record: record.fitness, reverse=True)
@@ -122,9 +115,7 @@ class LineageBoltzmannInspirationSelector:
         for record in local_selected + foreign_selected:
             inspiration = _inspiration(record)
             inspiration["is_parent"] = False
-            inspiration["is_migration"] = (
-                self.lineage_tree.get_lineage_root(record.id) != parent_lineage
-            )
+            inspiration["is_migration"] = self.lineage_tree.get_lineage_root(record.id) != parent_lineage
             result.append(inspiration)
 
         return result
@@ -146,11 +137,7 @@ class LineageBoltzmannInspirationSelector:
 
         elites = []
         for records in by_lineage.values():
-            elites.extend(
-                sorted(records, key=lambda record: record.fitness, reverse=True)[
-                    : self.foreign_elite_num
-                ]
-            )
+            elites.extend(sorted(records, key=lambda record: record.fitness, reverse=True)[: self.foreign_elite_num])
         return elites
 
     @staticmethod
@@ -164,14 +151,11 @@ class LineageBoltzmannInspirationSelector:
         max_fitness = max(fitnesses)
         fitness_range = max_fitness - min_fitness
         normalized_fitnesses = [
-            (fitness - min_fitness) / fitness_range if fitness_range > 1e-9 else 0.0
-            for fitness in fitnesses
+            (fitness - min_fitness) / fitness_range if fitness_range > 1e-9 else 0.0 for fitness in fitnesses
         ]
         max_normalized_fitness = max(normalized_fitnesses)
         T = max(T, 1e-9)
-        exp_values = [
-            math.exp((fitness - max_normalized_fitness) / T) for fitness in normalized_fitnesses
-        ]
+        exp_values = [math.exp((fitness - max_normalized_fitness) / T) for fitness in normalized_fitnesses]
         total = sum(exp_values)
         if total < 1e-15:
             return random.choice(candidates)

@@ -52,7 +52,11 @@ def test_rewrite_keeps_created_at_and_moves_updated_at(monkeypatch):
     reloaded = RunState(RUN_ID)
     assert reloaded.created_at == "2026-01-01T00:00:00+00:00"
     assert reloaded.updated_at == "2026-01-01T00:05:00+00:00"
-    assert (reloaded.search_state, reloaded.stop_reason, reloaded.task_description) == (SearchState.STOPPED, "manual", "x")
+    assert (reloaded.search_state, reloaded.stop_reason, reloaded.task_description) == (
+        SearchState.STOPPED,
+        "manual",
+        "x",
+    )
 
 
 def test_on_disk_shape_has_no_retired_keys():

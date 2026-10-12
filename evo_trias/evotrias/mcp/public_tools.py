@@ -21,8 +21,8 @@ import functools
 import time
 from typing import Any, Callable, Dict
 
-from evotrias.evolve_ctrl import controller as ctrl
 from evotrias.dashboard.server import start_dashboard
+from evotrias.evolve_ctrl import controller as ctrl
 from evotrias.logger import logger
 from evotrias.mcp.mcp_server import mcp
 

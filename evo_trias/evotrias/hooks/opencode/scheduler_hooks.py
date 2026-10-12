@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict
 
+from evotrias import scheduler
 from evotrias.db import paths
 from evotrias.db.agent_index import AgentInfo
 from evotrias.db.attempts import Attempts
@@ -12,7 +13,6 @@ from evotrias.db.base import DBObject
 from evotrias.enums import Agents
 from evotrias.hooks import hook_manager
 from evotrias.logger import logger
-from evotrias import scheduler
 
 _CONFIGURE_RUN_TOOL = "evotrias_configure_run"
 _TASK_TOOL = "task"
@@ -22,6 +22,7 @@ _AGENT_TYPE_MAP: dict[str, Agents] = {
     "init-explorer": Agents.INIT_EXPLORER,
     "meta-guidance-generator": Agents.META_GUIDANCE_GENERATOR,
 }
+
 
 @dataclass
 class PendingCall:
@@ -82,8 +83,10 @@ def executor_allocate_task(payload: dict, result: dict, extra_data: Any) -> dict
 
     task_id = scheduler.allocate_task(run_id)
     if task_id is None:
-        logger.critical(f"scheduler hook: no created task available (created pool exhausted — "
-                        f"check_convergence should have topped it up) run={run_id}")
+        logger.critical(
+            f"scheduler hook: no created task available (created pool exhausted — "
+            f"check_convergence should have topped it up) run={run_id}"
+        )
         return result
 
     call_id = str(input_.get("callID") or "")
@@ -94,7 +97,7 @@ def executor_allocate_task(payload: dict, result: dict, extra_data: Any) -> dict
     args["description"] = task_id
     args["prompt"] = str(args.get("prompt") or "") + f"\nrun_id:{run_id}\ntask_id:{task_id}\n"
     logger.info(f"scheduler hook: executor spawn allocated run={run_id} task={task_id}")
-    logger.debug(f'{_spawn_args(payload)=!r} -> {args=!r}')
+    logger.debug(f"{_spawn_args(payload)=!r} -> {args=!r}")
     return result | {"args": args}
 
 
@@ -126,8 +129,9 @@ def executor_bind_agent(payload: dict, result: dict, extra_data: Any) -> dict[st
     metadata = (payload.get("output") or {}).get("metadata") or {}
     agent_id = str(metadata.get("sessionId") or "")
     if not agent_id:
-        logger.error(f"scheduler hook: executor spawn response missing metadata.sessionId "
-                     f"run={run_id} task={task_id}")
+        logger.error(
+            f"scheduler hook: executor spawn response missing metadata.sessionId " f"run={run_id} task={task_id}"
+        )
         return result
 
     scheduler.queue_task(run_id, task_id, agent_id)
@@ -138,8 +142,9 @@ def executor_bind_agent(payload: dict, result: dict, extra_data: Any) -> dict[st
     if agent_info is not None and agent_info.attrs.get("task_id") is None:
         agent_info.attrs["task_id"] = scheduler.start_task(run_id, agent_id)
         scheduler.remember_agent(run_id, agent_id, agent_info)
-        logger.info(f"scheduler hook: backfilled task_id={agent_info.attrs['task_id']} "
-                    f"for agent {agent_id} in run {run_id}")
+        logger.info(
+            f"scheduler hook: backfilled task_id={agent_info.attrs['task_id']} " f"for agent {agent_id} in run {run_id}"
+        )
     return result
 
 

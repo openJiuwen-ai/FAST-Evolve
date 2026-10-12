@@ -11,9 +11,9 @@ from evotrias.db.agent_index import AgentInfo
 from evotrias.db.attempts import AttemptRecord, Attempts
 from evotrias.db.session_map import SessionMap
 from evotrias.enums import Agents
-from evotrias.hooks import broker
-from evotrias.hooks import hook_manager
-from evotrias.hooks.claude import permission_hooks as perm_glue, scheduler_hooks as sched_glue
+from evotrias.hooks import broker, hook_manager
+from evotrias.hooks.claude import permission_hooks as perm_glue
+from evotrias.hooks.claude import scheduler_hooks as sched_glue
 
 
 def _record_success(run_id: str, task_id: str, fitness: float) -> None:
@@ -34,7 +34,6 @@ def _record_success(run_id: str, task_id: str, fitness: float) -> None:
     )
 
 
-
 def _agents(bucket):
     """queued/running -> {task_id: agent_id}, dropping the timestamp."""
     return {tid: held.agent_id for tid, held in bucket.items()}
@@ -47,6 +46,7 @@ def _fitness(bucket):
 def _reasons(bucket):
     return {tid: failed.reason for tid, failed in bucket.items()}
 
+
 @pytest.fixture
 def tmp_env(monkeypatch, tmp_path):
     repo = tmp_path / "repo"
@@ -57,6 +57,7 @@ def tmp_env(monkeypatch, tmp_path):
     # @register side effects repopulate the broker against a clean slate.
     broker._handlers.clear()
     import importlib
+
     importlib.reload(perm_glue)
     importlib.reload(sched_glue)
     return repo

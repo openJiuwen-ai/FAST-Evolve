@@ -251,9 +251,7 @@ def list_runs(current_run_id: str) -> Dict[str, Any]:
             modified_at = None
         updated_at = _latest_timestamp([run_state.updated_at, run_state.created_at, modified_at])
         updated_time = _parse_time(updated_at)
-        recently_updated = bool(
-            updated_time and (_utc_now() - updated_time).total_seconds() <= 15 * 60
-        )
+        recently_updated = bool(updated_time and (_utc_now() - updated_time).total_seconds() <= 15 * 60)
         entries.append(
             {
                 "id": run_id,
@@ -645,9 +643,7 @@ def _infer_activity(
     )
     if attempt_dirs:
         newest = attempt_dirs[0]
-        candidate_exists = any(
-            (newest / filename).exists() for filename in ("solution.py", "solution.cpp")
-        )
+        candidate_exists = any((newest / filename).exists() for filename in ("solution.py", "solution.cpp"))
         if candidate_exists and not (newest / "eval_result.json").exists():
             return "Verifying candidate", f"{newest.name} is ready for evaluation."
         if not candidate_exists:

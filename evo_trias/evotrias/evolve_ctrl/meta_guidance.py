@@ -273,8 +273,7 @@ class MetaGuidanceManager:
                     guidance_id=guidance.guidance_id,
                     anchor_parent_id=str(anchor_parent_id or guidance.anchor_parent_id),
                     anchor_fitness=_coerce_float(anchor_fitness),
-                    creation_anchor_parent_id=guidance.creation_anchor_parent_id
-                    or guidance.anchor_parent_id,
+                    creation_anchor_parent_id=guidance.creation_anchor_parent_id or guidance.anchor_parent_id,
                 )
                 state.task_assignments[task_id] = assignment
                 break
@@ -348,9 +347,7 @@ class MetaGuidanceManager:
                 and not metrics_changed
             )
             created_new_best = (
-                valid_result
-                and fitness is not None
-                and (best_fitness_before is None or fitness > best_fitness_before)
+                valid_result and fitness is not None and (best_fitness_before is None or fitness > best_fitness_before)
             )
             if valid_result:
                 guidance.has_valid_result = True
@@ -519,9 +516,7 @@ def _validate_guidance_item(item: Dict[str, Any]) -> Dict[str, Any] | str:
         value = item.get(key)
         if value is None or value == "" or value == []:
             return f"missing_required_field:{key}"
-    text = " ".join(
-        str(item.get(key, "")) for key in ["idea", "description", "novelty_claim", "approach_type"]
-    ).lower()
+    text = " ".join(str(item.get(key, "")) for key in ["idea", "description", "novelty_claim", "approach_type"]).lower()
     forbidden = ["read verifier", "read evaluator", "bypass evaluator", "modify verifier"]
     if any(term in text for term in forbidden):
         return "unsafe_guidance"
@@ -531,9 +526,7 @@ def _validate_guidance_item(item: Dict[str, Any]) -> Dict[str, Any] | str:
         "target_metric": str(item.get("target_metric") or "fitness"),
         "novelty_claim": str(item["novelty_claim"]),
         "current_best_assessment": str(item.get("current_best_assessment") or ""),
-        "relationship_to_current_best": str(
-            item.get("relationship_to_current_best") or "critically_adapt"
-        ),
+        "relationship_to_current_best": str(item.get("relationship_to_current_best") or "critically_adapt"),
         "implementation_plan": [str(value) for value in item.get("implementation_plan") or []],
         "cautions": [str(value) for value in item.get("cautions") or []],
         "approach_type": str(item["approach_type"]),
@@ -589,15 +582,9 @@ def _read_artifact_excerpt(artifact_ref: str, max_chars: int = 16000) -> tuple[s
 
 def _guidance_outcome_summary(guidance: Guidance) -> Dict[str, Any]:
     outcomes = guidance.outcomes
-    fitness_values = [
-        value
-        for value in (_coerce_float(item.get("fitness")) for item in outcomes)
-        if value is not None
-    ]
+    fitness_values = [value for value in (_coerce_float(item.get("fitness")) for item in outcomes) if value is not None]
     anchor_deltas = [
-        value
-        for value in (_coerce_float(item.get("delta_vs_anchor")) for item in outcomes)
-        if value is not None
+        value for value in (_coerce_float(item.get("delta_vs_anchor")) for item in outcomes) if value is not None
     ]
     valid_uses = sum(1 for item in outcomes if _is_valid_guidance_outcome(item))
     return {
@@ -608,8 +595,7 @@ def _guidance_outcome_summary(guidance: Guidance) -> Dict[str, Any]:
         "improved_anchor_uses": sum(
             1
             for item in outcomes
-            if item.get("improved_anchor")
-            or (_coerce_float(item.get("delta_vs_anchor")) or 0.0) > 0
+            if item.get("improved_anchor") or (_coerce_float(item.get("delta_vs_anchor")) or 0.0) > 0
         ),
         "new_best_uses": sum(1 for item in outcomes if item.get("created_new_best")),
         "best_fitness": max(fitness_values) if fitness_values else None,
@@ -621,10 +607,7 @@ def _classify_guidance_outcome(guidance: Guidance) -> str:
     outcomes = guidance.outcomes
     if any(item.get("created_new_best") for item in outcomes):
         return "new_best"
-    if any(
-        item.get("improved_anchor") or (_coerce_float(item.get("delta_vs_anchor")) or 0.0) > 0
-        for item in outcomes
-    ):
+    if any(item.get("improved_anchor") or (_coerce_float(item.get("delta_vs_anchor")) or 0.0) > 0 for item in outcomes):
         return "improved_anchor"
     valid_outcomes = [item for item in outcomes if _is_valid_guidance_outcome(item)]
     if valid_outcomes and all(_is_no_effect_guidance_outcome(item) for item in valid_outcomes):
@@ -646,9 +629,7 @@ def _is_no_effect_guidance_outcome(outcome: Dict[str, Any]) -> bool:
 
 def _values_equivalent(left: Any, right: Any) -> bool:
     if isinstance(left, Mapping) and isinstance(right, Mapping):
-        return set(left) == set(right) and all(
-            _values_equivalent(left[key], right[key]) for key in left
-        )
+        return set(left) == set(right) and all(_values_equivalent(left[key], right[key]) for key in left)
     if (
         isinstance(left, Sequence)
         and not isinstance(left, (str, bytes, bytearray))
@@ -656,8 +637,7 @@ def _values_equivalent(left: Any, right: Any) -> bool:
         and not isinstance(right, (str, bytes, bytearray))
     ):
         return len(left) == len(right) and all(
-            _values_equivalent(left_value, right_value)
-            for left_value, right_value in zip(left, right)
+            _values_equivalent(left_value, right_value) for left_value, right_value in zip(left, right)
         )
     if (
         isinstance(left, (int, float))

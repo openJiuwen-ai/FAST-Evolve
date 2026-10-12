@@ -10,12 +10,12 @@ from __future__ import annotations
 
 import pytest
 
-from evotrias.mcp import public_tools as public_tools_module
-from evotrias.evolve_ctrl import controller as ctrl
+from evotrias import scheduler as sched
 from evotrias.db.attempts import AttemptRecord, Attempts
 from evotrias.db.config import Config
 from evotrias.db.run_state import RunState
-from evotrias import scheduler as sched
+from evotrias.evolve_ctrl import controller as ctrl
+from evotrias.mcp import public_tools as public_tools_module
 
 RUN_ID = "run_shape_test"
 
@@ -81,9 +81,7 @@ def test_configure_run_returns_locked_config_with_message(run_env):
 
 
 def test_configure_run_is_locked_in_process(run_env):
-    public_tools_module.evolve_configure_run(
-        RUN_ID, max_total_tasks=30, lineage_root_number=6, max_concurrent_tasks=2
-    )
+    public_tools_module.evolve_configure_run(RUN_ID, max_total_tasks=30, lineage_root_number=6, max_concurrent_tasks=2)
     second = public_tools_module.evolve_configure_run(
         RUN_ID, max_total_tasks=99, lineage_root_number=1, max_concurrent_tasks=9
     )
@@ -95,9 +93,7 @@ def test_configure_run_is_locked_in_process(run_env):
 
 
 def test_configure_run_is_locked_across_process_restarts(run_env):
-    public_tools_module.evolve_configure_run(
-        RUN_ID, max_total_tasks=30, lineage_root_number=6, max_concurrent_tasks=2
-    )
+    public_tools_module.evolve_configure_run(RUN_ID, max_total_tasks=30, lineage_root_number=6, max_concurrent_tasks=2)
     # Nothing is cached in-process: the lock is config.json on disk, so a
     # restarted MCP server sees exactly the same answer.
     second = public_tools_module.evolve_configure_run(
@@ -111,9 +107,7 @@ def test_configure_run_is_locked_across_process_restarts(run_env):
 
 
 def test_invalid_run_shape_values_are_clamped(run_env):
-    result = public_tools_module.evolve_configure_run(
-        RUN_ID, lineage_root_number=0, max_concurrent_tasks=-2
-    )
+    result = public_tools_module.evolve_configure_run(RUN_ID, lineage_root_number=0, max_concurrent_tasks=-2)
 
     assert result["lineage_root_number"] == 1
     assert result["max_concurrent_tasks"] == 1
@@ -122,9 +116,7 @@ def test_invalid_run_shape_values_are_clamped(run_env):
 def test_root_phase_caps_minting_and_barrier_gates_evolution(run_env):
     # max_concurrent_tasks=2, lineage_root_number=3: create 2, then 1, then
     # wait for all 3 roots before evolution tasks flow at concurrency 2.
-    public_tools_module.evolve_configure_run(
-        RUN_ID, max_total_tasks=30, lineage_root_number=3, max_concurrent_tasks=2
-    )
+    public_tools_module.evolve_configure_run(RUN_ID, max_total_tasks=30, lineage_root_number=3, max_concurrent_tasks=2)
 
     def check():
         result = public_tools_module.evolve_check_convergence(RUN_ID, concurrency=2)
@@ -154,9 +146,7 @@ def test_root_phase_caps_minting_and_barrier_gates_evolution(run_env):
 def test_small_root_budget_finishes_before_wider_concurrency(run_env):
     # max_concurrent_tasks=3, lineage_root_number=2: create 2, wait for both,
     # then evolution tasks flow at concurrency 3.
-    public_tools_module.evolve_configure_run(
-        RUN_ID, max_total_tasks=30, lineage_root_number=2, max_concurrent_tasks=3
-    )
+    public_tools_module.evolve_configure_run(RUN_ID, max_total_tasks=30, lineage_root_number=2, max_concurrent_tasks=3)
 
     def check():
         result = public_tools_module.evolve_check_convergence(RUN_ID, concurrency=3)
@@ -173,9 +163,7 @@ def test_small_root_budget_finishes_before_wider_concurrency(run_env):
 
 
 def test_check_convergence_rejects_non_positive_concurrency(run_env):
-    public_tools_module.evolve_configure_run(
-        RUN_ID, max_total_tasks=30, lineage_root_number=1, max_concurrent_tasks=3
-    )
+    public_tools_module.evolve_configure_run(RUN_ID, max_total_tasks=30, lineage_root_number=1, max_concurrent_tasks=3)
 
     with pytest.raises(ValueError, match="concurrency must be a positive integer"):
         public_tools_module.evolve_check_convergence(RUN_ID, concurrency=0)
@@ -187,12 +175,8 @@ def test_root_tasks_get_no_parent_even_after_early_root_success(run_env):
     # max_concurrent_tasks=2, lineage_root_number=3: task_003 is minted after
     # task_001 already succeeded, yet it is still a root — no parent, no
     # inspirations, regardless of success pool content.
-    public_tools_module.evolve_configure_run(
-        RUN_ID, max_total_tasks=30, lineage_root_number=3, max_concurrent_tasks=2
-    )
-    assert public_tools_module.evolve_check_convergence(RUN_ID, concurrency=2)[
-        "tasks_to_create"
-    ] == 2
+    public_tools_module.evolve_configure_run(RUN_ID, max_total_tasks=30, lineage_root_number=3, max_concurrent_tasks=2)
+    assert public_tools_module.evolve_check_convergence(RUN_ID, concurrency=2)["tasks_to_create"] == 2
     task_1 = _start_one_task(RUN_ID, "agent_0")
     task_2 = _start_one_task(RUN_ID, "agent_1")
     Attempts(RUN_ID).append(
@@ -211,22 +195,16 @@ def test_root_tasks_get_no_parent_even_after_early_root_success(run_env):
     )
     sched.complete_task(RUN_ID, task_1, fitness=1.0)
 
-    assert public_tools_module.evolve_check_convergence(RUN_ID, concurrency=2)[
-        "tasks_to_create"
-    ] == 1
+    assert public_tools_module.evolve_check_convergence(RUN_ID, concurrency=2)["tasks_to_create"] == 1
     task_3 = _start_one_task(RUN_ID, "agent_2")
 
     root_parent = public_tools_module.evolve_select_parent(RUN_ID, task_3)
     assert root_parent["parent_id"] is None
-    assert public_tools_module.evolve_select_inspirations(RUN_ID, task_3) == {
-        "inspirations": []
-    }
+    assert public_tools_module.evolve_select_inspirations(RUN_ID, task_3) == {"inspirations": []}
 
     sched.complete_task(RUN_ID, task_2, fitness=0.5)
     sched.complete_task(RUN_ID, task_3, fitness=0.7)
-    assert public_tools_module.evolve_check_convergence(RUN_ID, concurrency=2)[
-        "tasks_to_create"
-    ] == 2
+    assert public_tools_module.evolve_check_convergence(RUN_ID, concurrency=2)["tasks_to_create"] == 2
     task_4 = _start_one_task(RUN_ID, "agent_3")
 
     # Evolution tasks select parents normally once every root has finished.
@@ -234,9 +212,7 @@ def test_root_tasks_get_no_parent_even_after_early_root_success(run_env):
 
 
 def test_restarted_controller_recovers_recorded_config(run_env):
-    public_tools_module.evolve_configure_run(
-        RUN_ID, max_total_tasks=30, lineage_root_number=6, max_concurrent_tasks=2
-    )
+    public_tools_module.evolve_configure_run(RUN_ID, max_total_tasks=30, lineage_root_number=6, max_concurrent_tasks=2)
 
     restarted = Config(RUN_ID)
 

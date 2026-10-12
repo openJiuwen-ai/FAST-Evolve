@@ -81,9 +81,7 @@ class SuccessPool:
         self.run_id = run_id
         contexts = TaskContexts(run_id).tasks
         selections = Counter(
-            context.parent_id
-            for context in contexts.values()
-            if context.parent_selected and context.parent_id
+            context.parent_id for context in contexts.values() if context.parent_selected and context.parent_id
         )
         self._records: Dict[str, SuccessRecord] = {
             task_id: SuccessRecord.from_attempt(attempt, selections[task_id])

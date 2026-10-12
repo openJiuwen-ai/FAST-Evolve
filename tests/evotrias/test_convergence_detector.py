@@ -46,9 +46,7 @@ def _seed_successes(fitnesses):
 
 
 def _detector(window=2, patience=2, threshold=0.0):
-    return FitnessPlateauDetector(
-        PlateauConfig(window=window, improvement_threshold=threshold, patience=patience)
-    )
+    return FitnessPlateauDetector(PlateauConfig(window=window, improvement_threshold=threshold, patience=patience))
 
 
 def test_too_few_successes_stays_exploring():

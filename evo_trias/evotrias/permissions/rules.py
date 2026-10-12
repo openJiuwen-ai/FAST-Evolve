@@ -23,9 +23,7 @@ class NoEvaluatorAccess(Handler):
     _FORBIDDEN_FILES = ("evaluator.py",)
 
     @staticmethod
-    def filter(
-        tool_type: Tools, tool_param: dict[str, Any], run_id: str, agent_info: AgentInfo
-    ) -> bool:
+    def filter(tool_type: Tools, tool_param: dict[str, Any], run_id: str, agent_info: AgentInfo) -> bool:
         return tool_type in (Tools.READ, Tools.GLOB, Tools.GREP)
 
     @staticmethod
@@ -57,9 +55,7 @@ class InitExplorerOnlyWritesRootDirection(Handler):
     rule_name = "init_explorer_only_writes_root_direction"
 
     @staticmethod
-    def filter(
-        tool_type: Tools, tool_param: dict[str, Any], run_id: str, agent_info: AgentInfo
-    ) -> bool:
+    def filter(tool_type: Tools, tool_param: dict[str, Any], run_id: str, agent_info: AgentInfo) -> bool:
         return tool_type in (Tools.WRITE, Tools.EDIT)
 
     @staticmethod
@@ -83,9 +79,7 @@ class TaskExecutorOnlyWritesOwnAttempts(Handler):
     rule_name = "task_executor_only_writes_own_attempts"
 
     @staticmethod
-    def filter(
-        tool_type: Tools, tool_param: dict[str, Any], run_id: str, agent_info: AgentInfo
-    ) -> bool:
+    def filter(tool_type: Tools, tool_param: dict[str, Any], run_id: str, agent_info: AgentInfo) -> bool:
         return tool_type in (Tools.WRITE, Tools.EDIT)
 
     @staticmethod
@@ -113,9 +107,7 @@ class TaskExecutorReadAllowlistUnderRuns(Handler):
     rule_name = "task_executor_read_allowlist_under_runs"
 
     @staticmethod
-    def filter(
-        tool_type: Tools, tool_param: dict[str, Any], run_id: str, agent_info: AgentInfo
-    ) -> bool:
+    def filter(tool_type: Tools, tool_param: dict[str, Any], run_id: str, agent_info: AgentInfo) -> bool:
         return tool_type in (Tools.READ, Tools.GLOB, Tools.GREP)
 
     @staticmethod
@@ -139,7 +131,8 @@ class TaskExecutorReadAllowlistUnderRuns(Handler):
         successes = Attempts(run_id).successes
         allowed_dirs = {
             resolve_path(successes[i].artifact_ref).parent
-            for i in selected if i in successes and successes[i].artifact_ref
+            for i in selected
+            if i in successes and successes[i].artifact_ref
         }
         if target in allowed_dirs or any(target.is_relative_to(d) for d in allowed_dirs):
             return Decisions.ALLOW, f"task-executor reading a selected parent/inspiration artifact dir {raw!r}."
@@ -156,9 +149,7 @@ class NoCrossRunAccess(Handler):
     rule_name = "no_cross_run_access"
 
     @staticmethod
-    def filter(
-        tool_type: Tools, tool_param: dict[str, Any], run_id: str, agent_info: AgentInfo
-    ) -> bool:
+    def filter(tool_type: Tools, tool_param: dict[str, Any], run_id: str, agent_info: AgentInfo) -> bool:
         return tool_type in (Tools.READ, Tools.WRITE, Tools.EDIT, Tools.GLOB, Tools.GREP)
 
     @staticmethod

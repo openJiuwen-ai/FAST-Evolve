@@ -8,8 +8,7 @@ import time
 import pytest
 
 from evotrias.db import paths
-from evotrias.hooks import broker
-from evotrias.hooks import hook_manager
+from evotrias.hooks import broker, hook_manager
 from evotrias.utils.filelock import blocking_filelock, filelock
 
 
@@ -100,10 +99,7 @@ def test_dispatch_serializes_under_global_lock():
         intervals.append((start, time.monotonic()))
         return result
 
-    threads = [
-        threading.Thread(target=hook_manager.dispatch, args=("claude", "pre_tool_use", {}))
-        for _ in range(2)
-    ]
+    threads = [threading.Thread(target=hook_manager.dispatch, args=("claude", "pre_tool_use", {})) for _ in range(2)]
     for t in threads:
         t.start()
     for t in threads:
@@ -116,8 +112,7 @@ def test_dispatch_serializes_under_global_lock():
 
 def test_dispatch_timeout_returns_none_without_running(monkeypatch):
     lock_path = paths.HOOK_QUEUE_LOCK
-    monkeypatch.setattr(
-        broker, "blocking_filelock", lambda path: blocking_filelock(path, timeout=0.2))
+    monkeypatch.setattr(broker, "blocking_filelock", lambda path: blocking_filelock(path, timeout=0.2))
     calls = []
 
     @hook_manager.register("claude", "pre_tool_use", priority=1)

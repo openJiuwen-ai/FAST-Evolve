@@ -15,7 +15,6 @@ import pytest
 from evotrias.db import base
 from evotrias.utils import io
 
-
 # --- DBList -----------------------------------------------------------------
 
 

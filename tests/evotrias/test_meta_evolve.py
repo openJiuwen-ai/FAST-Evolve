@@ -2,20 +2,19 @@ from __future__ import annotations
 
 import json
 
-from evotrias.evolve_ctrl import controller as ctrl
-from evotrias.evolve_ctrl.inspiration_selector import LineageBoltzmannInspirationSelector
-from evotrias.evolve_ctrl.parent_selector import LineageAwareParentSelector
-from evotrias.evolve_ctrl.inspiration_selector import _inspiration
-from evotrias.evolve_ctrl.success_pool import SuccessPool
-from evotrias.evolve_ctrl import meta_guidance as meta_guidance_module
 from evotrias.db.attempts import AttemptRecord, Attempts
+from evotrias.db.config import Config
+from evotrias.db.meta_guidance_events import MetaGuidanceEvents
+from evotrias.db.meta_guidance_state import Guidance, MetaGuidanceState
 from evotrias.db.note_requests import NoteRequest, NoteRequests
 from evotrias.db.notes import Note, Notes, NoteTrigger
 from evotrias.db.notes_events import NotesEvents
-from evotrias.db.meta_guidance_events import MetaGuidanceEvents
-from evotrias.db.meta_guidance_state import Guidance, MetaGuidanceState
-from evotrias.db.config import Config
 from evotrias.db.task_contexts import TaskContexts
+from evotrias.evolve_ctrl import controller as ctrl
+from evotrias.evolve_ctrl import meta_guidance as meta_guidance_module
+from evotrias.evolve_ctrl.inspiration_selector import LineageBoltzmannInspirationSelector, _inspiration
+from evotrias.evolve_ctrl.parent_selector import LineageAwareParentSelector
+from evotrias.evolve_ctrl.success_pool import SuccessPool
 from evotrias.utils.time import utc_now_iso
 
 
@@ -112,9 +111,7 @@ def test_exhausted_guidance_history_is_never_truncated(tmp_path, monkeypatch):
 
     tried = MetaGuidanceState(run_id).tried_guidance
     assert len(tried) == 11
-    assert [item.guidance_id for item in tried] == [
-        f"mg_{index:04d}" for index in range(1, 12)
-    ]
+    assert [item.guidance_id for item in tried] == [f"mg_{index:04d}" for index in range(1, 12)]
     assert tried[0].idea == "idea 1"
     assert tried[0].description == "description 1"
     assert tried[0].implementation_plan == ["step 1"]
@@ -269,13 +266,15 @@ def test_commit_generated_note_is_idempotent_per_request(tmp_path, monkeypatch):
     assert [n.note_id for n in Notes(run_id)] == ["note_task_001_attempt_001_positive"]
     assert [e.event_type for e in NotesEvents(run_id)] == ["note_committed"]
 
+
 def test_commit_guidance_uses_canonical_best_anchor(tmp_path, monkeypatch):
     run_id = _run(tmp_path, monkeypatch)
     _add_successes(run_id, fitness=1.0)
 
     convergence = ctrl.check_convergence(run_id, concurrency=1)
     request = ctrl.get_meta_guidance_request(run_id, convergence["request_id"])
-    commit = ctrl.commit_meta_guidance(run_id, 
+    commit = ctrl.commit_meta_guidance(
+        run_id,
         request["request_id"],
         {
             "guidance": [
@@ -304,8 +303,23 @@ def test_commit_guidance_uses_canonical_best_anchor(tmp_path, monkeypatch):
 
 def test_parent_and_inspirations_expose_persisted_metrics(tmp_path, monkeypatch):
     run_id = _run(tmp_path, monkeypatch)
-    _add_success(run_id, "parent", fitness=2.0, artifact_ref="parent.py", metrics={"total_cost": 10.0, "scenario": {"a": 4.0}}, created_at="2026-01-01T00:00:00+00:00")
-    _add_success(run_id, "inspiration", fitness=1.0, parent_id="parent", artifact_ref="inspiration.py", metrics={"total_cost": 12.0}, created_at="2026-01-01T00:00:01+00:00")
+    _add_success(
+        run_id,
+        "parent",
+        fitness=2.0,
+        artifact_ref="parent.py",
+        metrics={"total_cost": 10.0, "scenario": {"a": 4.0}},
+        created_at="2026-01-01T00:00:00+00:00",
+    )
+    _add_success(
+        run_id,
+        "inspiration",
+        fitness=1.0,
+        parent_id="parent",
+        artifact_ref="inspiration.py",
+        metrics={"total_cost": 12.0},
+        created_at="2026-01-01T00:00:01+00:00",
+    )
 
     monkeypatch.setattr(
         LineageAwareParentSelector,
@@ -334,7 +348,8 @@ def test_commit_guidance_accepts_json_string_and_rejects_bad_max_uses(tmp_path, 
     convergence = ctrl.check_convergence(run_id, concurrency=1)
     request = ctrl.get_meta_guidance_request(run_id, convergence["request_id"])
 
-    bad = ctrl.commit_meta_guidance(run_id, 
+    bad = ctrl.commit_meta_guidance(
+        run_id,
         request["request_id"],
         {
             "guidance": [
@@ -349,7 +364,8 @@ def test_commit_guidance_accepts_json_string_and_rejects_bad_max_uses(tmp_path, 
             ]
         },
     )
-    good = ctrl.commit_meta_guidance(run_id, 
+    good = ctrl.commit_meta_guidance(
+        run_id,
         request["request_id"],
         json.dumps(
             {
@@ -376,9 +392,17 @@ def test_meta_guidance_request_includes_current_best_artifact_excerpt(tmp_path, 
     run_id = _run(tmp_path, monkeypatch)
     artifact = tmp_path / "candidate.py"
     artifact.write_text("def solve():\n    return 'current-best-route'\n", encoding="utf-8")
-    _add_success(run_id, "success_with_code", fitness=1.0, artifact_ref=str(artifact), created_at="2026-01-01T00:00:00+00:00")
+    _add_success(
+        run_id, "success_with_code", fitness=1.0, artifact_ref=str(artifact), created_at="2026-01-01T00:00:00+00:00"
+    )
     for index in range(1, 5):
-        _add_success(run_id, f"success_without_code_{index}", fitness=1.0, artifact_ref=f"missing_{index}.py", created_at=f"2026-01-01T00:00:0{index}+00:00")
+        _add_success(
+            run_id,
+            f"success_without_code_{index}",
+            fitness=1.0,
+            artifact_ref=f"missing_{index}.py",
+            created_at=f"2026-01-01T00:00:0{index}+00:00",
+        )
 
     convergence = ctrl.check_convergence(run_id, concurrency=1)
     request = ctrl.get_meta_guidance_request(run_id, convergence["request_id"])
@@ -388,22 +412,12 @@ def test_meta_guidance_request_includes_current_best_artifact_excerpt(tmp_path, 
     assert request["current_best"]["artifact_excerpt_truncated"] is False
     assert any("critically" in item.lower() for item in request["generation_instructions"])
     assert any("current_best.metrics" in item for item in request["generation_instructions"])
-    assert all(
-        "verifier/evaluator source" not in item.lower()
-        for item in request["generation_instructions"]
-    )
+    assert all("verifier/evaluator source" not in item.lower() for item in request["generation_instructions"])
+    assert any("branch produced the evaluated result" in item for item in request["generation_instructions"])
     assert any(
-        "branch produced the evaluated result" in item
-        for item in request["generation_instructions"]
+        "no_effect" in item and "does not by itself prove" in item for item in request["generation_instructions"]
     )
-    assert any(
-        "no_effect" in item and "does not by itself prove" in item
-        for item in request["generation_instructions"]
-    )
-    assert all(
-        "may read verifier/evaluator source" not in item.lower()
-        for item in request["constraints"]
-    )
+    assert all("may read verifier/evaluator source" not in item.lower() for item in request["constraints"])
 
 
 def test_pending_request_on_disk_has_no_artifact_excerpt(tmp_path, monkeypatch):
@@ -411,9 +425,17 @@ def test_pending_request_on_disk_has_no_artifact_excerpt(tmp_path, monkeypatch):
     run_id = _run(tmp_path, monkeypatch)
     artifact = tmp_path / "candidate.py"
     artifact.write_text("def solve():\n    return 'current-best-route'\n", encoding="utf-8")
-    _add_success(run_id, "success_with_code", fitness=1.0, artifact_ref=str(artifact), created_at="2026-01-01T00:00:00+00:00")
+    _add_success(
+        run_id, "success_with_code", fitness=1.0, artifact_ref=str(artifact), created_at="2026-01-01T00:00:00+00:00"
+    )
     for index in range(1, 5):
-        _add_success(run_id, f"success_without_code_{index}", fitness=1.0, artifact_ref=f"missing_{index}.py", created_at=f"2026-01-01T00:00:0{index}+00:00")
+        _add_success(
+            run_id,
+            f"success_without_code_{index}",
+            fitness=1.0,
+            artifact_ref=f"missing_{index}.py",
+            created_at=f"2026-01-01T00:00:0{index}+00:00",
+        )
 
     convergence = ctrl.check_convergence(run_id, concurrency=1)
 
@@ -430,7 +452,8 @@ def test_commit_guidance_rejects_duplicate_approach_types(tmp_path, monkeypatch)
     convergence = ctrl.check_convergence(run_id, concurrency=1)
     request = ctrl.get_meta_guidance_request(run_id, convergence["request_id"])
 
-    result = ctrl.commit_meta_guidance(run_id, 
+    result = ctrl.commit_meta_guidance(
+        run_id,
         request["request_id"],
         {
             "guidance": [
@@ -462,7 +485,8 @@ def test_same_task_does_not_double_consume_guidance(tmp_path, monkeypatch):
     _add_successes(run_id, fitness=1.0)
     convergence = ctrl.check_convergence(run_id, concurrency=1)
     request = ctrl.get_meta_guidance_request(run_id, convergence["request_id"])
-    ctrl.commit_meta_guidance(run_id, 
+    ctrl.commit_meta_guidance(
+        run_id,
         request["request_id"],
         {
             "guidance": [
@@ -491,7 +515,8 @@ def test_active_guidance_uses_latest_best_parent(tmp_path, monkeypatch):
     _add_successes(run_id, fitness=1.0)
     convergence = ctrl.check_convergence(run_id, concurrency=1)
     request = ctrl.get_meta_guidance_request(run_id, convergence["request_id"])
-    ctrl.commit_meta_guidance(run_id, 
+    ctrl.commit_meta_guidance(
+        run_id,
         request["request_id"],
         {
             "guidance": [
@@ -508,7 +533,9 @@ def test_active_guidance_uses_latest_best_parent(tmp_path, monkeypatch):
     )
 
     first_parent = ctrl.select_parent(run_id, "task_151")
-    _add_success(run_id, "success_new_best", fitness=2.0, artifact_ref="new_best.py", created_at="2026-01-01T00:01:00+00:00")
+    _add_success(
+        run_id, "success_new_best", fitness=2.0, artifact_ref="new_best.py", created_at="2026-01-01T00:01:00+00:00"
+    )
     second_parent = ctrl.select_parent(run_id, "task_152")
     meta_state = MetaGuidanceState(run_id)
     assignments = meta_state.task_assignments
@@ -529,7 +556,8 @@ def test_no_new_request_while_assigned_guidance_is_unresolved(tmp_path, monkeypa
     _add_successes(run_id, fitness=1.0)
     convergence = ctrl.check_convergence(run_id, concurrency=1)
     request = ctrl.get_meta_guidance_request(run_id, convergence["request_id"])
-    ctrl.commit_meta_guidance(run_id, 
+    ctrl.commit_meta_guidance(
+        run_id,
         request["request_id"],
         {
             "guidance": [
@@ -586,7 +614,8 @@ def test_meta_commit_has_compact_postcondition_before_replenishment(tmp_path, mo
     _add_successes(run_id, fitness=1.0)
     convergence = ctrl.check_convergence(run_id, concurrency=1)
 
-    commit = ctrl.commit_meta_guidance(run_id, 
+    commit = ctrl.commit_meta_guidance(
+        run_id,
         convergence["request_id"],
         {
             "guidance": [
@@ -615,7 +644,8 @@ def test_rejected_meta_commit_remains_pending_for_later_event(tmp_path, monkeypa
     _add_successes(run_id, fitness=1.0)
     convergence = ctrl.check_convergence(run_id, concurrency=1)
 
-    rejected = ctrl.commit_meta_guidance(run_id, 
+    rejected = ctrl.commit_meta_guidance(
+        run_id,
         convergence["request_id"],
         {"guidance": []},
     )
@@ -634,7 +664,9 @@ def test_pending_request_is_cleared_after_new_best(tmp_path, monkeypatch):
     first = ctrl.check_convergence(run_id, concurrency=1)
     assert first["action"] == "request_meta_guidance"
 
-    _add_success(run_id, "success_new_best", fitness=2.0, artifact_ref="new_best.py", created_at="2026-01-01T00:01:00+00:00")
+    _add_success(
+        run_id, "success_new_best", fitness=2.0, artifact_ref="new_best.py", created_at="2026-01-01T00:01:00+00:00"
+    )
     after_improvement = ctrl.check_convergence(run_id, concurrency=1)
     request = ctrl.get_meta_guidance_request(run_id, first["request_id"])
 
@@ -649,7 +681,8 @@ def test_meta_guidance_events_cover_the_whole_lifecycle(tmp_path, monkeypatch):
     _add_successes(run_id, fitness=1.0)
     convergence = ctrl.check_convergence(run_id, concurrency=1)
     request = ctrl.get_meta_guidance_request(run_id, convergence["request_id"])
-    ctrl.commit_meta_guidance(run_id, 
+    ctrl.commit_meta_guidance(
+        run_id,
         request["request_id"],
         {
             "guidance": [
@@ -670,7 +703,14 @@ def test_meta_guidance_events_cover_the_whole_lifecycle(tmp_path, monkeypatch):
         json.dumps({"status": "success", "artifact_ref": "runs/run_meta_test/tasks/task_301/final.py", "fitness": 2.0}),
         encoding="utf-8",
     )
-    ctrl.record_attempt(run_id, task_id="task_301", verification_result_ref=str(result_path), attempt_id="attempt_001", artifact_ref=None, max_attempts=3)
+    ctrl.record_attempt(
+        run_id,
+        task_id="task_301",
+        verification_result_ref=str(result_path),
+        attempt_id="attempt_001",
+        artifact_ref=None,
+        max_attempts=3,
+    )
     ctrl.check_convergence(run_id, concurrency=1)  # new best ends the plateau -> watching_reset
 
     events = list(MetaGuidanceEvents(run_id))
@@ -691,13 +731,15 @@ def test_meta_guidance_events_cover_the_whole_lifecycle(tmp_path, monkeypatch):
     assert by_type["guidance_archived"]["outcome"] == "new_best"
     assert by_type["watching_reset"]["had_pending_request"] is False
 
+
 def test_attempt_records_meta_guidance_and_report_summary(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     run_id = _run(tmp_path, monkeypatch)
     _add_successes(run_id, fitness=1.0)
     convergence = ctrl.check_convergence(run_id, concurrency=1)
     request = ctrl.get_meta_guidance_request(run_id, convergence["request_id"])
-    ctrl.commit_meta_guidance(run_id, 
+    ctrl.commit_meta_guidance(
+        run_id,
         request["request_id"],
         {
             "guidance": [
@@ -733,11 +775,11 @@ def test_attempt_records_meta_guidance_and_report_summary(tmp_path, monkeypatch)
         encoding="utf-8",
     )
     record = ctrl.record_attempt(
-            run_id,
+        run_id,
         task_id="task_301",
         verification_result_ref=str(result_path),
         attempt_id="attempt_001",
-            artifact_ref=None,
+        artifact_ref=None,
         max_attempts=3,
     )
     attempts = list(Attempts(run_id))
@@ -764,7 +806,8 @@ def test_next_meta_request_includes_guidance_outcomes_and_notes(tmp_path, monkey
     _add_successes(run_id, fitness=1.0)
     first = ctrl.check_convergence(run_id, concurrency=1)
     request = ctrl.get_meta_guidance_request(run_id, first["request_id"])
-    ctrl.commit_meta_guidance(run_id, 
+    ctrl.commit_meta_guidance(
+        run_id,
         request["request_id"],
         {
             "guidance": [
@@ -797,11 +840,11 @@ def test_next_meta_request_includes_guidance_outcomes_and_notes(tmp_path, monkey
         encoding="utf-8",
     )
     ctrl.record_attempt(
-            run_id,
+        run_id,
         task_id="task_401",
         verification_result_ref=str(result_path),
         attempt_id="attempt_001",
-            artifact_ref=None,
+        artifact_ref=None,
         max_attempts=3,
     )
     Notes(run_id).append(
@@ -841,7 +884,8 @@ def test_equal_fitness_with_changed_metrics_is_regression(tmp_path, monkeypatch)
     _add_successes(run_id, fitness=1.0)
     convergence = ctrl.check_convergence(run_id, concurrency=1)
     request = ctrl.get_meta_guidance_request(run_id, convergence["request_id"])
-    ctrl.commit_meta_guidance(run_id, 
+    ctrl.commit_meta_guidance(
+        run_id,
         request["request_id"],
         {
             "guidance": [
@@ -871,11 +915,11 @@ def test_equal_fitness_with_changed_metrics_is_regression(tmp_path, monkeypatch)
     )
 
     ctrl.record_attempt(
-            run_id,
+        run_id,
         task_id="task_402",
         verification_result_ref=str(result_path),
         attempt_id="attempt_001",
-            artifact_ref=None,
+        artifact_ref=None,
         max_attempts=1,
     )
 
@@ -892,7 +936,8 @@ def test_guidance_can_improve_its_anchor_without_creating_global_best(tmp_path, 
     _add_successes(run_id, fitness=1.0)
     convergence = ctrl.check_convergence(run_id, concurrency=1)
     request = ctrl.get_meta_guidance_request(run_id, convergence["request_id"])
-    ctrl.commit_meta_guidance(run_id, 
+    ctrl.commit_meta_guidance(
+        run_id,
         request["request_id"],
         {
             "guidance": [
@@ -908,7 +953,13 @@ def test_guidance_can_improve_its_anchor_without_creating_global_best(tmp_path, 
         },
     )
     ctrl.select_parent(run_id, "task_501")
-    _add_success(run_id, "concurrent_best", fitness=2.0, artifact_ref="concurrent_best.py", created_at="2026-01-01T00:01:00+00:00")
+    _add_success(
+        run_id,
+        "concurrent_best",
+        fitness=2.0,
+        artifact_ref="concurrent_best.py",
+        created_at="2026-01-01T00:01:00+00:00",
+    )
 
     result_path = tmp_path / "improved_anchor.json"
     result_path.write_text(
@@ -922,11 +973,11 @@ def test_guidance_can_improve_its_anchor_without_creating_global_best(tmp_path, 
         encoding="utf-8",
     )
     ctrl.record_attempt(
-            run_id,
+        run_id,
         task_id="task_501",
         verification_result_ref=str(result_path),
         attempt_id="attempt_001",
-            artifact_ref=None,
+        artifact_ref=None,
         max_attempts=1,
     )
 
@@ -944,7 +995,8 @@ def test_guidance_with_only_invalid_results_is_failed(tmp_path, monkeypatch):
     _add_successes(run_id, fitness=1.0)
     convergence = ctrl.check_convergence(run_id, concurrency=1)
     request = ctrl.get_meta_guidance_request(run_id, convergence["request_id"])
-    ctrl.commit_meta_guidance(run_id, 
+    ctrl.commit_meta_guidance(
+        run_id,
         request["request_id"],
         {
             "guidance": [
@@ -972,11 +1024,11 @@ def test_guidance_with_only_invalid_results_is_failed(tmp_path, monkeypatch):
         encoding="utf-8",
     )
     ctrl.record_attempt(
-            run_id,
+        run_id,
         task_id="task_601",
         verification_result_ref=str(result_path),
         attempt_id="attempt_001",
-            artifact_ref=None,
+        artifact_ref=None,
         max_attempts=1,
     )
 

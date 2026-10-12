@@ -33,6 +33,7 @@ class _RotatingFileHandler(logging.Handler):
         with tarfile.open(f"{archived}.tar.gz", "w:gz") as tar:
             tar.add(archived, arcname=os.path.basename(archived))
         os.remove(archived)
+
     def emit(self, record: logging.LogRecord) -> None:
         try:
             msg = self.format(record) + "\n"
@@ -78,16 +79,16 @@ class _Logger:
     def debug(self, msg: str, stacklevel: int = 2, **kwargs) -> None:
         self._log.debug(msg, stacklevel=stacklevel, **kwargs)
 
-    def info(self, msg: str,  stacklevel: int = 2, **kwargs) -> None:
+    def info(self, msg: str, stacklevel: int = 2, **kwargs) -> None:
         self._log.info(msg, stacklevel=stacklevel, **kwargs)
 
-    def warning(self, msg: str,   stacklevel: int = 2, **kwargs) -> None:
+    def warning(self, msg: str, stacklevel: int = 2, **kwargs) -> None:
         self._log.warning(msg, stacklevel=stacklevel, **kwargs)
 
     def error(self, msg: str, stacklevel: int = 2, **kwargs) -> None:
         self._log.error(msg, stacklevel=stacklevel, **kwargs)
 
-    def critical(self, msg: str,  stacklevel: int = 2, **kwargs) -> None:
+    def critical(self, msg: str, stacklevel: int = 2, **kwargs) -> None:
         self._log.critical(msg, stacklevel=stacklevel, **kwargs)
 
 

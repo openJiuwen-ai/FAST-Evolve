@@ -15,9 +15,7 @@ class Handler(ABC):
 
     @staticmethod
     @abstractmethod
-    def filter(
-        tool_type: Tools, tool_param: dict[str, Any], run_id: str, agent_info: AgentInfo
-    ) -> bool:
+    def filter(tool_type: Tools, tool_param: dict[str, Any], run_id: str, agent_info: AgentInfo) -> bool:
         raise NotImplementedError
 
     @staticmethod

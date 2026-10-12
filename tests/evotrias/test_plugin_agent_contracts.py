@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import asyncio
 import json
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
 import yaml
 from fastmcp import Client
@@ -20,9 +20,7 @@ META_AGENT = PLUGIN_ROOT / "agents" / "meta-guidance-generator.md"
 PLUGIN_MANIFEST = PLUGIN_ROOT / ".claude-plugin" / "plugin.json"
 MCP_CONFIG = PLUGIN_ROOT / ".mcp.json"
 PROJECT_SETTINGS = REPO_ROOT / ".claude" / "settings.json"
-SHARED_WORKSPACE_HOOK = (
-    REPO_ROOT / ".claude" / "hooks" / "enforce-shared-evolve-agents.mjs"
-)
+SHARED_WORKSPACE_HOOK = REPO_ROOT / ".claude" / "hooks" / "enforce-shared-evolve-agents.mjs"
 
 PUBLIC_TOOL_NAMES = {
     "configure_run",
@@ -37,9 +35,7 @@ PUBLIC_TOOL_NAMES = {
     "check_convergence",
     "finalize_run",
 }
-PYTHON_WRAPPER_NAMES = {
-    f"evolve_{tool_name}": tool_name for tool_name in PUBLIC_TOOL_NAMES
-}
+PYTHON_WRAPPER_NAMES = {f"evolve_{tool_name}": tool_name for tool_name in PUBLIC_TOOL_NAMES}
 MCP_SERVER_NAME = "evotrias"
 MCP_TOOL_PREFIX = "mcp__plugin_evotrias_plugin_evotrias__"
 GET_REQUEST_TOOL = f"{MCP_TOOL_PREFIX}get_meta_guidance_request"
@@ -95,9 +91,7 @@ def test_registered_mcp_tools_use_one_complete_compact_namespace():
 
 
 def test_legacy_python_wrapper_names_map_to_compact_mcp_names():
-    registered = {
-        tool.name: tool.fn for tool in asyncio.run(mcp.list_tools())
-    }
+    registered = {tool.name: tool.fn for tool in asyncio.run(mcp.list_tools())}
 
     for wrapper_name, mcp_name in PYTHON_WRAPPER_NAMES.items():
         wrapper = getattr(public_tools, wrapper_name)
@@ -105,9 +99,7 @@ def test_legacy_python_wrapper_names_map_to_compact_mcp_names():
 
 
 def test_note_and_meta_commit_tools_keep_distinct_schemas():
-    registered = {
-        tool.name: tool.inputSchema for tool in asyncio.run(_protocol_tools())
-    }
+    registered = {tool.name: tool.inputSchema for tool in asyncio.run(_protocol_tools())}
 
     note_fields = set(registered["commit_generated_note"]["properties"])
     meta_fields = set(registered["commit_meta_guidance"]["properties"])
@@ -127,10 +119,7 @@ def test_complete_claude_tool_names_fit_without_hash_aliases():
     assert manifest["name"] == "evotrias_plugin"
     assert server_names == {MCP_SERVER_NAME}
 
-    complete_names = {
-        f"mcp__plugin_{manifest['name']}_{MCP_SERVER_NAME}__{name}"
-        for name in PUBLIC_TOOL_NAMES
-    }
+    complete_names = {f"mcp__plugin_{manifest['name']}_{MCP_SERVER_NAME}__{name}" for name in PUBLIC_TOOL_NAMES}
     assert max(map(len, complete_names)) <= 64
     assert max(complete_names, key=len) == GET_REQUEST_TOOL
     assert len(GET_REQUEST_TOOL) == 63
@@ -197,15 +186,11 @@ def test_meta_guidance_agent_is_stateless_and_strictly_tool_scoped():
 
 def test_all_agent_mcp_tools_are_registered_and_permitted():
     allowed = set(_settings()["permissions"]["allow"])
-    registered_complete_names = {
-        f"{MCP_TOOL_PREFIX}{name}" for name in PUBLIC_TOOL_NAMES
-    }
+    registered_complete_names = {f"{MCP_TOOL_PREFIX}{name}" for name in PUBLIC_TOOL_NAMES}
 
     agent_mcp_tools = set()
     for path in (INIT_AGENT, TASK_AGENT, META_AGENT):
-        agent_mcp_tools.update(
-            tool for tool in _agent_tools(path) if tool.startswith("mcp__")
-        )
+        agent_mcp_tools.update(tool for tool in _agent_tools(path) if tool.startswith("mcp__"))
 
     assert agent_mcp_tools <= registered_complete_names
     assert agent_mcp_tools <= allowed
@@ -214,27 +199,16 @@ def test_all_agent_mcp_tools_are_registered_and_permitted():
 def test_meta_guidance_agent_returns_only_the_compact_result_contract():
     _, body = _agent_parts(META_AGENT)
 
-    assert (
-        "meta_guidance_result: committed request_id=<request_id> "
-        "guidance_count=<count>"
-    ) in body
-    assert (
-        "meta_guidance_result: not_committed request_id=<request_id> "
-        "reason=<reason_code>"
-    ) in body
-    assert (
-        "meta_guidance_result: mcp_error request_id=<request_id> "
-        "reason=<short_reason_code>"
-    ) in body
+    assert ("meta_guidance_result: committed request_id=<request_id> " "guidance_count=<count>") in body
+    assert ("meta_guidance_result: not_committed request_id=<request_id> " "reason=<reason_code>") in body
+    assert ("meta_guidance_result: mcp_error request_id=<request_id> " "reason=<short_reason_code>") in body
     assert "Do not include the request payload, generated guidance" in body
 
 
 def test_orchestrator_passes_only_ids_and_never_handles_guidance_payload():
     master = MASTER_SKILL.read_text(encoding="utf-8")
 
-    assert _dispatch_template(master, "meta-guidance-generator") == (
-        "run_id: <run_id>\nrequest_id: <request_id>"
-    )
+    assert _dispatch_template(master, "meta-guidance-generator") == ("run_id: <run_id>\nrequest_id: <request_id>")
     assert "get_meta_guidance_request" not in master
     assert "commit_meta_guidance" not in master
     assert "current_best_assessment" not in master

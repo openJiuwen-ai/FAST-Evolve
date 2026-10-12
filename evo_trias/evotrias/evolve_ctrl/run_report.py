@@ -210,8 +210,7 @@ def _deterministic_observations(
     observations = []
     if best is not None:
         observations.append(
-            f"Best record {best.id} reached fitness {_format_float(best.fitness)} "
-            f"at generation {best.generation}."
+            f"Best record {best.id} reached fitness {_format_float(best.fitness)} " f"at generation {best.generation}."
         )
 
     lineage_stats = sorted(
@@ -243,9 +242,7 @@ def _lineage_mermaid(
     if not records:
         return 'flowchart TB\n    empty["No successful records"]\n'
 
-    sorted_records = sorted(
-        records, key=lambda record: (record.generation, record.created_at, record.id)
-    )
+    sorted_records = sorted(records, key=lambda record: (record.generation, record.created_at, record.id))
     record_ids = {record.id for record in sorted_records}
     fitness_bucket = _fitness_buckets(sorted_records)
 
@@ -289,8 +286,7 @@ def _lineage_mermaid(
             stroke = "#a16207"
             width = "4px"
         lines.append(
-            f"    style {_node_id(record.id)} fill:{color},stroke:{stroke},"
-            f"stroke-width:{width},color:#111827"
+            f"    style {_node_id(record.id)} fill:{color},stroke:{stroke}," f"stroke-width:{width},color:#111827"
         )
     return "\n".join(lines) + "\n"
 
@@ -455,9 +451,7 @@ def _meta_evolve_table(meta: Dict[str, Any]) -> List[str]:
         f"| new_best_from_guidance | {meta.get('new_best_from_guidance')} |",
     ]
     guidance = list(meta.get("guidance") or [])
-    lines.extend(
-        ["", "| Guidance | Uses | Status | Outcome | Anchor Parent |", "|---|---:|---|---|---|"]
-    )
+    lines.extend(["", "| Guidance | Uses | Status | Outcome | Anchor Parent |", "|---|---:|---|---|---|"])
     if not guidance:
         lines.append("| - | - | - | - | - |")
         return lines

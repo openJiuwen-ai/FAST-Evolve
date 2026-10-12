@@ -17,8 +17,7 @@ from evotrias.db.agent_index import AgentInfo
 from evotrias.db.attempts import AttemptRecord, Attempts
 from evotrias.db.session_map import SessionMap
 from evotrias.enums import Agents
-from evotrias.hooks import broker
-from evotrias.hooks import hook_manager
+from evotrias.hooks import broker, hook_manager
 from evotrias.hooks.opencode import scheduler_hooks as oc_glue
 
 
@@ -40,7 +39,6 @@ def _record_success(run_id: str, task_id: str, fitness: float) -> None:
     )
 
 
-
 def _agents(bucket):
     """queued/running -> {task_id: agent_id}, dropping the timestamp."""
     return {tid: held.agent_id for tid, held in bucket.items()}
@@ -52,6 +50,7 @@ def _fitness(bucket):
 
 def _reasons(bucket):
     return {tid: failed.reason for tid, failed in bucket.items()}
+
 
 @pytest.fixture
 def tmp_env(monkeypatch, tmp_path):
@@ -88,13 +87,17 @@ def _after_payload(call_id="call_1", session="ses_parent", child="ses_child"):
     # input.args is deliberately the pre-mutation snapshot (observed opencode
     # behavior): it never carries the injected task_id.
     return {
-        "input": {"tool": "task", "sessionID": session, "callID": call_id,
-                  "args": _spawn_args()},
+        "input": {"tool": "task", "sessionID": session, "callID": call_id, "args": _spawn_args()},
         "output": {
             "title": "Execute replenishment task",
-            "metadata": {"parentSessionId": session, "sessionId": child,
-                         "model": {"modelID": "GLM-5.2", "providerID": "opencsi"},
-                         "background": True, "jobId": child, "truncated": False},
+            "metadata": {
+                "parentSessionId": session,
+                "sessionId": child,
+                "model": {"modelID": "GLM-5.2", "providerID": "opencsi"},
+                "background": True,
+                "jobId": child,
+                "truncated": False,
+            },
             "output": f'<task id="{child}" state="running">started</task>',
         },
     }
@@ -102,13 +105,24 @@ def _after_payload(call_id="call_1", session="ses_parent", child="ses_child"):
 
 def _created_payload(child="ses_child", parent="ses_parent", agent="task-executor"):
     return {
-        "id": "evt_created", "type": "session.created",
-        "properties": {"sessionID": child, "info": {
-            "id": child, "slug": "hidden-panda", "version": "1.18.21",
-            "projectID": "proj", "directory": "D:\\ws", "path": "ws",
-            "parentID": parent, "title": f"task_001 (@{agent} subagent)",
-            "agent": agent, "permission": [], "cost": 0,
-        }},
+        "id": "evt_created",
+        "type": "session.created",
+        "properties": {
+            "sessionID": child,
+            "info": {
+                "id": child,
+                "slug": "hidden-panda",
+                "version": "1.18.21",
+                "projectID": "proj",
+                "directory": "D:\\ws",
+                "path": "ws",
+                "parentID": parent,
+                "title": f"task_001 (@{agent} subagent)",
+                "agent": agent,
+                "permission": [],
+                "cost": 0,
+            },
+        },
     }
 
 
@@ -118,10 +132,17 @@ def _idle_payload(child="ses_child"):
 
 def test_configure_run_after_records_session_run(tmp_env):
     payload = {
-        "input": {"tool": "evotrias_configure_run", "sessionID": "ses-9", "callID": "c0",
-                  "args": {"run_id": "run-9", "max_total_tasks": 50}},
-        "output": {"content": [{"type": "text", "text": "{}"}],
-                   "structuredContent": {"configured": True}, "isError": False},
+        "input": {
+            "tool": "evotrias_configure_run",
+            "sessionID": "ses-9",
+            "callID": "c0",
+            "args": {"run_id": "run-9", "max_total_tasks": 50},
+        },
+        "output": {
+            "content": [{"type": "text", "text": "{}"}],
+            "structuredContent": {"configured": True},
+            "isError": False,
+        },
     }
     out = hook_manager.dispatch("opencode", "tool.execute.after", payload)
     assert out is None
@@ -132,8 +153,7 @@ def test_configure_run_after_without_session_id_registers_nothing(tmp_env):
     # A bare input_.get("sessionID") used to hand None to the scheduler,
     # which str()-ed it into a literal "None" session key.
     payload = {
-        "input": {"tool": "evotrias_configure_run", "callID": "c0",
-                  "args": {"run_id": "run-9", "max_total_tasks": 50}},
+        "input": {"tool": "evotrias_configure_run", "callID": "c0", "args": {"run_id": "run-9", "max_total_tasks": 50}},
         "output": {"content": [], "structuredContent": {"configured": True}, "isError": False},
     }
     out = hook_manager.dispatch("opencode", "tool.execute.after", payload)
@@ -210,19 +230,16 @@ def test_executor_full_chain_created_after_after(tmp_env):
 def test_non_executor_spawn_passes_through(tmp_env):
     sched.remember_session_run("ses_parent", "run-S")
     sched.top_up_tasks("run-S", target=1, max_tasks=100)
-    out = hook_manager.dispatch(
-        "opencode", "tool.execute.before", _before_payload(subagent="story_writer"))
+    out = hook_manager.dispatch("opencode", "tool.execute.before", _before_payload(subagent="story_writer"))
     assert out is None
     assert sched.pool_snapshot("run-S").created == ["task_001"]
 
 
 def test_before_and_after_skip_when_no_run_for_session(tmp_env):
-    out = hook_manager.dispatch(
-        "opencode", "tool.execute.before", _before_payload(session="ses_unknown"))
+    out = hook_manager.dispatch("opencode", "tool.execute.before", _before_payload(session="ses_unknown"))
     assert out is None
     # after finds no call binding and must not touch any pool.
-    out = hook_manager.dispatch(
-        "opencode", "tool.execute.after", _after_payload(session="ses_unknown"))
+    out = hook_manager.dispatch("opencode", "tool.execute.after", _after_payload(session="ses_unknown"))
     assert out is None
 
 
@@ -236,8 +253,7 @@ def test_created_without_parent_is_ignored(tmp_env):
 
 
 def test_created_skips_when_parent_has_no_run(tmp_env):
-    out = hook_manager.dispatch(
-        "opencode", "session.created", _created_payload(parent="ses_unknown"))
+    out = hook_manager.dispatch("opencode", "session.created", _created_payload(parent="ses_unknown"))
     assert out is None
     assert sched.lookup_agent("run-any", "ses_child") is None
 
@@ -252,8 +268,7 @@ def test_non_executor_children_indexed_and_idle_is_harmless(tmp_env):
     }
     for agent, want in expected.items():
         child = f"ses_{agent}"
-        out = hook_manager.dispatch(
-            "opencode", "session.created", _created_payload(child=child, agent=agent))
+        out = hook_manager.dispatch("opencode", "session.created", _created_payload(child=child, agent=agent))
         assert out is None, f"{agent} must get no task injection"
         assert sched.lookup_agent("run-mixed", child) == want
 

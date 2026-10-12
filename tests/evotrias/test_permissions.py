@@ -229,9 +229,7 @@ def test_init_explorer_bash_and_read_are_not_write_scoped(configured_run):
 
 def test_init_explorer_write_scope_does_not_apply_to_task_executor(configured_run):
     # The rule is registered for INIT_EXPLORER only; the executor keeps its own scope.
-    decision, _ = evaluate_permission(
-        Tools.WRITE, _write("runs/run-X/tasks/task_001/direction.txt"), RUN, _task_info()
-    )
+    decision, _ = evaluate_permission(Tools.WRITE, _write("runs/run-X/tasks/task_001/direction.txt"), RUN, _task_info())
     assert decision != Decisions.ALLOW
 
 
@@ -277,9 +275,7 @@ def test_task_executor_denies_malformed_attempt_id(bad):
 
 
 def test_task_executor_denies_own_direction_txt():
-    decision, _ = evaluate_permission(
-        Tools.WRITE, _write("runs/run-X/tasks/task_001/direction.txt"), RUN, _task_info()
-    )
+    decision, _ = evaluate_permission(Tools.WRITE, _write("runs/run-X/tasks/task_001/direction.txt"), RUN, _task_info())
     assert decision == Decisions.DENY
 
 

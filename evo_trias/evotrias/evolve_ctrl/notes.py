@@ -47,9 +47,7 @@ class NotesManager:
         active = [n for n in self.notes if n.note_type in NOTE_TYPES]
 
         error_notes = [n for n in active if n.note_type == "error"]
-        error_notes = sorted(error_notes, key=lambda n: n.created_at)[
-            -self.config.error_prompt_limit:
-        ]
+        error_notes = sorted(error_notes, key=lambda n: n.created_at)[-self.config.error_prompt_limit :]
 
         pos_neg_notes = [n for n in active if n.note_type in {"positive", "negative"}]
         anchor_ids = {item for item in [parent_id, *inspiration_ids] if item}
@@ -85,11 +83,7 @@ class NotesManager:
         """Return compact run-local Notes context for meta-guidance generation."""
         notes = [note for note in self.notes if note.note_type in NOTE_TYPES]
         groups = {
-            note_type: [
-                _note_summary(note)
-                for note in notes
-                if note.note_type == note_type
-            ][-limit_per_type:]
+            note_type: [_note_summary(note) for note in notes if note.note_type == note_type][-limit_per_type:]
             for note_type in ("positive", "negative", "error")
         }
         return {
@@ -121,9 +115,7 @@ class NotesManager:
         status = _attempt_status(attempt)
         attempt_number = _attempt_number(attempt.id)
         current_round = _task_number(attempt.task_id)
-        completed_task_count = _completed_task_count_before(
-            all_attempts, current_task_id=attempt.task_id
-        )
+        completed_task_count = _completed_task_count_before(all_attempts, current_task_id=attempt.task_id)
 
         if current_round <= self.config.warmup_tasks:
             self._append_event(
@@ -143,8 +135,7 @@ class NotesManager:
             failed_before = [
                 row
                 for row in task_attempts
-                if _attempt_number(row.id) < attempt_number
-                and _attempt_status(row) != "success"
+                if _attempt_number(row.id) < attempt_number and _attempt_status(row) != "success"
             ]
             if failed_before:
                 request = self._make_request(
@@ -193,14 +184,10 @@ class NotesManager:
                     parent_delta_threshold=positive_threshold,
                     cfg=self.config,
                 )
-                duplicate_positive_plateau = (
-                    positive_gate.get("eligible")
-                    and self._positive_evidence_exists_near(child_fitness)
+                duplicate_positive_plateau = positive_gate.get("eligible") and self._positive_evidence_exists_near(
+                    child_fitness
                 )
-                if (
-                    positive_gate["eligible"]
-                    and relative_delta >= positive_threshold
-                ):
+                if positive_gate["eligible"] and relative_delta >= positive_threshold:
                     if duplicate_positive_plateau:
                         self._append_event(
                             "note_request_skipped",
@@ -245,9 +232,7 @@ class NotesManager:
                         requests.append(request)
 
         if status != "success" and attempt_number >= max_attempts:
-            all_failed = task_attempts and all(
-                _attempt_status(row) != "success" for row in task_attempts
-            )
+            all_failed = task_attempts and all(_attempt_status(row) != "success" for row in task_attempts)
             if all_failed:
                 request = self._make_request(
                     note_type="error",
@@ -274,9 +259,7 @@ class NotesManager:
             )
         return [_public_request(request) for request in requests]
 
-    def commit_generated_note(
-        self, note_request_id: str, generated_note_json: Any
-    ) -> Dict[str, Any]:
+    def commit_generated_note(self, note_request_id: str, generated_note_json: Any) -> Dict[str, Any]:
         """Validate and commit one generated note."""
         request = self.requests.get(note_request_id)
         if request is None:
@@ -397,9 +380,7 @@ class NotesManager:
                 inspiration_artifact_refs=[record.artifact_ref for record in inspirations],
                 verification_result_ref=attempt.verification_result_ref,
                 failed_attempt_refs=[row.artifact_ref or "" for row in failed_attempts],
-                failed_verification_result_refs=[
-                    row.verification_result_ref or "" for row in failed_attempts
-                ],
+                failed_verification_result_refs=[row.verification_result_ref or "" for row in failed_attempts],
             ),
             analysis_prompt=_analysis_prompt(
                 note_type=note_type,
@@ -446,9 +427,7 @@ def _note_matches_ids(note: Note, ids: Iterable[str]) -> bool:
     return bool(anchor_ids & (direct | inspirations))
 
 
-def _stable_sample(
-    items: Sequence[Note], *, limit: int, seed_parts: Sequence[str]
-) -> List[Note]:
+def _stable_sample(items: Sequence[Note], *, limit: int, seed_parts: Sequence[str]) -> List[Note]:
     if limit <= 0 or not items:
         return []
     seed_text = "|".join(seed_parts)
@@ -620,9 +599,7 @@ def _analysis_prompt(
         )
 
     failed_refs = [row.artifact_ref or "" for row in failed_attempts]
-    failed_result_refs = [
-        row.verification_result_ref or "" for row in failed_attempts
-    ]
+    failed_result_refs = [row.verification_result_ref or "" for row in failed_attempts]
     if trigger_kind == "all_failed":
         title = "Trigger: all attempts for this task failed verification."
         jobs = [

@@ -178,6 +178,6 @@ def test_same_second_rotation_skips_a_leftover_log_from_a_failed_tar(monkeypatch
     for i in range(20):
         log.info(f"line {i:04d} padding padding padding padding padding")
 
-    assert stale.read_bytes() == b"earlier round that never got tarred\n", (
-        "a leftover [ts].log must not be overwritten by os.rename"
-    )
+    assert (
+        stale.read_bytes() == b"earlier round that never got tarred\n"
+    ), "a leftover [ts].log must not be overwritten by os.rename"

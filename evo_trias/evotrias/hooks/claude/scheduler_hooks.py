@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from evotrias.db.attempts import Attempts
+from evotrias import scheduler
 from evotrias.db.agent_index import AgentInfo
+from evotrias.db.attempts import Attempts
 from evotrias.enums import Agents
 from evotrias.hooks import hook_manager
 from evotrias.logger import logger
-from evotrias import scheduler
 
 _CONFIGURE_RUN_TOOL = "mcp__plugin_evotrias_plugin_evotrias__configure_run"
 
@@ -84,15 +84,17 @@ def executor_allocate_task(payload: dict, result: dict, extra_data: Any) -> dict
 
     task_id = scheduler.allocate_task(run_id)
     if task_id is None:
-        logger.critical(f"scheduler hook: no created task available (created pool exhausted — "
-                        f"check_convergence should have topped it up) run={run_id}")
+        logger.critical(
+            f"scheduler hook: no created task available (created pool exhausted — "
+            f"check_convergence should have topped it up) run={run_id}"
+        )
         return result
     tool_input = payload.get("tool_input") or {}
     updated = dict(tool_input)
     updated["description"] = task_id
     updated["prompt"] = str(tool_input.get("prompt") or "") + f"\nrun_id:{run_id}\ntask_id:{task_id}\n"
     logger.info(f"scheduler hook: executor spawn allocated run={run_id} task={task_id}")
-    logger.debug(f'{tool_input=!r} -> {updated=!r}')
+    logger.debug(f"{tool_input=!r} -> {updated=!r}")
     return result | {
         "hookSpecificOutput": {
             "hookEventName": "PreToolUse",
@@ -115,8 +117,9 @@ def executor_bind_agent(payload: dict, result: dict, extra_data: Any) -> dict[st
     agent_id = str(tool_response.get("agentId") or "")
     task_id = str(tool_response.get("description") or "")
     if not agent_id or not task_id:
-        logger.error(f"scheduler hook: executor spawn response missing agentId/description "
-                     f"run={run_id} {tool_response=!r}")
+        logger.error(
+            f"scheduler hook: executor spawn response missing agentId/description " f"run={run_id} {tool_response=!r}"
+        )
         return result
 
     scheduler.queue_task(run_id, task_id, agent_id)
@@ -127,8 +130,9 @@ def executor_bind_agent(payload: dict, result: dict, extra_data: Any) -> dict[st
     if agent_info is not None and agent_info.attrs.get("task_id") is None:
         agent_info.attrs["task_id"] = scheduler.start_task(run_id, agent_id)
         scheduler.remember_agent(run_id, agent_id, agent_info)
-        logger.info(f"scheduler hook: backfilled task_id={agent_info.attrs['task_id']} "
-                    f"for agent {agent_id} in run {run_id}")
+        logger.info(
+            f"scheduler hook: backfilled task_id={agent_info.attrs['task_id']} " f"for agent {agent_id} in run {run_id}"
+        )
     return result
 
 

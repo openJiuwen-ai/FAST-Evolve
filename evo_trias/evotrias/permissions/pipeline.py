@@ -5,8 +5,7 @@ from typing import Any, Callable, TypeVar
 from evotrias.db.agent_index import AgentInfo
 from evotrias.enums import Agents, Decisions, Tools
 from evotrias.logger import logger
-from evotrias.permissions.handler_base import Handler, DEFAULT_ALLOW_REASON
-
+from evotrias.permissions.handler_base import DEFAULT_ALLOW_REASON, Handler
 
 _pipelines: dict[Agents, list[type[Handler]]] = {}
 _H = TypeVar("_H", bound=type[Handler])
@@ -28,12 +27,12 @@ def evaluate_permission(
     run_id: str,
     agent_info: AgentInfo,
 ) -> tuple[Decisions, str]:
-    logger.info(f'Evaluating permission for tool {tool_type.name}')
-    logger.debug(f'{agent_info=!r}, {tool_param=!r}, {run_id=!r}')
+    logger.info(f"Evaluating permission for tool {tool_type.name}")
+    logger.debug(f"{agent_info=!r}, {tool_param=!r}, {run_id=!r}")
     agent_type = agent_info.agent_type
     handlers = _pipelines.get(agent_type, [])
     if not handlers:
-        logger.info(f'Final decision: BYPASS (no handlers for agent type {agent_type})')
+        logger.info(f"Final decision: BYPASS (no handlers for agent type {agent_type})")
         return Decisions.BYPASS, ""
     saw_allow = False
     for cls in handlers:
@@ -42,12 +41,12 @@ def evaluate_permission(
         decision, reason = cls.check(tool_type, tool_param, run_id, agent_info)
         logger.debug(f"permission: {cls.rule_name} -> {decision.name} {reason!r}")
         if decision == Decisions.DENY:
-            logger.info(f'Final decision: DENY, {reason} (handler: {cls.rule_name})')
+            logger.info(f"Final decision: DENY, {reason} (handler: {cls.rule_name})")
             return Decisions.DENY, reason
         if decision == Decisions.ALLOW:
             saw_allow = True
     if saw_allow:
-        logger.info(f'Final decision: ALLOW (at least one handler allowed)')
+        logger.info("Final decision: ALLOW (at least one handler allowed)")
         return Decisions.ALLOW, DEFAULT_ALLOW_REASON
-    logger.info(f'Final decision: BYPASS (no handlers allowed)')
+    logger.info("Final decision: BYPASS (no handlers allowed)")
     return Decisions.BYPASS, ""

@@ -10,7 +10,6 @@ from evotrias.db.agent_index import AgentInfo
 from evotrias.enums import Agents
 
 
-
 def _agents(bucket):
     """queued/running -> {task_id: agent_id}, dropping the timestamp."""
     return {tid: held.agent_id for tid, held in bucket.items()}
@@ -22,6 +21,7 @@ def _fitness(bucket):
 
 def _reasons(bucket):
     return {tid: failed.reason for tid, failed in bucket.items()}
+
 
 @pytest.fixture
 def tmp_state(monkeypatch, tmp_path):

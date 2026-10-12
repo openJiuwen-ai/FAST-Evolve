@@ -74,22 +74,26 @@ def test_single_record_returned_without_sampling(monkeypatch):
 
 
 def test_single_lineage_picks_best_when_nothing_selected():
-    pool, tree = _seed([
-        ("task_001", 0.5, None),
-        ("task_002", 0.9, "task_001"),
-        ("task_003", 0.7, "task_001"),
-    ])
+    pool, tree = _seed(
+        [
+            ("task_001", 0.5, None),
+            ("task_002", 0.9, "task_001"),
+            ("task_003", 0.7, "task_001"),
+        ]
+    )
     # One lineage: stage 1 short-circuits, stage 2 is pure UCB with zero
     # exploration terms, so rank quality alone decides.
     assert _selector(tree).select(pool, 0.0).id == "task_002"
 
 
 def test_single_lineage_heavily_selected_elite_yields_to_sibling():
-    pool, tree = _seed([
-        ("task_001", 0.5, None),
-        ("task_002", 0.9, "task_001", 10),
-        ("task_003", 0.7, "task_001"),
-    ])
+    pool, tree = _seed(
+        [
+            ("task_001", 0.5, None),
+            ("task_002", 0.9, "task_001", 10),
+            ("task_003", 0.7, "task_001"),
+        ]
+    )
     # quality: task_002 1.0, task_003 0.5; exploration with c_local=2 and
     # lineage count 10: task_002 ~0.9-1.4 (shielded), task_003 ~3.1.
     selector = _selector(tree, c_local_start=2.0, c_local_end=2.0)
@@ -97,12 +101,14 @@ def test_single_lineage_heavily_selected_elite_yields_to_sibling():
 
 
 def test_two_lineages_exploit_prefers_small_strong_lineage():
-    pool, tree = _seed([
-        ("task_001", 1.0, None),
-        ("task_002", 0.5, None),
-        ("task_003", 0.5, "task_002"),
-        ("task_004", 0.5, "task_002"),
-    ])
+    pool, tree = _seed(
+        [
+            ("task_001", 1.0, None),
+            ("task_002", 0.5, None),
+            ("task_003", 0.5, "task_002"),
+            ("task_004", 0.5, "task_002"),
+        ]
+    )
     # p_exploit=1.0 forces the deterministic branch: lineage task_001 has the
     # higher deserved share (best fitness) and the smaller actual share, so its
     # deficit * quality bonus wins over the larger, weaker lineage.
