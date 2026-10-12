@@ -56,6 +56,24 @@ def test_result_chains_functionally():
     assert hook_manager.dispatch("claude", "post_tool_use", {}) == {"step": 2}
 
 
+def test_harnesses_lists_registered_harness_names():
+    assert hook_manager.harnesses() == set()
+
+    @hook_manager.register("claude", "pre_tool_use")
+    def a(payload, result, extra):
+        return result
+
+    @hook_manager.register("claude", "post_tool_use")
+    def b(payload, result, extra):
+        return result
+
+    @hook_manager.register("opencode", "session.idle")
+    def c(payload, result, extra):
+        return result
+
+    assert hook_manager.harnesses() == {"claude", "opencode"}
+
+
 def test_return_none_signals_bypass():
     @hook_manager.register("claude", "pre_tool_use", priority=1)
     def handler(payload, result, extra):

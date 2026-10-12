@@ -50,6 +50,11 @@ class HookManager:
         return result
 
     @staticmethod
+    def harnesses() -> set[str]:
+        """Harness names that have at least one registered handler."""
+        return {harness for harness, _event in _handlers}
+
+    @staticmethod
     def _clear() -> None:
         _handlers.clear()
 
