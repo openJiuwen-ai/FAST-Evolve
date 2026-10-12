@@ -18,6 +18,7 @@ class Tools(Enum):
     BASH = "bash"  # tool_param: {"command": str}
     GLOB = "glob"  # tool_param: {"pattern": str, "path": str|None}
     GREP = "grep"  # tool_param: {"pattern": str, "path": str|None, "glob": str|None}
+    AGENT = "agent"  # tool_param: {"subagent": Agents}
     UNKNOWN = "unknown"  # tool_param: {"raw_tool_name": str, "raw_tool_input": dict}
 
 

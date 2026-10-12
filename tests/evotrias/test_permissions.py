@@ -625,3 +625,19 @@ def test_cross_run_rule_bypasses_bash_and_empty_paths():
     assert bash == Decisions.BYPASS
     assert glob == Decisions.BYPASS
     assert read == Decisions.BYPASS
+
+
+@pytest.mark.parametrize("subagent", [Agents.INIT_EXPLORER, Agents.TASK_EXECUTOR, Agents.META_GUIDANCE_GENERATOR])
+def test_main_may_dispatch_known_agents(subagent):
+    decision, _ = evaluate_permission(Tools.AGENT, {"subagent": subagent}, RUN, AgentInfo(Agents.MAIN))
+    assert decision == Decisions.ALLOW
+
+
+def test_main_dispatch_of_unknown_agent_bypasses():
+    decision, _ = evaluate_permission(Tools.AGENT, {"subagent": Agents.UNKNOWN}, RUN, AgentInfo(Agents.MAIN))
+    assert decision == Decisions.BYPASS
+
+
+def test_agent_dispatch_rule_not_registered_for_subagents():
+    decision, _ = evaluate_permission(Tools.AGENT, {"subagent": Agents.TASK_EXECUTOR}, RUN, _task_info())
+    assert decision == Decisions.BYPASS

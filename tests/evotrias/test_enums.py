@@ -2,7 +2,7 @@ from evotrias.enums import Agents, Decisions, Tools
 
 
 def test_tools_members():
-    assert {t.name for t in Tools} == {"READ", "WRITE", "EDIT", "BASH", "GLOB", "GREP", "UNKNOWN"}
+    assert {t.name for t in Tools} == {"READ", "WRITE", "EDIT", "BASH", "GLOB", "GREP", "AGENT", "UNKNOWN"}
 
 
 def test_agents_members():

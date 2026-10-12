@@ -6,6 +6,7 @@ from evotrias import scheduler
 from evotrias.db.agent_index import AgentInfo
 from evotrias.enums import Agents, Decisions, Tools
 from evotrias.hooks import hook_manager
+from evotrias.hooks.claude.common import merge_pre_tool_use_output, resolve_agent_name
 from evotrias.logger import logger
 from evotrias.permissions import evaluate_permission
 
@@ -16,6 +17,7 @@ _TOOL_NAME_MAP: dict[str, Tools] = {
     "Bash": Tools.BASH,
     "Glob": Tools.GLOB,
     "Grep": Tools.GREP,
+    "Agent": Tools.AGENT,
 }
 
 
@@ -40,27 +42,9 @@ def _normalize_tool_param(tool_type: Tools, tool_input: dict[str, Any]) -> dict[
             "path": tool_input.get("path"),
             "glob": tool_input.get("glob"),
         }
+    if tool_type == Tools.AGENT:
+        return {"subagent": resolve_agent_name(tool_input.get("subagent_type"))}
     return {"raw_tool_name": str(tool_input.get("tool_name", "")), "raw_tool_input": tool_input}
-
-
-def _build_output(decision: Decisions, reason: str) -> dict[str, Any]:
-    if decision == Decisions.ALLOW:
-        return {
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": "allow",
-                "permissionDecisionReason": reason,
-            }
-        }
-    if decision == Decisions.DENY:
-        return {
-            "hookSpecificOutput": {
-                "hookEventName": "PreToolUse",
-                "permissionDecision": "deny",
-                "permissionDecisionReason": reason,
-            }
-        }
-    return dict()
 
 
 @hook_manager.register("claude", "pre_tool_use", priority=0)
@@ -88,5 +72,6 @@ def claude_tool_permission_gate(payload: dict, result: dict, extra_data: Any) ->
     tool_param = _normalize_tool_param(tool_type, tool_input)
 
     decision, reason = evaluate_permission(tool_type, tool_param, run_id, agent_info)
-    out = _build_output(decision, reason)
-    return result | out
+    if decision == Decisions.BYPASS:
+        return result
+    return merge_pre_tool_use_output(result, permissionDecision=decision.value, permissionDecisionReason=reason)

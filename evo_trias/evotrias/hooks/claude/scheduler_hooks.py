@@ -7,25 +7,17 @@ from evotrias.db.agent_index import AgentInfo
 from evotrias.db.attempts import Attempts
 from evotrias.enums import Agents
 from evotrias.hooks import hook_manager
+from evotrias.hooks.claude.common import current_tool_input, merge_pre_tool_use_output, resolve_agent_name
 from evotrias.logger import logger
 
 _CONFIGURE_RUN_TOOL = "mcp__plugin_evotrias_plugin_evotrias__configure_run"
-
-_AGENT_TYPE_MAP: dict[str, Agents] = {
-    "evotrias_plugin:task-executor": Agents.TASK_EXECUTOR,
-    "evotrias_plugin:init-explorer": Agents.INIT_EXPLORER,
-    "evotrias_plugin:meta-guidance-generator": Agents.META_GUIDANCE_GENERATOR,
-}
 
 
 def _resolve_agent_type(payload: dict) -> Agents:
     """Classify a hook payload's agent. No agent_id means the orchestrator itself."""
     if not payload.get("agent_id"):
         return Agents.MAIN
-    raw = str(payload.get("agent_type") or "").strip().lower()
-    if raw and raw in _AGENT_TYPE_MAP:
-        return _AGENT_TYPE_MAP[raw]
-    return Agents.UNKNOWN
+    return resolve_agent_name(payload.get("agent_type"))
 
 
 def _is_executor_spawn(payload: dict) -> bool:
@@ -33,8 +25,7 @@ def _is_executor_spawn(payload: dict) -> bool:
     if payload.get("tool_name") != "Agent":
         return False
     tool_input = payload.get("tool_input") or {}
-    raw = str(tool_input.get("subagent_type") or "").strip().lower()
-    return _AGENT_TYPE_MAP.get(raw) == Agents.TASK_EXECUTOR
+    return resolve_agent_name(tool_input.get("subagent_type")) == Agents.TASK_EXECUTOR
 
 
 @hook_manager.register("claude", "post_tool_use", priority=0)
@@ -89,18 +80,28 @@ def executor_allocate_task(payload: dict, result: dict, extra_data: Any) -> dict
             f"check_convergence should have topped it up) run={run_id}"
         )
         return result
-    tool_input = payload.get("tool_input") or {}
+    tool_input = current_tool_input(payload, result)
     updated = dict(tool_input)
     updated["description"] = task_id
     updated["prompt"] = str(tool_input.get("prompt") or "") + f"\nrun_id:{run_id}\ntask_id:{task_id}\n"
     logger.info(f"scheduler hook: executor spawn allocated run={run_id} task={task_id}")
     logger.debug(f"{tool_input=!r} -> {updated=!r}")
-    return result | {
-        "hookSpecificOutput": {
-            "hookEventName": "PreToolUse",
-            "updatedInput": updated,
-        }
-    }
+    return merge_pre_tool_use_output(result, updatedInput=updated)
+
+
+@hook_manager.register("claude", "pre_tool_use", priority=0)
+def strip_agent_isolation(payload: dict, result: dict, extra_data: Any) -> dict[str, Any] | None:
+    """EvoTrias workers must run in the shared main repository, never in an isolated worktree."""
+    if payload.get("tool_name") != "Agent":
+        return result
+    tool_input = current_tool_input(payload, result)
+    agent_type = resolve_agent_name(tool_input.get("subagent_type"))
+    if agent_type == Agents.UNKNOWN or "isolation" not in tool_input:
+        return result
+
+    updated = {key: value for key, value in tool_input.items() if key != "isolation"}
+    logger.info(f"scheduler hook: stripped isolation={tool_input['isolation']!r} from {agent_type.value} spawn")
+    return merge_pre_tool_use_output(result, updatedInput=updated)
 
 
 @hook_manager.register("claude", "post_tool_use", priority=0)

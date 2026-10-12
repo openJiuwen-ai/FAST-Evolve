@@ -215,7 +215,10 @@ def test_executor_spawn_passes_through_on_empty_pool(tmp_env):
             "tool_input": _spawn_tool_input(),
         },
     )
-    assert out is None, "tool input must be left untouched when no task is available"
+    assert out is not None
+    specific = out["hookSpecificOutput"]
+    assert "updatedInput" not in specific, "tool input must be left untouched when no task is available"
+    assert specific["permissionDecision"] == "allow"
 
 
 def test_executor_spawn_skips_when_no_run_for_session(tmp_env):
@@ -419,3 +422,86 @@ def test_pre_tool_use_bypass_for_main_agent_returns_none(tmp_env):
     }
     out = hook_manager.dispatch("claude", "pre_tool_use", payload)
     assert out is None
+
+
+def _agent_payload(tool_input, session_id="sess-1"):
+    """PreToolUse payload of an orchestrator Agent call."""
+    return {
+        "session_id": session_id,
+        "hook_event_name": "PreToolUse",
+        "tool_name": "Agent",
+        "tool_input": tool_input,
+    }
+
+
+def test_executor_spawn_with_isolation_stacks_task_injection_strip_and_allow(tmp_env):
+    # Three handlers touch this one call; each must build on the previous result.
+    sched.remember_session_run("sess-1", "run-Z")
+    sched.top_up_tasks("run-Z", target=1, max_tasks=100)
+
+    out = hook_manager.dispatch(
+        "claude", "pre_tool_use", _agent_payload(_spawn_tool_input() | {"isolation": "worktree"})
+    )
+
+    assert out is not None
+    specific = out["hookSpecificOutput"]
+    assert specific["hookEventName"] == "PreToolUse"
+    assert specific["permissionDecision"] == "allow"
+    updated = specific["updatedInput"]
+    assert "isolation" not in updated
+    assert updated["description"] == "task_001"
+    assert updated["prompt"].endswith("\nrun_id:run-Z\ntask_id:task_001\n")
+    assert updated["subagent_type"] == "evotrias_plugin:task-executor"
+    assert updated["run_in_background"] is True
+
+
+def test_isolation_stripped_for_non_executor_agent_in_run(tmp_env):
+    sched.remember_session_run("sess-1", "run-Z")
+    tool_input = {
+        "description": "Generate directions",
+        "isolation": "worktree",
+        "model": "sonnet",
+        "prompt": "run_id: example",
+        "subagent_type": "evotrias_plugin:init-explorer",
+    }
+
+    out = hook_manager.dispatch("claude", "pre_tool_use", _agent_payload(tool_input))
+
+    assert out is not None
+    specific = out["hookSpecificOutput"]
+    assert specific["permissionDecision"] == "allow"
+    assert specific["updatedInput"] == {k: v for k, v in tool_input.items() if k != "isolation"}
+
+
+def test_isolation_stripped_outside_any_run_without_permission_decision(tmp_env):
+    tool_input = {"isolation": "worktree", "prompt": "p", "subagent_type": "evotrias_plugin:meta-guidance-generator"}
+
+    out = hook_manager.dispatch("claude", "pre_tool_use", _agent_payload(tool_input, session_id="sess-unknown"))
+
+    assert out is not None
+    specific = out["hookSpecificOutput"]
+    assert specific["updatedInput"] == {"prompt": "p", "subagent_type": "evotrias_plugin:meta-guidance-generator"}
+    assert "permissionDecision" not in specific
+
+
+def test_isolation_left_alone_for_unknown_agents(tmp_env):
+    sched.remember_session_run("sess-1", "run-Z")
+
+    out = hook_manager.dispatch(
+        "claude", "pre_tool_use", _agent_payload({"isolation": "worktree", "subagent_type": "Explore"})
+    )
+
+    assert out is None
+
+
+def test_known_agent_dispatch_without_isolation_is_only_allowed(tmp_env):
+    sched.remember_session_run("sess-1", "run-Z")
+
+    out = hook_manager.dispatch(
+        "claude", "pre_tool_use", _agent_payload({"prompt": "p", "subagent_type": "evotrias_plugin:init-explorer"})
+    )
+
+    assert out is not None
+    specific = out["hookSpecificOutput"]
+    assert specific["permissionDecision"] == "allow"
+    assert "updatedInput" not in specific

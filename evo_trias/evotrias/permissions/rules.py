@@ -142,6 +142,24 @@ class TaskExecutorReadAllowlistUnderRuns(Handler):
         )
 
 
+@register(Agents.MAIN, priority=0)
+class AllowKnownAgentDispatch(Handler):
+    rule_name = "allow_known_agent_dispatch"
+
+    @staticmethod
+    def filter(tool_type: Tools, tool_param: dict[str, Any], run_id: str, agent_info: AgentInfo) -> bool:
+        return tool_type == Tools.AGENT
+
+    @staticmethod
+    def check(
+        tool_type: Tools, tool_param: dict[str, Any], run_id: str, agent_info: AgentInfo
+    ) -> tuple[Decisions, str]:
+        subagent = tool_param.get("subagent", Agents.UNKNOWN)
+        if subagent == Agents.UNKNOWN:
+            return Decisions.BYPASS, "Not an EvoTrias agent."
+        return Decisions.ALLOW, f"The orchestrator may dispatch the EvoTrias agent {subagent.value!r}."
+
+
 @register(Agents.INIT_EXPLORER, priority=10)
 @register(Agents.META_GUIDANCE_GENERATOR, priority=10)
 @register(Agents.TASK_EXECUTOR, priority=10)
