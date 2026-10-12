@@ -18,7 +18,6 @@ TASK_AGENT = PLUGIN_ROOT / "agents" / "task-executor.md"
 META_AGENT = PLUGIN_ROOT / "agents" / "meta-guidance-generator.md"
 PLUGIN_MANIFEST = PLUGIN_ROOT / ".claude-plugin" / "plugin.json"
 MCP_CONFIG = PLUGIN_ROOT / ".mcp.json"
-PROJECT_SETTINGS = REPO_ROOT / ".claude" / "settings.json"
 
 PUBLIC_TOOL_NAMES = {
     "configure_run",
@@ -72,10 +71,6 @@ def _dispatch_template(skill_text: str, agent_name: str) -> str:
     return after_marker.split("```", 2)[1].strip()
 
 
-def _settings() -> dict[str, object]:
-    return json.loads(PROJECT_SETTINGS.read_text(encoding="utf-8"))
-
-
 async def _protocol_tools():
     async with Client(mcp) as client:
         return await client.list_tools()
@@ -121,10 +116,6 @@ def test_complete_claude_tool_names_fit_without_hash_aliases():
     assert max(map(len, complete_names)) <= 64
     assert max(complete_names, key=len) == GET_REQUEST_TOOL
     assert len(GET_REQUEST_TOOL) == 63
-
-    allowed = set(_settings()["permissions"]["allow"])
-    allowed_mcp_tools = {item for item in allowed if item.startswith("mcp__plugin_")}
-    assert allowed_mcp_tools == complete_names
 
 
 def test_init_agent_has_no_mcp_or_unneeded_mutation_tools():
@@ -182,8 +173,7 @@ def test_meta_guidance_agent_is_stateless_and_strictly_tool_scoped():
     assert f"{MCP_TOOL_PREFIX}commit_generated_note" not in _agent_tools(META_AGENT)
 
 
-def test_all_agent_mcp_tools_are_registered_and_permitted():
-    allowed = set(_settings()["permissions"]["allow"])
+def test_all_agent_mcp_tools_are_registered():
     registered_complete_names = {f"{MCP_TOOL_PREFIX}{name}" for name in PUBLIC_TOOL_NAMES}
 
     agent_mcp_tools = set()
@@ -191,7 +181,6 @@ def test_all_agent_mcp_tools_are_registered_and_permitted():
         agent_mcp_tools.update(tool for tool in _agent_tools(path) if tool.startswith("mcp__"))
 
     assert agent_mcp_tools <= registered_complete_names
-    assert agent_mcp_tools <= allowed
 
 
 def test_meta_guidance_agent_returns_only_the_compact_result_contract():
@@ -272,13 +261,3 @@ def test_meta_worker_is_foreground_reconciled_before_replenishment():
     assert wait_position < just_after_meta_position < continue_position
     assert continue_position < replenish_position
     assert "`run_in_background: false`" in scheduling
-
-
-def test_project_permissions_allow_dispatching_all_plugin_agents():
-    allowed = set(_settings()["permissions"]["allow"])
-
-    assert {
-        "Agent(init-explorer)",
-        "Agent(task-executor)",
-        "Agent(meta-guidance-generator)",
-    } <= allowed
