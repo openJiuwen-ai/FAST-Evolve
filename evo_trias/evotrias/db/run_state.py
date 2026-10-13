@@ -13,7 +13,7 @@ from typing import Any, Dict, Optional
 
 from evotrias.db import paths
 from evotrias.db.base import DBObject
-from evotrias.enums import SearchState
+from evotrias.enums_and_consts import SearchState
 
 
 class RunState(DBObject):

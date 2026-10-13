@@ -2,4 +2,6 @@
 
 from fastmcp import FastMCP
 
-mcp = FastMCP("evotrias")
+from evotrias.enums_and_consts import MCP_SERVER_NAME
+
+mcp = FastMCP(MCP_SERVER_NAME)

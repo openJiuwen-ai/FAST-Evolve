@@ -18,7 +18,7 @@ from evotrias.db.notes import Note, Notes
 from evotrias.db.run_state import RunState
 from evotrias.db.task_contexts import TaskContexts
 from evotrias.db.task_pool import TaskAssigned, TaskCompleted, TaskFailed, TaskPool
-from evotrias.enums import SearchState
+from evotrias.enums_and_consts import SearchState
 
 RUN_ID = "signal_processing_20260715010101"
 

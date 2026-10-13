@@ -9,7 +9,7 @@ import pytest
 
 from evotrias.db.attempts import AttemptRecord, Attempts
 from evotrias.db.run_state import RunState
-from evotrias.enums import SearchState
+from evotrias.enums_and_consts import SearchState
 from evotrias.evolve_ctrl.lineage_tree import LineageTree
 from evotrias.evolve_ctrl.run_report import write_run_report
 from evotrias.evolve_ctrl.success_pool import SuccessPool

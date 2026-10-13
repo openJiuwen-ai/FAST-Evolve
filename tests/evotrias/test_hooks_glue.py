@@ -10,7 +10,7 @@ from evotrias import scheduler as sched
 from evotrias.db.agent_index import AgentInfo
 from evotrias.db.attempts import AttemptRecord, Attempts
 from evotrias.db.session_map import SessionMap
-from evotrias.enums import Agents
+from evotrias.enums_and_consts import Agents
 from evotrias.hooks import broker, hook_manager
 from evotrias.hooks.claude import permission_hooks as perm_glue
 from evotrias.hooks.claude import scheduler_hooks as sched_glue

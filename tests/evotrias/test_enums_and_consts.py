@@ -1,4 +1,5 @@
-from evotrias.enums import Agents, Decisions, Tools
+from evotrias.enums_and_consts import MCP_SERVER_NAME, Agents, Decisions, Tools
+from evotrias.mcp.mcp_server import mcp
 
 
 def test_tools_members():
@@ -17,3 +18,9 @@ def test_agents_members():
 
 def test_decisions_members():
     assert {d.name for d in Decisions} == {"ALLOW", "DENY", "BYPASS"}
+
+
+def test_mcp_server_name_matches_constant():
+    # harness tool names (mcp__evotrias__<tool>, evotrias_<tool>) are derived from the constant
+    assert MCP_SERVER_NAME == "evotrias"
+    assert mcp.name == MCP_SERVER_NAME

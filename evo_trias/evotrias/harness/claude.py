@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from evotrias.harness.base import MCP_SERVER, Harness
+from evotrias.enums_and_consts import MCP_SERVER_NAME
+from evotrias.harness.base import Harness
 
 
 class ClaudeHarness(Harness):
@@ -18,7 +19,7 @@ class ClaudeHarness(Harness):
     background_arg = "run_in_background"
 
     def mcp(self, tool: str) -> str:
-        return f"mcp__{MCP_SERVER}__{tool}"
+        return f"mcp__{MCP_SERVER_NAME}__{tool}"
 
     def agent_frontmatter_fields(self, **fields: str) -> dict[str, str]:
         return {

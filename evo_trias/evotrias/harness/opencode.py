@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from evotrias.harness.base import MCP_SERVER, Harness
+from evotrias.enums_and_consts import MCP_SERVER_NAME
+from evotrias.harness.base import Harness
 
 
 class OpencodeHarness(Harness):
@@ -18,7 +19,7 @@ class OpencodeHarness(Harness):
     background_arg = "background"
 
     def mcp(self, tool: str) -> str:
-        return f"{MCP_SERVER}_{tool}"
+        return f"{MCP_SERVER_NAME}_{tool}"
 
     def agent_frontmatter_fields(self, **fields: str) -> dict[str, str]:
         return {

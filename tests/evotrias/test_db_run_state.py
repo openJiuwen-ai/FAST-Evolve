@@ -8,7 +8,7 @@ import pytest
 
 from evotrias.db import paths
 from evotrias.db.run_state import RunState
-from evotrias.enums import SearchState
+from evotrias.enums_and_consts import SearchState
 
 RUN_ID = "run_state_test"
 

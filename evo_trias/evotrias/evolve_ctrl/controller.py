@@ -20,7 +20,7 @@ from evotrias.db.attempts import AttemptRecord, Attempts
 from evotrias.db.config import Config
 from evotrias.db.run_state import RunState
 from evotrias.db.task_contexts import TaskContext, TaskContexts
-from evotrias.enums import SearchState
+from evotrias.enums_and_consts import SearchState
 from evotrias.evolve_ctrl.budget_guard import RunBudgetGuard
 from evotrias.evolve_ctrl.convergence_detector import FitnessPlateauDetector
 from evotrias.evolve_ctrl.inspiration_selector import LineageBoltzmannInspirationSelector

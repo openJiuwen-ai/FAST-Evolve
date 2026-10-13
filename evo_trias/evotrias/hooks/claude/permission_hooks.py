@@ -4,7 +4,7 @@ from typing import Any
 
 from evotrias import scheduler
 from evotrias.db.agent_index import AgentInfo
-from evotrias.enums import Agents, Decisions, Tools
+from evotrias.enums_and_consts import Agents, Decisions, Tools
 from evotrias.hooks import hook_manager
 from evotrias.hooks.claude.common import merge_pre_tool_use_output, resolve_agent_name
 from evotrias.logger import logger

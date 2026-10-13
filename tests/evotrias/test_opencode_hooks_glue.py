@@ -16,7 +16,7 @@ from evotrias.db import paths
 from evotrias.db.agent_index import AgentInfo
 from evotrias.db.attempts import AttemptRecord, Attempts
 from evotrias.db.session_map import SessionMap
-from evotrias.enums import Agents
+from evotrias.enums_and_consts import Agents
 from evotrias.hooks import broker, hook_manager
 from evotrias.hooks.opencode import scheduler_hooks as oc_glue
 

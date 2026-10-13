@@ -7,7 +7,7 @@ import pytest
 from evotrias import scheduler as sched
 from evotrias.db import paths
 from evotrias.db.agent_index import AgentInfo
-from evotrias.enums import Agents
+from evotrias.enums_and_consts import Agents
 
 
 def _agents(bucket):

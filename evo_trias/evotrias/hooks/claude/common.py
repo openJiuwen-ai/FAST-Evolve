@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from evotrias.enums import Agents
+from evotrias.enums_and_consts import Agents
 
 AGENT_TYPE_MAP: dict[str, Agents] = {
     "evotrias-task-executor": Agents.TASK_EXECUTOR,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from evotrias.enums import Agents
+from evotrias.enums_and_consts import Agents
 from evotrias.hooks.claude.common import current_tool_input, merge_pre_tool_use_output, resolve_agent_name
 
 

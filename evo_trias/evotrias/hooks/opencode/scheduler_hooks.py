@@ -10,7 +10,7 @@ from evotrias.db import paths
 from evotrias.db.agent_index import AgentInfo
 from evotrias.db.attempts import Attempts
 from evotrias.db.base import DBObject
-from evotrias.enums import Agents
+from evotrias.enums_and_consts import Agents
 from evotrias.hooks import hook_manager
 from evotrias.logger import logger
 

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from enum import Enum
 
+MCP_SERVER_NAME = "evotrias"
+
 
 class Agents(Enum):
     MAIN = "main"  # agent_info: {"agent_type"}

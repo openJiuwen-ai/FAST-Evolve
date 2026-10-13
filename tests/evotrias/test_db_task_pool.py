@@ -10,7 +10,7 @@ from evotrias.db import paths
 from evotrias.db.agent_index import AgentIndex, AgentInfo
 from evotrias.db.session_map import SessionMap
 from evotrias.db.task_pool import TaskAssigned, TaskCompleted, TaskFailed, TaskPool
-from evotrias.enums import Agents
+from evotrias.enums_and_consts import Agents
 
 RUN_ID = "pool_store_test"
 

@@ -1,7 +1,7 @@
 """Which agent is doing what in a run, persisted as ``agent_index.json``.
 
 Keyed by the host's agent/session id.  ``attrs`` carries the fields that
-depend on ``agent_type`` (see ``evotrias.enums.Agents``): a task executor
+depend on ``agent_type`` (see ``evotrias.enums_and_consts.Agents``): a task executor
 records its ``task_id``, an unrecognised agent records ``origin_agent_type``.
 """
 
@@ -12,7 +12,7 @@ from typing import Any, Dict
 
 from evotrias.db import paths
 from evotrias.db.base import DBObject
-from evotrias.enums import Agents
+from evotrias.enums_and_consts import Agents
 
 
 @dataclass

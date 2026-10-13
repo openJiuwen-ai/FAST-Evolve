@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Tuple
 
 from evotrias.db.config import PlateauConfig
 from evotrias.db.run_state import RunState
-from evotrias.enums import SearchState
+from evotrias.enums_and_consts import SearchState
 from evotrias.evolve_ctrl.lineage_tree import LineageTree
 from evotrias.evolve_ctrl.success_pool import SuccessPool, SuccessRecord
 

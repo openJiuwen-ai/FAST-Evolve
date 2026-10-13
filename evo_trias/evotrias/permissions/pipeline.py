@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Callable, TypeVar
 
 from evotrias.db.agent_index import AgentInfo
-from evotrias.enums import Agents, Decisions, Tools
+from evotrias.enums_and_consts import Agents, Decisions, Tools
 from evotrias.logger import logger
 from evotrias.permissions.handler_base import DEFAULT_ALLOW_REASON, Handler
 

@@ -5,8 +5,6 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any
 
-MCP_SERVER = "evotrias"
-
 
 class Harness(ABC):
     name: str

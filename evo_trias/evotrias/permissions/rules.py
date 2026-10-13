@@ -8,7 +8,7 @@ from evotrias.db.agent_index import AgentInfo
 from evotrias.db.attempts import Attempts
 from evotrias.db.config import Config
 from evotrias.db.task_contexts import TaskContexts
-from evotrias.enums import Agents, Decisions, Tools
+from evotrias.enums_and_consts import Agents, Decisions, Tools
 from evotrias.permissions.handler_base import Handler
 from evotrias.permissions.pipeline import register
 from evotrias.utils.path_util import resolve_path

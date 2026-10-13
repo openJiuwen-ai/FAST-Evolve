@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from evotrias.db.agent_index import AgentInfo
-from evotrias.enums import Decisions, Tools
+from evotrias.enums_and_consts import Decisions, Tools
 
 DEFAULT_ALLOW_REASON = "EvoTrias automatically allows tool execution based on predefined rules."
 
