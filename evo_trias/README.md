@@ -51,7 +51,7 @@ filling the host agent's context window.
 
 ### Prerequisites
 
-- Python 3.10+
+- Python 3.11+
 - [uv](https://docs.astral.sh/uv/)
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) for the bundled
   plugin workflow

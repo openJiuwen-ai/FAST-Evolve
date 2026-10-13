@@ -12,13 +12,13 @@ dev = [
 
 [tool.black]
 line-length = 120
-target-version = ['py310']
+target-version = ['py311']
 include = '^/(evo_trias|tests)/.*\.pyi?$'
 force-exclude = '^/(benchmarks|test_problem)/'
 
 [tool.ruff]
 line-length = 120
-target-version = "py310"
+target-version = "py311"
 include = ["evo_trias/**/*.py", "tests/**/*.py"]
 extend-exclude = ["benchmarks", "test_problem"]
 force-exclude = true
@@ -32,7 +32,7 @@ known-first-party = ["evotrias"]
 [tool.pyright]
 include = ["evo_trias/evotrias"]
 extraPaths = ["evo_trias"]
-pythonVersion = "3.10"
+pythonVersion = "3.11"
 typeCheckingMode = "standard"
 
 [tool.pytest.ini_options]

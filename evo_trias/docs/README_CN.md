@@ -43,7 +43,7 @@ Evolution Controller MCP
 
 ### 环境要求
 
-- Python 3.10+
+- Python 3.11+
 - [uv](https://docs.astral.sh/uv/)
 - 使用内置插件工作流时需要
   [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
