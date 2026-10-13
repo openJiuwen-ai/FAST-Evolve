@@ -70,3 +70,14 @@ def test_db_does_not_depend_on_upper_layers():
 
 def test_evolve_ctrl_does_not_import_mcp_or_hooks():
     assert _violations("evotrias/evolve_ctrl/", {"mcp", "hooks", "permissions", "dashboard"}) == []
+
+
+def test_harness_does_not_depend_on_runtime_layers():
+    # harness only generates workspace files; it must not pull in the runtime.
+    runtime = {"hooks", "mcp", "db", "evolve_ctrl", "dashboard", "scheduler", "permissions"}
+    assert _violations("evotrias/harness/", runtime) == []
+
+
+def test_harness_does_not_import_setup():
+    # setup (the installer) builds on harness descriptions, never the other way round.
+    assert _violations("evotrias/harness/", {"setup"}) == []
