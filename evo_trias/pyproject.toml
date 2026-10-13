@@ -18,4 +18,5 @@ dependencies = [
 include = ["evotrias*"]
 
 [tool.setuptools.package-data]
+"evotrias" = ["templates/**"]
 "evotrias.dashboard" = ["static/**"]
