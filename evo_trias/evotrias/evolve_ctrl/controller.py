@@ -12,7 +12,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 from uuid import uuid4
 
 from evotrias import scheduler
@@ -39,9 +39,9 @@ NOTES_ENABLED_ENV = "EVOTRIAS_NOTES_ENABLED"
 
 def configure_run(
     run_id: str,
-    task_info: Dict[str, Any],
-    configs: Dict[str, Any],
-) -> Tuple[bool, Config, str]:
+    task_info: dict[str, Any],
+    configs: dict[str, Any],
+) -> tuple[bool, Config, str]:
     """Write ``config.json`` and ``run_state.json`` once for a new run.
 
     Returns ``(configured, config, message)``.  ``configured`` is False when the
@@ -66,7 +66,7 @@ def configure_run(
     return True, config, "Run configured."
 
 
-def select_parent(run_id: str, task_id: str) -> Dict[str, Any]:
+def select_parent(run_id: str, task_id: str) -> dict[str, Any]:
     """Return the minimal parent ref for one generator task.
 
     The first call for a task samples and caches a parent.  Later retries
@@ -122,7 +122,7 @@ def select_parent(run_id: str, task_id: str) -> Dict[str, Any]:
     return _parent_ref(pool, context.parent_id)
 
 
-def select_inspirations(run_id: str, task_id: str) -> Dict[str, Any]:
+def select_inspirations(run_id: str, task_id: str) -> dict[str, Any]:
     """Return minimal inspiration refs for one generator task.
 
     The public response intentionally excludes the parent.  The parent was
@@ -160,7 +160,7 @@ def select_inspirations(run_id: str, task_id: str) -> Dict[str, Any]:
     return _inspiration_refs(pool, context.inspiration_ids)
 
 
-def get_notes_prompt(run_id: str, task_id: str) -> Dict[str, Any]:
+def get_notes_prompt(run_id: str, task_id: str) -> dict[str, Any]:
     """Return the run-local Notes prompt after parent/inspirations are fixed."""
     config = _config(run_id)
     if not config.notes.enabled:
@@ -194,10 +194,10 @@ def record_attempt(
     run_id: str,
     task_id: str,
     verification_result_ref: str,
-    attempt_id: Optional[str],
-    artifact_ref: Optional[str],
+    attempt_id: str | None,
+    artifact_ref: str | None,
     max_attempts: int,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Record one verifier result and return any run-local note requests.
 
     This is attempt-level, not task-level, because Notes needs failed
@@ -321,7 +321,7 @@ def record_attempt(
     )
 
 
-def commit_generated_note(run_id: str, note_request_id: str, generated_note_json: Any) -> Dict[str, Any]:
+def commit_generated_note(run_id: str, note_request_id: str, generated_note_json: Any) -> dict[str, Any]:
     """Commit one LLM-distilled run-local note."""
     config = _config(run_id)
     if not config.notes.enabled:
@@ -333,7 +333,7 @@ def commit_generated_note(run_id: str, note_request_id: str, generated_note_json
     return NotesManager(run_id, config.notes).commit_generated_note(note_request_id, generated_note_json)
 
 
-def check_convergence(run_id: str, concurrency: int) -> Dict[str, Any]:
+def check_convergence(run_id: str, concurrency: int) -> dict[str, Any]:
     """Return the next scheduler action from convergence/meta-evolve state.
 
     Besides convergence/meta-guidance checking, this call is the run's
@@ -457,7 +457,7 @@ def check_convergence(run_id: str, concurrency: int) -> Dict[str, Any]:
         saved.stop_reason = reason
         saved.diagnostics = diagnostics
         saved.last_checked_attempt_count = total_attempts
-    response: Dict[str, Any] = {
+    response: dict[str, Any] = {
         "action": action,
         "tasks_to_create": tasks_to_create,
         "search_state": state.value,
@@ -471,19 +471,19 @@ def check_convergence(run_id: str, concurrency: int) -> Dict[str, Any]:
     return response
 
 
-def get_meta_guidance_request(run_id: str, request_id: str) -> Dict[str, Any]:
+def get_meta_guidance_request(run_id: str, request_id: str) -> dict[str, Any]:
     """Return a pending meta-guidance request."""
     config = _config(run_id)
     return MetaGuidanceManager(run_id, config.meta_evolve).get_request(request_id or None)
 
 
-def commit_meta_guidance(run_id: str, request_id: str, guidance_json: Any) -> Dict[str, Any]:
+def commit_meta_guidance(run_id: str, request_id: str, guidance_json: Any) -> dict[str, Any]:
     """Validate and activate worker-generated meta-guidance."""
     config = _config(run_id)
     return MetaGuidanceManager(run_id, config.meta_evolve).commit_guidance(request_id, guidance_json)
 
 
-def get_meta_guidance_prompt(run_id: str, task_id: str) -> Dict[str, Any]:
+def get_meta_guidance_prompt(run_id: str, task_id: str) -> dict[str, Any]:
     """Return the meta-guidance prompt assigned during parent selection."""
     config = _config(run_id)
     context = TaskContexts(run_id).get(task_id)
@@ -492,7 +492,7 @@ def get_meta_guidance_prompt(run_id: str, task_id: str) -> Dict[str, Any]:
     return MetaGuidanceManager(run_id, config.meta_evolve).prompt_for_task(task_id)
 
 
-def finalize_run(run_id: str, stop_reason: Optional[str]) -> Dict[str, str]:
+def finalize_run(run_id: str, stop_reason: str | None) -> dict[str, str]:
     """Write deterministic run summary artifacts and return compact refs.
 
     Finalization is intentionally idempotent.  Repeated calls regenerate the
@@ -553,7 +553,7 @@ def _task_count(run_id: str) -> int:
     return max(len(TaskContexts(run_id)), len(attempt_task_ids))
 
 
-def _parent_ref(pool: SuccessPool, parent_id: Optional[str]) -> Dict[str, Any]:
+def _parent_ref(pool: SuccessPool, parent_id: str | None) -> dict[str, Any]:
     """Return the compact public parent payload, including diagnostics."""
     if parent_id is None:
         return {
@@ -571,7 +571,7 @@ def _parent_ref(pool: SuccessPool, parent_id: Optional[str]) -> Dict[str, Any]:
     }
 
 
-def _inspiration_refs(pool: SuccessPool, inspiration_ids: List[str]) -> Dict[str, Any]:
+def _inspiration_refs(pool: SuccessPool, inspiration_ids: list[str]) -> dict[str, Any]:
     """Return compact public inspiration payloads in cached order."""
     inspirations = []
     for inspiration_id in inspiration_ids:
@@ -611,7 +611,7 @@ def _float_from_env(env_name: str, default: float) -> float:
         return default
 
 
-def _load_verification_result(verification_result_ref: str) -> Dict[str, Any]:
+def _load_verification_result(verification_result_ref: str) -> dict[str, Any]:
     """Load verifier JSON from an absolute path or cwd-relative reference."""
     path = Path(verification_result_ref).expanduser()
     if not path.is_absolute():
@@ -623,7 +623,7 @@ def _load_verification_result(verification_result_ref: str) -> Dict[str, Any]:
     return data
 
 
-def _extract_fitness(verification_result: Dict[str, Any]) -> Optional[float]:
+def _extract_fitness(verification_result: dict[str, Any]) -> float | None:
     """Extract top-level numeric fitness from verifier output."""
     value = verification_result.get("fitness")
     if value is None:
@@ -634,7 +634,7 @@ def _extract_fitness(verification_result: Dict[str, Any]) -> Optional[float]:
         return None
 
 
-def _best_fitness(pool: SuccessPool) -> Optional[float]:
+def _best_fitness(pool: SuccessPool) -> float | None:
     best = pool.get_canonical_best_record()
     return best.fitness if best else None
 
@@ -649,7 +649,7 @@ def _attempt_number(attempt_id: str) -> int:
         return 1
 
 
-def _relative_delta_to_parent(attempt: AttemptRecord, pool: SuccessPool) -> Optional[float]:
+def _relative_delta_to_parent(attempt: AttemptRecord, pool: SuccessPool) -> float | None:
     parent = pool.get(str(attempt.parent_id)) if attempt.parent_id else None
     if parent is None:
         return None
@@ -663,9 +663,9 @@ def _relative_delta_to_parent(attempt: AttemptRecord, pool: SuccessPool) -> Opti
 def _record_response_from_attempt(
     attempt: AttemptRecord,
     *,
-    note_requests: List[Dict[str, Any]],
-    relative_delta_to_parent: Optional[float],
-) -> Dict[str, Any]:
+    note_requests: list[dict[str, Any]],
+    relative_delta_to_parent: float | None,
+) -> dict[str, Any]:
     """Return the public attempt-recording payload for Notes."""
     return {
         "recorded": True,

@@ -8,7 +8,6 @@ import importlib
 import json
 import pkgutil
 from dataclasses import dataclass, field
-from typing import List, Optional
 
 import pytest
 
@@ -257,8 +256,8 @@ def test_dblist_rebuilds_nested_dataclass_fields(tmp_path, log):
 
 
 class _Nest(base.DBObject):
-    maybe: Optional[_Inner] = None
-    many: List[_Inner] = field(default_factory=list)
+    maybe: _Inner | None = None
+    many: list[_Inner] = field(default_factory=list)
 
 
 def test_dbobject_rebuilds_optional_and_list_of_dataclass(tmp_path, log):
@@ -298,7 +297,7 @@ class _Color(enum.Enum):
 
 class _Painted(base.DBObject):
     color: _Color = _Color.RED
-    history: List[_Color] = field(default_factory=list)
+    history: list[_Color] = field(default_factory=list)
 
 
 def test_dbobject_enum_fields_round_trip_as_values(tmp_path, log):

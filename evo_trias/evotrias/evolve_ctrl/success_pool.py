@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from collections import Counter
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from evotrias.db.attempts import AttemptRecord, Attempts
 from evotrias.db.task_contexts import TaskContexts
@@ -33,21 +33,21 @@ class SuccessRecord:
     id: str
     run_id: str
     fitness: float
-    parent_id: Optional[str] = None
+    parent_id: str | None = None
     generation: int = 0
     selection_count: int = 0
     artifact_ref: str = ""
     sketch: str = ""
-    profile: Dict[str, Any] = field(default_factory=dict)
-    metrics: Dict[str, Any] = field(default_factory=dict)
-    task_id: Optional[str] = None
-    subagent_id: Optional[str] = None
-    verification_result_ref: Optional[str] = None
+    profile: dict[str, Any] = field(default_factory=dict)
+    metrics: dict[str, Any] = field(default_factory=dict)
+    task_id: str | None = None
+    subagent_id: str | None = None
+    verification_result_ref: str | None = None
     created_at: str = field(default_factory=utc_now_iso)
-    metadata: Dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     @classmethod
-    def from_attempt(cls, attempt: AttemptRecord, selection_count: int = 0) -> "SuccessRecord":
+    def from_attempt(cls, attempt: AttemptRecord, selection_count: int = 0) -> SuccessRecord:
         verification = attempt.verification_result or {}
         metrics = dict(verification.get("metrics") or {})
         return cls(
@@ -83,7 +83,7 @@ class SuccessPool:
         selections = Counter(
             context.parent_id for context in contexts.values() if context.parent_selected and context.parent_id
         )
-        self._records: Dict[str, SuccessRecord] = {
+        self._records: dict[str, SuccessRecord] = {
             task_id: SuccessRecord.from_attempt(attempt, selections[task_id])
             for task_id, attempt in Attempts(run_id).successes.items()
         }
@@ -95,23 +95,23 @@ class SuccessPool:
         """Return true when no successful candidate is available."""
         return not self._records
 
-    def get_all(self) -> List[SuccessRecord]:
+    def get_all(self) -> list[SuccessRecord]:
         """Return all records in a stable chronological order."""
         return sorted(self._records.values(), key=lambda record: record.created_at)
 
-    def get(self, record_id: Optional[str]) -> Optional[SuccessRecord]:
+    def get(self, record_id: str | None) -> SuccessRecord | None:
         """Return one record by id, or None for missing/null ids."""
         if record_id is None:
             return None
         return self._records.get(record_id)
 
-    def get_best_record(self) -> Optional[SuccessRecord]:
+    def get_best_record(self) -> SuccessRecord | None:
         """Return the record with highest fitness."""
         if not self._records:
             return None
         return max(self._records.values(), key=lambda record: record.fitness)
 
-    def get_canonical_best_record(self) -> Optional[SuccessRecord]:
+    def get_canonical_best_record(self) -> SuccessRecord | None:
         """Return a deterministic best record for use as an anchor parent."""
         if not self._records:
             return None
@@ -120,7 +120,7 @@ class SuccessPool:
             key=lambda record: (-record.fitness, record.created_at, record.id),
         )
 
-    def infer_next_generation(self, parent_id: Optional[str]) -> int:
+    def infer_next_generation(self, parent_id: str | None) -> int:
         """Infer a child generation from its parent when the caller omitted it."""
         parent = self.get(parent_id)
         if parent is None:

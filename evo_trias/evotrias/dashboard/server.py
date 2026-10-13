@@ -15,11 +15,12 @@ import os
 import re
 import threading
 import time
-from datetime import datetime, timezone
+from collections.abc import Iterable
+from datetime import UTC, datetime
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from evotrias.db import paths
@@ -51,7 +52,7 @@ class DashboardServer:
         *,
         run_id: str,
         host: str = DEFAULT_DASHBOARD_HOST,
-        public_host: Optional[str] = None,
+        public_host: str | None = None,
         preferred_port: int = DEFAULT_DASHBOARD_PORT,
     ) -> None:
         self.run_id = run_id
@@ -70,7 +71,7 @@ class DashboardServer:
     def is_alive(self) -> bool:
         return self._thread.is_alive()
 
-    def start(self) -> "DashboardServer":
+    def start(self) -> DashboardServer:
         self._thread.start()
         return self
 
@@ -81,7 +82,7 @@ class DashboardServer:
             self._thread.join(timeout=2)
 
 
-_servers: Dict[str, DashboardServer] = {}
+_servers: dict[str, DashboardServer] = {}
 _servers_lock = threading.Lock()
 
 
@@ -94,10 +95,10 @@ def dashboard_enabled() -> bool:
 def start_dashboard(
     run_id: str,
     *,
-    host: Optional[str] = None,
-    public_host: Optional[str] = None,
+    host: str | None = None,
+    public_host: str | None = None,
     preferred_port: int = DEFAULT_DASHBOARD_PORT,
-) -> Optional[DashboardServer]:
+) -> DashboardServer | None:
     """Start or return the dashboard for ``run_id``.
 
     Binding the socket is the availability check.  This avoids a race between
@@ -124,7 +125,7 @@ def start_dashboard(
     return server
 
 
-def build_snapshot(run_id: str) -> Dict[str, Any]:
+def build_snapshot(run_id: str) -> dict[str, Any]:
     """Build a compact, JSON-safe view of all user-facing run state."""
     run_state = RunState(run_id)
     config = Config(run_id)
@@ -216,7 +217,7 @@ def build_snapshot(run_id: str) -> Dict[str, Any]:
     }
 
 
-def list_runs(current_run_id: str) -> Dict[str, Any]:
+def list_runs(current_run_id: str) -> dict[str, Any]:
     """Return a flat, newest-first index of persisted runs.
 
     A run exists once the controller has state for it under
@@ -225,7 +226,7 @@ def list_runs(current_run_id: str) -> Dict[str, Any]:
     inspect history without mutating the active controller.
     """
     runs_root = paths.DB_ROOT / "runs"
-    entries: List[Dict[str, Any]] = []
+    entries: list[dict[str, Any]] = []
     if not runs_root.is_dir():
         return {"current": current_run_id, "runs": entries}
 
@@ -246,7 +247,7 @@ def list_runs(current_run_id: str) -> Dict[str, Any]:
         ]
         name_match = re.match(r"^(?P<label>.+)_(?P<timestamp>\d{14})$", run_id)
         try:
-            modified_at = datetime.fromtimestamp(run_dir.stat().st_mtime, timezone.utc).isoformat()
+            modified_at = datetime.fromtimestamp(run_dir.stat().st_mtime, UTC).isoformat()
         except OSError:
             modified_at = None
         updated_at = _latest_timestamp([run_state.updated_at, run_state.created_at, modified_at])
@@ -288,7 +289,7 @@ def _bind_server(*, run_id: str, host: str, preferred_port: int) -> _DashboardHT
     handler = _handler_factory(run_id)
     if preferred_port == 0:
         return _DashboardHTTPServer((host, 0), handler)
-    last_error: Optional[OSError] = None
+    last_error: OSError | None = None
     for port in range(preferred_port, preferred_port + DASHBOARD_PORT_SEARCH_LIMIT):
         try:
             return _DashboardHTTPServer((host, port), handler)
@@ -355,7 +356,7 @@ def _handler_factory(run_id: str) -> type[BaseHTTPRequestHandler]:
             self.end_headers()
             self.wfile.write(payload)
 
-        def _json(self, data: Dict[str, Any], status: HTTPStatus = HTTPStatus.OK) -> None:
+        def _json(self, data: dict[str, Any], status: HTTPStatus = HTTPStatus.OK) -> None:
             payload = json.dumps(
                 _json_safe(data),
                 ensure_ascii=False,
@@ -379,18 +380,18 @@ def _handler_factory(run_id: str) -> type[BaseHTTPRequestHandler]:
 
 def _build_lineage(
     *,
-    attempts: List[AttemptRecord],
-    completed: List[AttemptRecord],
-    running_tasks: List[str],
-    task_contexts: Dict[str, TaskContext],
-) -> Dict[str, Any]:
+    attempts: list[AttemptRecord],
+    completed: list[AttemptRecord],
+    running_tasks: list[str],
+    task_contexts: dict[str, TaskContext],
+) -> dict[str, Any]:
     """Build a task-level lineage DAG for the read-only dashboard.
 
     Parent and inspiration selection are task-scoped, so the latest attempt
     represents a stable task node across retries. Active tasks are included
     before their first attempt so the graph advances in real time.
     """
-    latest_by_task: Dict[str, AttemptRecord] = {}
+    latest_by_task: dict[str, AttemptRecord] = {}
     for attempt in attempts:
         if attempt.task_id:
             latest_by_task[attempt.task_id] = attempt
@@ -398,7 +399,7 @@ def _build_lineage(
     completed_by_task = {row.task_id: row for row in completed if row.task_id}
     running = set(running_tasks)
     task_ids = set(latest_by_task) | running
-    nodes_by_id: Dict[str, Dict[str, Any]] = {}
+    nodes_by_id: dict[str, dict[str, Any]] = {}
 
     for task_id in task_ids:
         attempt = latest_by_task.get(task_id)
@@ -456,9 +457,9 @@ def _build_lineage(
             if item in known_ids and item != node["id"] and item != node["parent_id"]
         ]
 
-    generation_cache: Dict[str, int] = {}
+    generation_cache: dict[str, int] = {}
 
-    def generation_for(task_id: str, visiting: Optional[set[str]] = None) -> int:
+    def generation_for(task_id: str, visiting: set[str] | None = None) -> int:
         if task_id in generation_cache:
             return generation_cache[task_id]
         node = nodes_by_id[task_id]
@@ -498,8 +499,8 @@ def _build_lineage(
             str(node["id"]),
         ),
     )
-    best_fitness: Optional[float] = None
-    best_node: Optional[Dict[str, Any]] = None
+    best_fitness: float | None = None
+    best_node: dict[str, Any] | None = None
     chronological_nodes = sorted(
         ordered_nodes,
         key=lambda node: (str(node.get("created_at") or ""), str(node["id"])),
@@ -536,11 +537,11 @@ def _build_lineage(
 
 
 def _build_progress(
-    completed: List[AttemptRecord],
-    attempt_index: Dict[str, AttemptRecord],
-) -> List[Dict[str, Any]]:
-    rows: List[Dict[str, Any]] = []
-    best_so_far: Optional[float] = None
+    completed: list[AttemptRecord],
+    attempt_index: dict[str, AttemptRecord],
+) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    best_so_far: float | None = None
     for index, completion in enumerate(completed, start=1):
         attempt = attempt_index.get(completion.artifact_ref) or attempt_index.get(completion.task_id) or completion
         fitness = _finite_float(completion.verification_result.get("fitness")) if completion.in_success_pool else None
@@ -568,9 +569,9 @@ def _build_progress(
 
 
 def _best_record(
-    progress: List[Dict[str, Any]],
-    attempt_index: Dict[str, AttemptRecord],
-) -> Optional[Dict[str, Any]]:
+    progress: list[dict[str, Any]],
+    attempt_index: dict[str, AttemptRecord],
+) -> dict[str, Any] | None:
     candidates = [row for row in progress if row.get("fitness") is not None]
     if not candidates:
         return None
@@ -590,17 +591,17 @@ def _best_record(
 def _build_agents(
     *,
     public_run_dir: Path,
-    running: Dict[str, TaskAssigned],
-    attempts: List[AttemptRecord],
-    task_contexts: Dict[str, TaskContext],
-    assignments: Dict[str, Assignment],
-) -> List[Dict[str, Any]]:
-    latest_by_task: Dict[str, AttemptRecord] = {}
+    running: dict[str, TaskAssigned],
+    attempts: list[AttemptRecord],
+    task_contexts: dict[str, TaskContext],
+    assignments: dict[str, Assignment],
+) -> list[dict[str, Any]]:
+    latest_by_task: dict[str, AttemptRecord] = {}
     for attempt in attempts:
         if attempt.task_id:
             latest_by_task[attempt.task_id] = attempt
 
-    agents: List[Dict[str, Any]] = []
+    agents: list[dict[str, Any]] = []
     for task_id, held in running.items():
         latest = latest_by_task.get(task_id)
         context = task_contexts.get(task_id)
@@ -625,9 +626,9 @@ def _build_agents(
 
 def _infer_activity(
     task_dir: Path,
-    latest_attempt: Optional[AttemptRecord],
-    context: Optional[TaskContext],
-    assignment: Optional[Assignment],
+    latest_attempt: AttemptRecord | None,
+    context: TaskContext | None,
+    assignment: Assignment | None,
 ) -> tuple[str, str]:
     verification = dict(latest_attempt.verification_result or {}) if latest_attempt else {}
     if str(verification.get("status") or "") == "failure":
@@ -657,8 +658,8 @@ def _infer_activity(
     return "Selecting context", "Choosing parent, inspirations, and run-local knowledge."
 
 
-def _build_guidance(meta_state: MetaGuidanceState) -> List[Dict[str, Any]]:
-    items: List[Dict[str, Any]] = []
+def _build_guidance(meta_state: MetaGuidanceState) -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
     for guidance_list, lifecycle in ((meta_state.active_guidance, "active"), (meta_state.tried_guidance, "tried")):
         for guidance in guidance_list:
             items.append(
@@ -696,16 +697,16 @@ def _build_guidance(meta_state: MetaGuidanceState) -> List[Dict[str, Any]]:
 
 def _build_activity(
     *,
-    completed: List[AttemptRecord],
-    attempt_index: Dict[str, AttemptRecord],
-    notes: List[Note],
-    note_events: List[NotesEvent],
-    meta_events: List[MetaGuidanceEvent],
+    completed: list[AttemptRecord],
+    attempt_index: dict[str, AttemptRecord],
+    notes: list[Note],
+    note_events: list[NotesEvent],
+    meta_events: list[MetaGuidanceEvent],
     meta_state: MetaGuidanceState,
     pool: TaskPool,
-    agents: List[Dict[str, Any]],
-) -> List[Dict[str, Any]]:
-    events: List[Dict[str, Any]] = []
+    agents: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    events: list[dict[str, Any]] = []
     for agent in agents:
         events.append(
             {
@@ -824,7 +825,7 @@ def _build_activity(
     return sorted(events, key=_activity_sort_key, reverse=True)
 
 
-def _note_row(note: Note) -> Dict[str, Any]:
+def _note_row(note: Note) -> dict[str, Any]:
     return {
         "note_id": note.note_id,
         "note_type": note.note_type,
@@ -837,8 +838,8 @@ def _note_row(note: Note) -> Dict[str, Any]:
     }
 
 
-def _attempt_index(attempts: Iterable[AttemptRecord]) -> Dict[str, AttemptRecord]:
-    index: Dict[str, AttemptRecord] = {}
+def _attempt_index(attempts: Iterable[AttemptRecord]) -> dict[str, AttemptRecord]:
+    index: dict[str, AttemptRecord] = {}
     for attempt in attempts:
         if attempt.artifact_ref:
             index[attempt.artifact_ref] = attempt
@@ -847,7 +848,7 @@ def _attempt_index(attempts: Iterable[AttemptRecord]) -> Dict[str, AttemptRecord
     return index
 
 
-def _available_run_id(run_id: str) -> Optional[str]:
+def _available_run_id(run_id: str) -> str | None:
     """Resolve a run that has controller state, without allowing path traversal."""
     requested = str(run_id).strip()
     safe = paths._safe_name(requested)
@@ -859,7 +860,7 @@ def _available_run_id(run_id: str) -> Optional[str]:
     return safe
 
 
-def _finite_float(value: Any) -> Optional[float]:
+def _finite_float(value: Any) -> float | None:
     try:
         result = float(value)
     except (TypeError, ValueError):
@@ -867,14 +868,14 @@ def _finite_float(value: Any) -> Optional[float]:
     return result if math.isfinite(result) else None
 
 
-def _coerce_int(value: Any) -> Optional[int]:
+def _coerce_int(value: Any) -> int | None:
     try:
         return int(value)
     except (TypeError, ValueError):
         return None
 
 
-def _elapsed_seconds(started_at: Any, state: str) -> Optional[float]:
+def _elapsed_seconds(started_at: Any, state: str) -> float | None:
     started = _parse_time(started_at)
     if started is None:
         return None
@@ -883,7 +884,7 @@ def _elapsed_seconds(started_at: Any, state: str) -> Optional[float]:
     return max((_utc_now() - started).total_seconds(), 0.0)
 
 
-def _parse_time(value: Any) -> Optional[datetime]:
+def _parse_time(value: Any) -> datetime | None:
     if not value:
         return None
     try:
@@ -891,15 +892,15 @@ def _parse_time(value: Any) -> Optional[datetime]:
     except ValueError:
         return None
     if parsed.tzinfo is None:
-        parsed = parsed.replace(tzinfo=timezone.utc)
-    return parsed.astimezone(timezone.utc)
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
 
 
-def _activity_sort_key(event: Dict[str, Any]) -> datetime:
-    return _parse_time(event.get("timestamp")) or datetime.min.replace(tzinfo=timezone.utc)
+def _activity_sort_key(event: dict[str, Any]) -> datetime:
+    return _parse_time(event.get("timestamp")) or datetime.min.replace(tzinfo=UTC)
 
 
-def _latest_timestamp(values: Iterable[Any]) -> Optional[str]:
+def _latest_timestamp(values: Iterable[Any]) -> str | None:
     parsed = [(value, _parse_time(value)) for value in values]
     valid = [(value, timestamp) for value, timestamp in parsed if timestamp is not None]
     if not valid:
@@ -907,7 +908,7 @@ def _latest_timestamp(values: Iterable[Any]) -> Optional[str]:
     return str(max(valid, key=lambda pair: pair[1])[0])
 
 
-def _format_fitness(value: Optional[float]) -> str:
+def _format_fitness(value: float | None) -> str:
     if value is None:
         return "—"
     return f"{value:.6g}"
@@ -926,7 +927,7 @@ def _json_safe(value: Any) -> Any:
     return value
 
 
-def _configured_host(value: Optional[str], env_name: str, default: str) -> str:
+def _configured_host(value: str | None, env_name: str, default: str) -> str:
     configured = value if value is not None else os.environ.get(env_name)
     return str(configured or default).strip() or default
 
@@ -939,7 +940,7 @@ def _format_url_host(host: str) -> str:
 
 
 def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _now_iso() -> str:

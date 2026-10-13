@@ -11,7 +11,7 @@ decides whether to persist it.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 from evotrias.db.config import PlateauConfig
 from evotrias.db.run_state import RunState
@@ -35,7 +35,7 @@ class FitnessPlateauDetector:
         lineage_tree: LineageTree,
         *,
         stop_reason: str = "",
-    ) -> Tuple[SearchState, str, Dict[str, Any]]:
+    ) -> tuple[SearchState, str, dict[str, Any]]:
         """Return ``(state, stop_reason, diagnostics)`` for the current pool.
 
         A non-empty ``stop_reason`` (budget exhausted) forces STOPPED.  A run
@@ -63,7 +63,7 @@ class FitnessPlateauDetector:
         diagnostics = {"state": state.value, "stop_reason": reason, **diagnostics}
         return state, reason, diagnostics
 
-    def _build_diagnostics(self, pool: SuccessPool, lineage_tree: LineageTree) -> Dict[str, Any]:
+    def _build_diagnostics(self, pool: SuccessPool, lineage_tree: LineageTree) -> dict[str, Any]:
         """Compute plateau inputs plus useful current search context."""
         records = pool.get_all()
         best_history = self._best_fitness_history(records)
@@ -91,7 +91,7 @@ class FitnessPlateauDetector:
         }
 
     @staticmethod
-    def _best_fitness_history(records: List[SuccessRecord]) -> List[float]:
+    def _best_fitness_history(records: list[SuccessRecord]) -> list[float]:
         """Return the running best fitness after each success record."""
         best = None
         history = []
@@ -100,7 +100,7 @@ class FitnessPlateauDetector:
             history.append(best)
         return history
 
-    def _consecutive_plateau_count(self, best_history: List[float], window: int) -> int:
+    def _consecutive_plateau_count(self, best_history: list[float], window: int) -> int:
         """Count consecutive windows whose best-fitness gain is below threshold."""
         count = 0
         for index in range(len(best_history) - 1, window - 1, -1):
@@ -114,7 +114,7 @@ class FitnessPlateauDetector:
         return count
 
     @staticmethod
-    def _latest_success_is_new_best(records: List[SuccessRecord]) -> bool:
+    def _latest_success_is_new_best(records: list[SuccessRecord]) -> bool:
         """Return true when the newest success strictly improved the run best."""
         if len(records) < 2:
             return bool(records)

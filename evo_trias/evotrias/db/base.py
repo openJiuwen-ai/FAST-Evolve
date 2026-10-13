@@ -23,21 +23,22 @@ import dataclasses
 import enum
 import types
 import typing
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Any, ClassVar, Dict, Iterator
+from typing import Any, ClassVar
 
 from evotrias.utils.io import append_jsonl, read_json, read_jsonl, write_json_atomic
 from evotrias.utils.time import utc_now_iso
 
 
-def _fields_from_json(cls: type, data: Dict[str, Any]) -> Dict[str, Any]:
+def _fields_from_json(cls: type, data: dict[str, Any]) -> dict[str, Any]:
     """Value for every field of dataclass ``cls``: rebuilt from ``data``, else its default.
 
     Unknown keys in ``data`` are ignored; a field with no default that is
     absent from ``data`` is left out so ``cls(**...)`` raises as usual.
     """
     hints = typing.get_type_hints(cls)
-    values: Dict[str, Any] = {}
+    values: dict[str, Any] = {}
     for field in dataclasses.fields(cls):
         if field.name in data:
             values[field.name] = _rebuild(hints[field.name], data[field.name])
@@ -128,7 +129,7 @@ class DBObject:
 
     # Set on every subclass by the dataclass decorator in __init_subclass__;
     # declared here so type checkers accept the base as a DataclassInstance.
-    __dataclass_fields__: ClassVar[Dict[str, dataclasses.Field[Any]]]
+    __dataclass_fields__: ClassVar[dict[str, dataclasses.Field[Any]]]
 
     _path: Path
     created_at: str

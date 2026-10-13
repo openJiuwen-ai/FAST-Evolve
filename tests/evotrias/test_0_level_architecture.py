@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
-from typing import Dict, Set
 
 import evotrias
 
@@ -24,12 +23,12 @@ def _top_level(name: str) -> str | None:
     return parts[1]
 
 
-def _imports_by_module() -> Dict[str, Set[str]]:
+def _imports_by_module() -> dict[str, set[str]]:
     """Map each ``evotrias/**/*.py`` (relative to the package's parent directory, posix) to the evotrias top-level packages it imports."""
-    result: Dict[str, Set[str]] = {}
+    result: dict[str, set[str]] = {}
     for path in sorted(PACKAGE_ROOT.rglob("*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-        targets: Set[str] = set()
+        targets: set[str] = set()
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
                 for alias in node.names:
@@ -47,7 +46,7 @@ def _imports_by_module() -> Dict[str, Set[str]]:
     return result
 
 
-def _violations(prefix: str, forbidden: Set[str], *, allow: Set[str] = frozenset()) -> list[str]:
+def _violations(prefix: str, forbidden: set[str], *, allow: set[str] = frozenset()) -> list[str]:
     return [
         f"{module}: {sorted(targets & forbidden)}"
         for module, targets in _imports_by_module().items()

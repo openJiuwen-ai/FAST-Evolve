@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Callable, TypeVar
+from collections.abc import Callable
+from typing import Any, TypeVar
 
 from evotrias.db.agent_index import AgentInfo
 from evotrias.enums_and_consts import Agents, Decisions, Tools

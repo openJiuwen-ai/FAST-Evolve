@@ -2,7 +2,7 @@ import json
 import socket
 import urllib.error
 import urllib.request
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from urllib.parse import quote
 
@@ -233,7 +233,7 @@ def test_list_runs_returns_flat_history_for_named_and_legacy_ids(tmp_path, monke
     monkeypatch.setattr(
         dashboard_module,
         "_utc_now",
-        lambda: datetime(2026, 7, 15, 1, 4, tzinfo=timezone.utc),
+        lambda: datetime(2026, 7, 15, 1, 4, tzinfo=UTC),
     )
 
     history = list_runs(RUN_ID)

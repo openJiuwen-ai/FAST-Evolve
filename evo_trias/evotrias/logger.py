@@ -4,7 +4,7 @@ import logging
 import os
 import tarfile
 import traceback
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from evotrias.db import paths
 from evotrias.utils.filelock import blocking_filelock
@@ -21,7 +21,7 @@ class _RotatingFileHandler(logging.Handler):
 
     @staticmethod
     def _rotate() -> None:
-        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
+        ts = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
         archived = os.path.join(_LOG_DIR, f"{ts}.log")
         counter = 0
         # A prior rotation this same second leaves either [ts].log.tar.gz

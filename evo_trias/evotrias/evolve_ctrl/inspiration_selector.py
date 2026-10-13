@@ -10,14 +10,14 @@ from __future__ import annotations
 
 import math
 import random
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 from evotrias.db.config import InspirationSelectionConfig
 from evotrias.evolve_ctrl.lineage_tree import LineageTree
 from evotrias.evolve_ctrl.success_pool import SuccessPool, SuccessRecord
 
 
-def _inspiration(record: SuccessRecord) -> Dict[str, Any]:
+def _inspiration(record: SuccessRecord) -> dict[str, Any]:
     """Compact shape of one record as sent to generator subagents."""
     return {
         "id": record.id,
@@ -47,8 +47,8 @@ class LineageBoltzmannInspirationSelector:
         parent: SuccessRecord,
         db: SuccessPool,
         progress: float,
-        sample_num: Optional[int] = None,
-    ) -> List[dict]:
+        sample_num: int | None = None,
+    ) -> list[dict]:
         """Return inspiration dictionaries, always including the parent first."""
         parent_inspiration = _inspiration(parent)
         parent_inspiration["is_parent"] = True
@@ -72,8 +72,8 @@ class LineageBoltzmannInspirationSelector:
         ]
         foreign_elites = self._build_foreign_elites(all_records, parent.id, parent_lineage)
 
-        selected: List[SuccessRecord] = []
-        selected_ids: Set[str] = set()
+        selected: list[SuccessRecord] = []
+        selected_ids: set[str] = set()
         target_count = self.sample_num if sample_num is None else max(sample_num, 0)
 
         # Each inspiration slot independently decides whether to migrate.
@@ -122,10 +122,10 @@ class LineageBoltzmannInspirationSelector:
 
     def _build_foreign_elites(
         self,
-        all_records: List[SuccessRecord],
+        all_records: list[SuccessRecord],
         parent_id: str,
         parent_lineage: str,
-    ) -> List[SuccessRecord]:
+    ) -> list[SuccessRecord]:
         """Collect top records from every non-parent lineage."""
         by_lineage = {}
         for record in all_records:
@@ -141,7 +141,7 @@ class LineageBoltzmannInspirationSelector:
         return elites
 
     @staticmethod
-    def _boltzmann_sample(candidates: List[SuccessRecord], T: float) -> SuccessRecord:
+    def _boltzmann_sample(candidates: list[SuccessRecord], T: float) -> SuccessRecord:
         """Sample by fitness with Boltzmann/Gibbs probabilities."""
         if len(candidates) == 1:
             return candidates[0]

@@ -12,7 +12,6 @@ from __future__ import annotations
 
 import math
 import random
-from typing import Dict, Optional
 
 from evotrias.db.config import ParentSelectionConfig
 from evotrias.evolve_ctrl.lineage_tree import LineageTree
@@ -37,7 +36,7 @@ class LineageAwareParentSelector:
         self,
         success_pool: SuccessPool,
         progress: float,
-    ) -> Optional[SuccessRecord]:
+    ) -> SuccessRecord | None:
         """Select a parent record and increment its selection count.
 
         The increment is persisted immediately so parallel generator tasks see
@@ -65,7 +64,7 @@ class LineageAwareParentSelector:
         # Stage 2 chooses the concrete parent within the selected branch.
         return self._select_within_lineage(success_pool, lineage_id, c_local)
 
-    def _select_lineage(self, tau: float, p_exploit: float) -> Optional[str]:
+    def _select_lineage(self, tau: float, p_exploit: float) -> str | None:
         """Choose a lineage using softmax deserved share and deficit feedback."""
         all_stats = self.lineage_tree.get_all_lineage_stats()
         if not all_stats:
@@ -111,7 +110,7 @@ class LineageAwareParentSelector:
         success_pool: SuccessPool,
         lineage_id: str,
         c_local: float,
-    ) -> Optional[SuccessRecord]:
+    ) -> SuccessRecord | None:
         """Choose one record within a lineage using rank quality plus UCB."""
         all_records = success_pool.get_all()
         lineage_records = [
@@ -153,7 +152,7 @@ class LineageAwareParentSelector:
         return start * (end / start) ** progress
 
     @staticmethod
-    def _softmax(values: Dict[str, float], temperature: float) -> Dict[str, float]:
+    def _softmax(values: dict[str, float], temperature: float) -> dict[str, float]:
         """Numerically stable softmax with temperature."""
         max_value = max(values.values())
         temperature = max(temperature, 1e-9)
@@ -165,7 +164,7 @@ class LineageAwareParentSelector:
         return {key: value / total for key, value in exp_values.items()}
 
     @staticmethod
-    def _roulette(weights: Dict[str, float]) -> str:
+    def _roulette(weights: dict[str, float]) -> str:
         """Sample one key proportionally to non-normalized weights."""
         total = sum(weights.values())
         if total < 1e-15:

@@ -9,7 +9,6 @@ controller (top-up); ``evotrias.scheduler`` owns the transitions.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional
 
 from evotrias.db import paths
 from evotrias.db.base import DBObject
@@ -26,7 +25,7 @@ class TaskAssigned:
 
 @dataclass
 class TaskCompleted:
-    fitness: Optional[float] = None
+    fitness: float | None = None
     at: str = field(default_factory=utc_now_iso)
 
 
@@ -37,12 +36,12 @@ class TaskFailed:
 
 
 class TaskPool(DBObject):
-    created: List[str] = field(default_factory=list)
-    pending: List[str] = field(default_factory=list)
-    queued: Dict[str, TaskAssigned] = field(default_factory=dict)
-    running: Dict[str, TaskAssigned] = field(default_factory=dict)
-    completed: Dict[str, TaskCompleted] = field(default_factory=dict)
-    failed: Dict[str, TaskFailed] = field(default_factory=dict)
+    created: list[str] = field(default_factory=list)
+    pending: list[str] = field(default_factory=list)
+    queued: dict[str, TaskAssigned] = field(default_factory=dict)
+    running: dict[str, TaskAssigned] = field(default_factory=dict)
+    completed: dict[str, TaskCompleted] = field(default_factory=dict)
+    failed: dict[str, TaskFailed] = field(default_factory=dict)
     next_seq: int = 1
 
     def __init__(self, run_id: str):

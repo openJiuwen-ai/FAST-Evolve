@@ -9,7 +9,7 @@ tool calls.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Literal, Optional, overload
+from typing import Literal, overload
 
 from evotrias.db import paths
 from evotrias.db.base import DBObject
@@ -26,22 +26,22 @@ class TaskContext:
     """
 
     task_id: str
-    parent_id: Optional[str] = None
-    inspiration_ids: List[str] = field(default_factory=list)
-    meta_guidance_id: Optional[str] = None
-    anchor_parent_id: Optional[str] = None
+    parent_id: str | None = None
+    inspiration_ids: list[str] = field(default_factory=list)
+    meta_guidance_id: str | None = None
+    anchor_parent_id: str | None = None
     parent_selected: bool = False
     inspirations_selected: bool = False
     missing_parent_context: bool = False
     recorded: bool = False
-    verification_result_ref: Optional[str] = None
-    in_success_pool: Optional[bool] = None
-    success_record_id: Optional[str] = None
+    verification_result_ref: str | None = None
+    in_success_pool: bool | None = None
+    success_record_id: str | None = None
     created_at: str = field(default_factory=utc_now_iso)
 
 
 class TaskContexts(DBObject):
-    tasks: Dict[str, TaskContext] = field(default_factory=dict)
+    tasks: dict[str, TaskContext] = field(default_factory=dict)
 
     def __init__(self, run_id: str):
         super().__init__(paths.run_dir(run_id) / paths.TASK_CONTEXTS)
@@ -50,12 +50,12 @@ class TaskContexts(DBObject):
         return len(self.tasks)
 
     @overload
-    def get(self, task_id: str, *, create: Literal[False] = False) -> Optional[TaskContext]: ...
+    def get(self, task_id: str, *, create: Literal[False] = False) -> TaskContext | None: ...
 
     @overload
     def get(self, task_id: str, *, create: Literal[True]) -> TaskContext: ...
 
-    def get(self, task_id: str, *, create: bool = False) -> Optional[TaskContext]:
+    def get(self, task_id: str, *, create: bool = False) -> TaskContext | None:
         """The task's context; with ``create=True`` a blank one is added in memory if absent."""
         context = self.tasks.get(task_id)
         if context is None and create:

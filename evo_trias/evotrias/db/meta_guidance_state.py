@@ -9,7 +9,7 @@ assigned to.  ``meta_guidance_events.jsonl`` is the derived timeline.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from evotrias.db import paths
 from evotrias.db.base import DBObject
@@ -21,17 +21,17 @@ class Watching:
     """Where the current plateau watch started."""
 
     started_task_count: int = 0
-    best_fitness: Optional[float] = None
+    best_fitness: float | None = None
     created_at: str = field(default_factory=utc_now_iso)
 
 
 @dataclass
 class RequestProgress:
-    best_fitness_history: List[float] = field(default_factory=list)
+    best_fitness_history: list[float] = field(default_factory=list)
     completed_since_watching: int = 0
-    best_at_watching_start: Optional[float] = None
-    current_best_fitness: Optional[float] = None
-    diagnostics: Dict[str, Any] = field(default_factory=dict)
+    best_at_watching_start: float | None = None
+    current_best_fitness: float | None = None
+    diagnostics: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
@@ -47,14 +47,14 @@ class PendingRequest:
     created_at: str = field(default_factory=utc_now_iso)
     created_at_task_count: int = 0
     task_description: str = ""
-    current_best: Dict[str, Any] = field(default_factory=dict)
+    current_best: dict[str, Any] = field(default_factory=dict)
     progress: RequestProgress = field(default_factory=RequestProgress)
-    lineages: List[Dict[str, Any]] = field(default_factory=list)
-    notes_summary: Dict[str, Any] = field(default_factory=dict)
-    guidance_history: List[Dict[str, Any]] = field(default_factory=list)
-    failed_guidance: List[Dict[str, Any]] = field(default_factory=list)
-    generation_instructions: List[str] = field(default_factory=list)
-    constraints: List[str] = field(default_factory=list)
+    lineages: list[dict[str, Any]] = field(default_factory=list)
+    notes_summary: dict[str, Any] = field(default_factory=dict)
+    guidance_history: list[dict[str, Any]] = field(default_factory=list)
+    failed_guidance: list[dict[str, Any]] = field(default_factory=list)
+    generation_instructions: list[str] = field(default_factory=list)
+    constraints: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -72,26 +72,26 @@ class Guidance:
     target_metric: str = "fitness"
     current_best_assessment: str = ""
     relationship_to_current_best: str = "critically_adapt"
-    implementation_plan: List[str] = field(default_factory=list)
-    cautions: List[str] = field(default_factory=list)
-    avoid_repeating: List[str] = field(default_factory=list)
+    implementation_plan: list[str] = field(default_factory=list)
+    cautions: list[str] = field(default_factory=list)
+    avoid_repeating: list[str] = field(default_factory=list)
     max_uses: int = 1
 
     guidance_id: str = ""
     request_id: str = ""
-    anchor_parent_id: Optional[str] = None
-    creation_anchor_parent_id: Optional[str] = None
+    anchor_parent_id: str | None = None
+    creation_anchor_parent_id: str | None = None
     uses: int = 0
     status: str = "active"
     created_at: str = field(default_factory=utc_now_iso)
-    created_at_task_count: Optional[int] = None
-    best_fitness_at_creation: Optional[float] = None
+    created_at_task_count: int | None = None
+    best_fitness_at_creation: float | None = None
     has_valid_result: bool = False
     improved_anchor: bool = False
     created_new_best: bool = False
-    outcomes: List[Dict[str, Any]] = field(default_factory=list)
-    outcome: Optional[str] = None
-    outcome_summary: Optional[Dict[str, Any]] = None
+    outcomes: list[dict[str, Any]] = field(default_factory=list)
+    outcome: str | None = None
+    outcome_summary: dict[str, Any] | None = None
 
 
 @dataclass
@@ -101,40 +101,40 @@ class Assignment:
     task_id: str
     guidance_id: str
     anchor_parent_id: str
-    anchor_fitness: Optional[float] = None
-    creation_anchor_parent_id: Optional[str] = None
+    anchor_fitness: float | None = None
+    creation_anchor_parent_id: str | None = None
     status: str = "assigned"
     assigned_at: str = field(default_factory=utc_now_iso)
 
-    attempt_id: Optional[str] = None
-    valid_result: Optional[bool] = None
-    in_success_pool: Optional[bool] = None
-    success_record_id: Optional[str] = None
-    fitness: Optional[float] = None
-    delta_vs_anchor: Optional[float] = None
-    relative_delta_vs_anchor: Optional[float] = None
-    improved_anchor: Optional[bool] = None
-    metrics_changed: Optional[bool] = None
-    no_effect: Optional[bool] = None
-    best_fitness_before: Optional[float] = None
-    best_fitness_after: Optional[float] = None
-    created_new_best: Optional[bool] = None
-    recorded_at: Optional[str] = None
+    attempt_id: str | None = None
+    valid_result: bool | None = None
+    in_success_pool: bool | None = None
+    success_record_id: str | None = None
+    fitness: float | None = None
+    delta_vs_anchor: float | None = None
+    relative_delta_vs_anchor: float | None = None
+    improved_anchor: bool | None = None
+    metrics_changed: bool | None = None
+    no_effect: bool | None = None
+    best_fitness_before: float | None = None
+    best_fitness_after: float | None = None
+    created_new_best: bool | None = None
+    recorded_at: str | None = None
 
 
 class MetaGuidanceState(DBObject):
-    watching: Optional[Watching] = None
-    pending_request: Optional[PendingRequest] = None
-    active_guidance: List[Guidance] = field(default_factory=list)
-    tried_guidance: List[Guidance] = field(default_factory=list)
-    task_assignments: Dict[str, Assignment] = field(default_factory=dict)
+    watching: Watching | None = None
+    pending_request: PendingRequest | None = None
+    active_guidance: list[Guidance] = field(default_factory=list)
+    tried_guidance: list[Guidance] = field(default_factory=list)
+    task_assignments: dict[str, Assignment] = field(default_factory=dict)
     next_guidance_index: int = 1
     next_request_index: int = 1
 
     def __init__(self, run_id: str):
         super().__init__(paths.run_dir(run_id) / paths.META_GUIDANCE_STATE)
 
-    def active_by_id(self, guidance_id: str) -> Optional[Guidance]:
+    def active_by_id(self, guidance_id: str) -> Guidance | None:
         return next((g for g in self.active_guidance if g.guidance_id == guidance_id), None)
 
     @staticmethod

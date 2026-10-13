@@ -31,7 +31,7 @@ def test_other_files_are_copied_byte_for_byte(tmp_path):
 
     render_tree(src, dst, {})
 
-    assert (dst / "plain.md").read_bytes() == "{{ not_a_variable }}\r\n".encode("utf-8")
+    assert (dst / "plain.md").read_bytes() == b"{{ not_a_variable }}\r\n"
     assert (dst / "logo.png").read_bytes() == blob
 
 

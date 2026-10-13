@@ -11,9 +11,9 @@ import json
 import math
 import re
 from dataclasses import asdict
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from evotrias.db import paths
 from evotrias.db.attempts import AttemptRecord, Attempts
@@ -31,7 +31,7 @@ def write_run_report(
     db: SuccessPool,
     lineage_tree: LineageTree,
     run_state: RunState,
-) -> Dict[str, str]:
+) -> dict[str, str]:
     """Write Markdown and JSON summaries for one run.
 
     Returns only path-like refs so public MCP calls stay compact.
@@ -66,13 +66,13 @@ def write_run_report(
 
 def _build_summary(
     run_id: str,
-    records: List[SuccessRecord],
-    attempts: List[AttemptRecord],
+    records: list[SuccessRecord],
+    attempts: list[AttemptRecord],
     lineage_tree: LineageTree,
     run_state: RunState,
     report_ref: str,
     summary_ref: str,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     best = max(records, key=lambda record: record.fitness) if records else None
     top_records = sorted(records, key=lambda record: record.fitness, reverse=True)[:5]
     failed_attempts = [attempt for attempt in attempts if not attempt.in_success_pool]
@@ -81,7 +81,7 @@ def _build_summary(
 
     return {
         "run_id": run_id,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         "report_ref": report_ref,
         "summary_ref": summary_ref,
         "status": run_state.search_state.value,
@@ -113,7 +113,7 @@ def _build_summary(
     }
 
 
-def _record_summary(record: Optional[SuccessRecord]) -> Optional[Dict[str, Any]]:
+def _record_summary(record: SuccessRecord | None) -> dict[str, Any] | None:
     if record is None:
         return None
     return {
@@ -131,7 +131,7 @@ def _record_summary(record: Optional[SuccessRecord]) -> Optional[Dict[str, Any]]
     }
 
 
-def _attempt_summary(attempt: AttemptRecord) -> Dict[str, Any]:
+def _attempt_summary(attempt: AttemptRecord) -> dict[str, Any]:
     result = dict(attempt.verification_result or {})
     return {
         "id": attempt.id,
@@ -150,7 +150,7 @@ def _attempt_summary(attempt: AttemptRecord) -> Dict[str, Any]:
     }
 
 
-def _fitness_progression(records: List[SuccessRecord]) -> List[Dict[str, Any]]:
+def _fitness_progression(records: list[SuccessRecord]) -> list[dict[str, Any]]:
     progression = []
     running_best = None
     for index, record in enumerate(records, start=1):
@@ -168,14 +168,14 @@ def _fitness_progression(records: List[SuccessRecord]) -> List[Dict[str, Any]]:
     return progression
 
 
-def _lineage_statistics(lineage_tree: LineageTree) -> List[Dict[str, Any]]:
+def _lineage_statistics(lineage_tree: LineageTree) -> list[dict[str, Any]]:
     stats = []
     for root_id, lineage_stats in sorted(lineage_tree.get_all_lineage_stats().items()):
         stats.append(asdict(lineage_stats))
     return stats
 
 
-def _meta_evolve_summary(run_id: str, *, enabled: Optional[bool] = None) -> Dict[str, Any]:
+def _meta_evolve_summary(run_id: str, *, enabled: bool | None = None) -> dict[str, Any]:
     state = MetaGuidanceState(run_id)
     guidance = [*state.active_guidance, *state.tried_guidance]
     return {
@@ -203,10 +203,10 @@ def _meta_evolve_summary(run_id: str, *, enabled: Optional[bool] = None) -> Dict
 
 
 def _deterministic_observations(
-    records: List[SuccessRecord],
+    records: list[SuccessRecord],
     lineage_tree: LineageTree,
-    best: Optional[SuccessRecord],
-) -> List[str]:
+    best: SuccessRecord | None,
+) -> list[str]:
     observations = []
     if best is not None:
         observations.append(
@@ -235,9 +235,9 @@ def _deterministic_observations(
 
 
 def _lineage_mermaid(
-    records: List[SuccessRecord],
+    records: list[SuccessRecord],
     lineage_tree: LineageTree,
-    best_id: Optional[str],
+    best_id: str | None,
 ) -> str:
     if not records:
         return 'flowchart TB\n    empty["No successful records"]\n'
@@ -247,7 +247,7 @@ def _lineage_mermaid(
     fitness_bucket = _fitness_buckets(sorted_records)
 
     lines = ["flowchart TB", ""]
-    generations: Dict[int, List[SuccessRecord]] = {}
+    generations: dict[int, list[SuccessRecord]] = {}
     for record in sorted_records:
         generations.setdefault(record.generation, []).append(record)
 
@@ -291,7 +291,7 @@ def _lineage_mermaid(
     return "\n".join(lines) + "\n"
 
 
-def _fitness_buckets(records: List[SuccessRecord]) -> Dict[str, str]:
+def _fitness_buckets(records: list[SuccessRecord]) -> dict[str, str]:
     ordered = sorted(records, key=lambda record: record.fitness)
     total = len(ordered)
     buckets = {}
@@ -306,7 +306,7 @@ def _fitness_buckets(records: List[SuccessRecord]) -> Dict[str, str]:
     return buckets
 
 
-def _render_markdown(summary: Dict[str, Any]) -> str:
+def _render_markdown(summary: dict[str, Any]) -> str:
     overview = summary["overview"]
     lines = [
         f"# Evolution Run Summary: {summary['run_id']}",
@@ -364,7 +364,7 @@ def _render_markdown(summary: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def _diagnostics_table(diagnostics: Dict[str, Any], stop_reason: str) -> List[str]:
+def _diagnostics_table(diagnostics: dict[str, Any], stop_reason: str) -> list[str]:
     if not diagnostics:
         return ["No run-control diagnostics were recorded."]
     preferred = [
@@ -392,7 +392,7 @@ def _diagnostics_table(diagnostics: Dict[str, Any], stop_reason: str) -> List[st
     return lines
 
 
-def _top_results_table(records: List[Dict[str, Any]]) -> List[str]:
+def _top_results_table(records: list[dict[str, Any]]) -> list[str]:
     lines = [
         "| Rank | Task | Fitness | Generation | Parent | Artifact |",
         "|---:|---|---:|---:|---|---|",
@@ -409,7 +409,7 @@ def _top_results_table(records: List[Dict[str, Any]]) -> List[str]:
     return lines
 
 
-def _fitness_progression_table(rows: List[Dict[str, Any]]) -> List[str]:
+def _fitness_progression_table(rows: list[dict[str, Any]]) -> list[str]:
     lines = ["| Order | Task | Generation | Fitness | Running Best |", "|---:|---|---:|---:|---:|"]
     if not rows:
         lines.append("| - | - | - | - | - |")
@@ -422,7 +422,7 @@ def _fitness_progression_table(rows: List[Dict[str, Any]]) -> List[str]:
     return lines
 
 
-def _lineage_stats_table(rows: List[Dict[str, Any]]) -> List[str]:
+def _lineage_stats_table(rows: list[dict[str, Any]]) -> list[str]:
     lines = [
         "| Root | Size | Best Fitness | Best Record | Max Depth | Share |",
         "|---|---:|---:|---|---:|---:|",
@@ -438,7 +438,7 @@ def _lineage_stats_table(rows: List[Dict[str, Any]]) -> List[str]:
     return lines
 
 
-def _meta_evolve_table(meta: Dict[str, Any]) -> List[str]:
+def _meta_evolve_table(meta: dict[str, Any]) -> list[str]:
     lines = [
         "| Field | Value |",
         "|---|---|",
@@ -465,7 +465,7 @@ def _meta_evolve_table(meta: Dict[str, Any]) -> List[str]:
     return lines
 
 
-def _attempts_table(rows: List[Dict[str, Any]]) -> List[str]:
+def _attempts_table(rows: list[dict[str, Any]]) -> list[str]:
     lines = [
         "| Task | Status | Entered SuccessPool | Fitness | Artifact | Verifier Result |",
         "|---|---|---|---:|---|---|",
@@ -512,7 +512,7 @@ def _format_percent(value: Any) -> str:
         return ""
 
 
-def _best_prefix(record_id: str, best_id: Optional[str]) -> str:
+def _best_prefix(record_id: str, best_id: str | None) -> str:
     return "\U0001f3c6 " if record_id == best_id else ""
 
 

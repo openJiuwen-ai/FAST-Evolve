@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict
+from typing import Any
 
 from evotrias import scheduler
 from evotrias.db import paths
@@ -47,8 +47,8 @@ class _Registry(DBObject):
     it still borrows the db base class for atomic JSON IO.
     """
 
-    calls: Dict[str, PendingCall] = field(default_factory=dict)
-    sessions: Dict[str, PendingSession] = field(default_factory=dict)
+    calls: dict[str, PendingCall] = field(default_factory=dict)
+    sessions: dict[str, PendingSession] = field(default_factory=dict)
 
     def __init__(self):
         super().__init__(paths.OPENCODE_REGISTRY)

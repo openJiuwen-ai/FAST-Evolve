@@ -9,7 +9,6 @@ Everything is a default today; per-run customisation lands through the
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 from evotrias.db import paths
 from evotrias.db.base import DBObject
@@ -50,7 +49,7 @@ class RunBudgetConfig:
     """Hard run limits that stop task replenishment."""
 
     max_total_tasks: int = 100
-    max_time_seconds: Optional[float] = None
+    max_time_seconds: float | None = None
 
 
 @dataclass

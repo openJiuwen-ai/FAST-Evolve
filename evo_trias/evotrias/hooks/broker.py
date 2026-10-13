@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 from evotrias.db import paths
 from evotrias.logger import logger
@@ -20,7 +21,7 @@ class HookManager:
         return _wrap
 
     @staticmethod
-    def dispatch(agent_type: str, event: str, payload: dict) -> Optional[dict]:
+    def dispatch(agent_type: str, event: str, payload: dict) -> dict | None:
         logger.debug(f"Hook broker dispatch. {agent_type=} {event=} {payload=}")
         entries = _handlers.get((agent_type, event))
         if not entries:

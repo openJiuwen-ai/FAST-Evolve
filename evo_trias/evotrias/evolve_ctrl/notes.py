@@ -11,7 +11,8 @@ import hashlib
 import json
 import math
 import random
-from typing import Any, Dict, Iterable, List, Optional, Sequence
+from collections.abc import Iterable, Sequence
+from typing import Any
 
 from evotrias.db.attempts import AttemptRecord, Attempts
 from evotrias.db.config import NotesConfig
@@ -40,9 +41,9 @@ class NotesManager:
         self,
         *,
         task_id: str,
-        parent_id: Optional[str],
+        parent_id: str | None,
         inspiration_ids: Sequence[str],
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         """Return a ready-to-inject notes prompt for one generation task."""
         active = [n for n in self.notes if n.note_type in NOTE_TYPES]
 
@@ -79,7 +80,7 @@ class NotesManager:
             "counts": counts,
         }
 
-    def summarize_for_meta_guidance(self, *, limit_per_type: int = 5) -> Dict[str, Any]:
+    def summarize_for_meta_guidance(self, *, limit_per_type: int = 5) -> dict[str, Any]:
         """Return compact run-local Notes context for meta-guidance generation."""
         notes = [note for note in self.notes if note.note_type in NOTE_TYPES]
         groups = {
@@ -103,11 +104,11 @@ class NotesManager:
         attempts: Attempts,
         db: SuccessPool,
         max_attempts: int = 3,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """Create note requests triggered by one recorded attempt."""
         all_attempts = list(attempts)  # one read; the helpers below iterate it several times
         existing_ids = {request.note_request_id for request in self.requests}
-        requests: List[NoteRequest] = []
+        requests: list[NoteRequest] = []
         task_attempts = sorted(
             (row for row in all_attempts if row.task_id == attempt.task_id),
             key=lambda row: row.id,
@@ -259,7 +260,7 @@ class NotesManager:
             )
         return [_public_request(request) for request in requests]
 
-    def commit_generated_note(self, note_request_id: str, generated_note_json: Any) -> Dict[str, Any]:
+    def commit_generated_note(self, note_request_id: str, generated_note_json: Any) -> dict[str, Any]:
         """Validate and commit one generated note."""
         request = self.requests.get(note_request_id)
         if request is None:
@@ -315,7 +316,7 @@ class NotesManager:
         )
         return {"committed": True, "note_id": note_id}
 
-    def public_requests_for_attempt(self, task_id: str, attempt_id: str) -> List[Dict[str, Any]]:
+    def public_requests_for_attempt(self, task_id: str, attempt_id: str) -> list[dict[str, Any]]:
         """Return existing public requests for a task/attempt pair."""
         committed_note_ids = {note.note_id for note in self.notes}
         return [
@@ -344,9 +345,9 @@ class NotesManager:
         attempt: AttemptRecord,
         db: SuccessPool,
         failed_attempts: Sequence[AttemptRecord],
-        relative_delta: Optional[float],
-        threshold: Optional[float],
-        trigger_extra: Optional[Dict[str, Any]] = None,
+        relative_delta: float | None,
+        threshold: float | None,
+        trigger_extra: dict[str, Any] | None = None,
     ) -> NoteRequest:
         parent = db.get(attempt.parent_id)
         inspirations = [record for record in (db.get(i) for i in attempt.inspiration_ids) if record]
@@ -404,11 +405,11 @@ class NotesManager:
             },
         )
 
-    def _append_event(self, event_type: str, payload: Dict[str, Any]) -> None:
+    def _append_event(self, event_type: str, payload: dict[str, Any]) -> None:
         self.events.append(NotesEvent(event_type=event_type, run_id=self.run_id, payload=payload))
 
 
-def _public_request(request: NoteRequest) -> Dict[str, Any]:
+def _public_request(request: NoteRequest) -> dict[str, Any]:
     return {
         "note_request_id": request.note_request_id,
         "note_type": request.note_type,
@@ -427,7 +428,7 @@ def _note_matches_ids(note: Note, ids: Iterable[str]) -> bool:
     return bool(anchor_ids & (direct | inspirations))
 
 
-def _stable_sample(items: Sequence[Note], *, limit: int, seed_parts: Sequence[str]) -> List[Note]:
+def _stable_sample(items: Sequence[Note], *, limit: int, seed_parts: Sequence[str]) -> list[Note]:
     if limit <= 0 or not items:
         return []
     seed_text = "|".join(seed_parts)
@@ -481,7 +482,7 @@ def _render_notes_prompt(notes: Sequence[Note]) -> str:
     return "\n".join(lines).strip()
 
 
-def _note_summary(note: Note) -> Dict[str, Any]:
+def _note_summary(note: Note) -> dict[str, Any]:
     return {
         "note_id": note.note_id,
         "note_type": note.note_type,
@@ -513,11 +514,11 @@ def _analysis_prompt(
     note_type: str,
     trigger_kind: str,
     attempt: AttemptRecord,
-    parent: Optional[SuccessRecord],
+    parent: SuccessRecord | None,
     inspirations: Sequence[SuccessRecord],
     failed_attempts: Sequence[AttemptRecord],
-    relative_delta: Optional[float],
-    threshold: Optional[float],
+    relative_delta: float | None,
+    threshold: float | None,
 ) -> str:
     common = [
         "You are generating one run-local evolution note.",
@@ -665,7 +666,7 @@ def _format_inspirations(records: Sequence[SuccessRecord]) -> str:
     )
 
 
-def _parse_generated_note(generated_note_json: Any) -> Dict[str, Any]:
+def _parse_generated_note(generated_note_json: Any) -> dict[str, Any]:
     if isinstance(generated_note_json, str):
         return json.loads(generated_note_json)
     if isinstance(generated_note_json, dict):
@@ -673,7 +674,7 @@ def _parse_generated_note(generated_note_json: Any) -> Dict[str, Any]:
     raise ValueError("generated_note_json must be an object or JSON object string.")
 
 
-def _validate_generated_note(note: Dict[str, Any]) -> Optional[str]:
+def _validate_generated_note(note: dict[str, Any]) -> str | None:
     required = ["title", "lesson", "actionable_guidance", "evidence_summary"]
     for key in required:
         if not str(note.get(key) or "").strip():
@@ -709,11 +710,11 @@ def _attempt_status(attempt: AttemptRecord) -> str:
     return str((attempt.verification_result or {}).get("status") or "").lower()
 
 
-def _extract_attempt_fitness(attempt: AttemptRecord) -> Optional[float]:
+def _extract_attempt_fitness(attempt: AttemptRecord) -> float | None:
     return _coerce_float((attempt.verification_result or {}).get("fitness"))
 
 
-def _coerce_float(value: Any) -> Optional[float]:
+def _coerce_float(value: Any) -> float | None:
     if value is None:
         return None
     try:
@@ -724,7 +725,7 @@ def _coerce_float(value: Any) -> Optional[float]:
 
 def _completed_task_count_before(
     all_attempts: Sequence[AttemptRecord],
-    current_task_id: Optional[str] = None,
+    current_task_id: str | None = None,
 ) -> int:
     return len({row.task_id for row in all_attempts if row.task_id and row.task_id != current_task_id})
 
@@ -732,10 +733,10 @@ def _completed_task_count_before(
 def _best_fitness_excluding_attempt(
     all_attempts: Sequence[AttemptRecord],
     *,
-    exclude_task_id: Optional[str],
-    exclude_attempt_id: Optional[str],
-) -> Optional[float]:
-    values: List[float] = []
+    exclude_task_id: str | None,
+    exclude_attempt_id: str | None,
+) -> float | None:
+    values: list[float] = []
     for row in all_attempts:
         if _same_attempt(
             row,
@@ -754,8 +755,8 @@ def _best_fitness_excluding_attempt(
 def _same_attempt(
     row: AttemptRecord,
     *,
-    task_id: Optional[str],
-    attempt_id: Optional[str],
+    task_id: str | None,
+    attempt_id: str | None,
 ) -> bool:
     if not task_id or not attempt_id:
         return False
@@ -765,11 +766,11 @@ def _same_attempt(
 def _positive_gate(
     *,
     child_fitness: float,
-    previous_best: Optional[float],
+    previous_best: float | None,
     current_round: int,
     parent_delta_threshold: float,
     cfg: NotesConfig,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     best_ratio_threshold = _positive_best_ratio_threshold(current_round, cfg)
     if previous_best is None:
         return {
@@ -829,11 +830,11 @@ def _material_delta_histories(
     *,
     all_attempts: Sequence[AttemptRecord],
     db: SuccessPool,
-    exclude_task_id: Optional[str],
-    exclude_attempt_id: Optional[str],
-) -> tuple[List[float], List[float]]:
-    positive: List[float] = []
-    negative: List[float] = []
+    exclude_task_id: str | None,
+    exclude_attempt_id: str | None,
+) -> tuple[list[float], list[float]]:
+    positive: list[float] = []
+    negative: list[float] = []
     for row in all_attempts:
         if _same_attempt(
             row,
@@ -907,7 +908,7 @@ def _quantile(values: Sequence[float], q: float) -> float:
     return ordered[lo] * (hi - pos) + ordered[hi] * (pos - lo)
 
 
-def _pct(value: Optional[float]) -> str:
+def _pct(value: float | None) -> str:
     if value is None:
         return "n/a"
     return f"{value * 100:.2f}%"

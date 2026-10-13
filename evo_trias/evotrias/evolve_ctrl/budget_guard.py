@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from evotrias.db.config import RunBudgetConfig
 
 
@@ -18,7 +16,7 @@ class RunBudgetGuard:
         self,
         *,
         total_tasks: int,
-        elapsed_seconds: Optional[float] = None,
+        elapsed_seconds: float | None = None,
     ) -> str:
         """Return an empty string while the run remains within budget."""
         if total_tasks >= self.max_total_tasks:

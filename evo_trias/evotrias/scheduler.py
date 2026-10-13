@@ -9,7 +9,7 @@ transitions ``created -> pending -> queued -> running -> completed | failed``.
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 from evotrias.db.agent_index import AgentIndex, AgentInfo
 from evotrias.db.session_map import SessionMap
@@ -41,7 +41,7 @@ def remember_agent(run_id: str, agent_id: str, agent_info: AgentInfo) -> None:
     logger.debug(f"{agent_info=!r}")
 
 
-def lookup_agent(run_id: str, agent_id: str) -> Optional[AgentInfo]:
+def lookup_agent(run_id: str, agent_id: str) -> AgentInfo | None:
     info = AgentIndex(run_id).agents.get(agent_id)
     if info is None:
         logger.debug(f"lookup_agent: {agent_id=!r} not found in run {run_id}")

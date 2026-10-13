@@ -7,7 +7,7 @@ Written once per attempt by ``record_attempt``; the first-hand record that
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from evotrias.db import paths
 from evotrias.db.base import DBList
@@ -28,16 +28,16 @@ class AttemptRecord:
     task_id: str
     subagent_id: str
     artifact_ref: str
-    parent_id: Optional[str]
-    inspiration_ids: List[str]
-    generation: Optional[int]
-    verification_result: Dict[str, Any]
-    meta_guidance_id: Optional[str] = None
-    anchor_parent_id: Optional[str] = None
-    verification_result_ref: Optional[str] = None
-    sketch: Optional[str] = None
+    parent_id: str | None
+    inspiration_ids: list[str]
+    generation: int | None
+    verification_result: dict[str, Any]
+    meta_guidance_id: str | None = None
+    anchor_parent_id: str | None = None
+    verification_result_ref: str | None = None
+    sketch: str | None = None
     in_success_pool: bool = False
-    success_record_id: Optional[str] = None
+    success_record_id: str | None = None
     created_at: str = field(default_factory=utc_now_iso)
 
 
@@ -46,7 +46,7 @@ class Attempts(DBList):
         super().__init__(paths.run_dir(run_id) / paths.ATTEMPTS, AttemptRecord)
 
     @property
-    def successes(self) -> Dict[str, AttemptRecord]:
+    def successes(self) -> dict[str, AttemptRecord]:
         """task_id -> the attempt that entered the success pool.
 
         A task has one such attempt at most (``record_attempt`` marks only the
@@ -56,7 +56,7 @@ class Attempts(DBList):
         return {a.task_id: a for a in self if a.in_success_pool}
 
     @property
-    def final_by_task(self) -> Dict[str, AttemptRecord]:
+    def final_by_task(self) -> dict[str, AttemptRecord]:
         """task_id -> the attempt that stands for the task's outcome.
 
         The attempt that entered the success pool when there is one (see
@@ -67,7 +67,7 @@ class Attempts(DBList):
         final.update(self.successes)
         return final
 
-    def find_by_task_id(self, task_id: str) -> Optional[AttemptRecord]:
+    def find_by_task_id(self, task_id: str) -> AttemptRecord | None:
         """Most recent attempt for a task, if any."""
         match = None
         for attempt in self:
@@ -75,7 +75,7 @@ class Attempts(DBList):
                 match = attempt
         return match
 
-    def find_by_task_attempt(self, task_id: str, attempt_id: str) -> Optional[AttemptRecord]:
+    def find_by_task_attempt(self, task_id: str, attempt_id: str) -> AttemptRecord | None:
         for attempt in self:
             if attempt.task_id == task_id and attempt.id == attempt_id:
                 return attempt

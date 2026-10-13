@@ -19,7 +19,8 @@ from __future__ import annotations
 
 import functools
 import time
-from typing import Any, Callable, Dict
+from collections.abc import Callable
+from typing import Any
 
 from evotrias.dashboard.server import start_dashboard
 from evotrias.evolve_ctrl import controller as ctrl
@@ -62,7 +63,7 @@ def evolve_configure_run(
     lineage_root_number: int = 4,
     max_concurrent_tasks: int = 4,
     task_description: str = "",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Configure evolution run parameters before starting tasks.
 
     Must be called BEFORE any other controller tool for the same run_id;
@@ -91,7 +92,7 @@ def evolve_configure_run(
 
 
 @register_tool("select_parent")
-def evolve_select_parent(run_id: str, task_id: str) -> Dict[str, Any]:
+def evolve_select_parent(run_id: str, task_id: str) -> dict[str, Any]:
     """Select a parent and return its id/ref, fitness, and evaluator metrics.
 
     The controller stores the parent choice in local task context so later tool
@@ -101,7 +102,7 @@ def evolve_select_parent(run_id: str, task_id: str) -> Dict[str, Any]:
 
 
 @register_tool("select_inspirations")
-def evolve_select_inspirations(run_id: str, task_id: str) -> Dict[str, Any]:
+def evolve_select_inspirations(run_id: str, task_id: str) -> dict[str, Any]:
     """Select extra inspiration refs with fitness and evaluator metrics.
 
     The parent is not repeated in this response.  The controller reads the
@@ -118,7 +119,7 @@ def evolve_record_attempt(
     attempt_id: str = "",
     artifact_ref: str = "",
     max_attempts: int = 3,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Record one completed attempt from a verifier-result file reference.
 
     The controller reads the JSON result, restores parent/inspiration ids from
@@ -136,7 +137,7 @@ def evolve_record_attempt(
 
 
 @register_tool("get_notes_prompt")
-def evolve_get_notes_prompt(run_id: str, task_id: str) -> Dict[str, Any]:
+def evolve_get_notes_prompt(run_id: str, task_id: str) -> dict[str, Any]:
     """Return run-local Notes as a ready-to-inject prompt section."""
     return ctrl.get_notes_prompt(run_id, task_id)
 
@@ -146,7 +147,7 @@ def evolve_commit_generated_note(
     run_id: str,
     note_request_id: str,
     generated_note_json: Any,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Validate and commit one LLM-generated run-local note."""
     return ctrl.commit_generated_note(run_id, note_request_id, generated_note_json)
 
@@ -155,7 +156,7 @@ def evolve_commit_generated_note(
 def evolve_get_meta_guidance_request(
     run_id: str,
     request_id: str = "",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Return a pending meta-guidance request for the dedicated worker."""
     return ctrl.get_meta_guidance_request(run_id, request_id)
 
@@ -165,13 +166,13 @@ def evolve_commit_meta_guidance(
     run_id: str,
     request_id: str,
     guidance_json: Any,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Validate and activate structured meta-guidance."""
     return ctrl.commit_meta_guidance(run_id, request_id, guidance_json)
 
 
 @register_tool("get_meta_guidance_prompt")
-def evolve_get_meta_guidance_prompt(run_id: str, task_id: str) -> Dict[str, Any]:
+def evolve_get_meta_guidance_prompt(run_id: str, task_id: str) -> dict[str, Any]:
     """Return a ready-to-inject meta-guidance prompt section for a task."""
     return ctrl.get_meta_guidance_prompt(run_id, task_id)
 
@@ -180,7 +181,7 @@ def evolve_get_meta_guidance_prompt(run_id: str, task_id: str) -> Dict[str, Any]
 def evolve_check_convergence(
     run_id: str,
     concurrency: int,
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Return the next scheduler action from convergence/meta-evolve state.
 
     ``concurrency`` is required and must be a positive integer — pass the
@@ -194,7 +195,7 @@ def evolve_check_convergence(
 
 
 @register_tool("finalize_run")
-def evolve_finalize_run(run_id: str, stop_reason: str = "") -> Dict[str, Any]:
+def evolve_finalize_run(run_id: str, stop_reason: str = "") -> dict[str, Any]:
     """Write deterministic run summary artifacts and return only refs.
 
     The optional stop reason is for external stops such as user interruption.
@@ -204,7 +205,7 @@ def evolve_finalize_run(run_id: str, stop_reason: str = "") -> Dict[str, Any]:
     return ctrl.finalize_run(run_id, stop_reason or None)
 
 
-def _meta_evolve_config_ref(config: Any) -> Dict[str, Any]:
+def _meta_evolve_config_ref(config: Any) -> dict[str, Any]:
     return {
         "enabled": config.meta_evolve.enabled,
         "guidance_num_to_generate": config.meta_evolve.guidance_num_to_generate,
@@ -212,7 +213,7 @@ def _meta_evolve_config_ref(config: Any) -> Dict[str, Any]:
     }
 
 
-def _dashboard_ref(run_id: str) -> Dict[str, Any]:
+def _dashboard_ref(run_id: str) -> dict[str, Any]:
     """Start the optional UI without making observability run-critical."""
     try:
         server = start_dashboard(run_id)

@@ -4,7 +4,7 @@ import builtins
 import logging
 import os
 import tarfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -129,7 +129,7 @@ def test_emit_never_raises_even_when_open_fails(monkeypatch, tmp_log):
 
 def _freeze_clock(monkeypatch):
     """Pin utcnow so every rotation in a test picks the same [ts] stem."""
-    fixed = datetime(2026, 8, 11, 12, 0, 0, tzinfo=timezone.utc)
+    fixed = datetime(2026, 8, 11, 12, 0, 0, tzinfo=UTC)
 
     class _FrozenDatetime:
         @staticmethod

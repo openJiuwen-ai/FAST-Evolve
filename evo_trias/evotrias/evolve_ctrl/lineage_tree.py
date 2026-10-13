@@ -11,7 +11,6 @@ from __future__ import annotations
 import math
 from collections import deque
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Set
 
 from evotrias.evolve_ctrl.success_pool import SuccessPool, SuccessRecord
 
@@ -34,12 +33,12 @@ class LineageTree:
     """In-memory lineage index used by all three controller solvers."""
 
     def __init__(self):
-        self._roots: List[str] = []
-        self._children: Dict[str, List[str]] = {}
-        self._root_of: Dict[str, str] = {}
-        self._depth_of: Dict[str, int] = {}
-        self._lineage_stats: Dict[str, LineageStats] = {}
-        self._record_map: Dict[str, SuccessRecord] = {}
+        self._roots: list[str] = []
+        self._children: dict[str, list[str]] = {}
+        self._root_of: dict[str, str] = {}
+        self._depth_of: dict[str, int] = {}
+        self._lineage_stats: dict[str, LineageStats] = {}
+        self._record_map: dict[str, SuccessRecord] = {}
 
     def rebuild(self, db: SuccessPool) -> None:
         """Rebuild roots, child edges, lineage ownership, depth, and stats."""
@@ -82,7 +81,7 @@ class LineageTree:
         """Return the root id for a record, falling back to the record itself."""
         return self._root_of.get(record_id, record_id)
 
-    def get_descendants(self, record_id: str) -> Set[str]:
+    def get_descendants(self, record_id: str) -> set[str]:
         """Return all descendants of a record by DFS."""
         descendants = set()
         stack = list(self._children.get(record_id, []))
@@ -92,11 +91,11 @@ class LineageTree:
             stack.extend(self._children.get(node_id, []))
         return descendants
 
-    def get_lineage_stats(self, root_id: str) -> Optional[LineageStats]:
+    def get_lineage_stats(self, root_id: str) -> LineageStats | None:
         """Return aggregate stats for one lineage root."""
         return self._lineage_stats.get(root_id)
 
-    def get_all_lineage_stats(self) -> Dict[str, LineageStats]:
+    def get_all_lineage_stats(self) -> dict[str, LineageStats]:
         """Return a copy of all lineage stats."""
         return dict(self._lineage_stats)
 
@@ -124,7 +123,7 @@ class LineageTree:
         """Return depth under the lineage root, with roots at depth 0."""
         return self._depth_of.get(record_id, 0)
 
-    def get_lineage_records(self, root_id: str) -> List[SuccessRecord]:
+    def get_lineage_records(self, root_id: str) -> list[SuccessRecord]:
         """Return all records that belong to a lineage."""
         return [
             self._record_map[record_id]
@@ -133,7 +132,7 @@ class LineageTree:
         ]
 
     @property
-    def roots(self) -> List[str]:
+    def roots(self) -> list[str]:
         return list(self._roots)
 
     @property
@@ -143,7 +142,7 @@ class LineageTree:
     def _compute_lineage_stats(self) -> None:
         """Compute size, best fitness, depth, share, and selection totals."""
         total_records = len(self._record_map)
-        lineage_records: Dict[str, List[SuccessRecord]] = {}
+        lineage_records: dict[str, list[SuccessRecord]] = {}
         for record_id, root_id in self._root_of.items():
             record = self._record_map.get(record_id)
             if record:
@@ -163,7 +162,7 @@ class LineageTree:
             )
 
     @staticmethod
-    def _compute_recent_improvement(records: List[SuccessRecord]) -> float:
+    def _compute_recent_improvement(records: list[SuccessRecord]) -> float:
         """Estimate recent lineage improvement between latest two generations."""
         if len(records) < 2:
             return 0.0

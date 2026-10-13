@@ -7,7 +7,7 @@ Appended by the controller when an attempt meets a note trigger; consumed by
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, Optional
+from typing import Any
 
 from evotrias.db import paths
 from evotrias.db.base import DBList
@@ -27,7 +27,7 @@ class NoteRequest:
     source: NoteSource = field(default_factory=NoteSource)
     refs: NoteRefs = field(default_factory=NoteRefs)
     analysis_prompt: str = ""
-    expected_schema: Dict[str, Any] = field(default_factory=dict)
+    expected_schema: dict[str, Any] = field(default_factory=dict)
     created_at: str = field(default_factory=utc_now_iso)
 
 
@@ -35,7 +35,7 @@ class NoteRequests(DBList):
     def __init__(self, run_id: str):
         super().__init__(paths.run_dir(run_id) / paths.NOTE_REQUESTS, NoteRequest)
 
-    def get(self, note_request_id: str) -> Optional[NoteRequest]:
+    def get(self, note_request_id: str) -> NoteRequest | None:
         """Latest request with this id (a request is only ever appended once, but be safe)."""
         match = None
         for request in self:

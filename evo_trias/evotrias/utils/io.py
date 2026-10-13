@@ -17,12 +17,12 @@ import json
 import os
 import threading
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
 from evotrias.logger import logger
 
 
-def read_json(path: Path, default: Dict[str, Any]) -> Dict[str, Any]:
+def read_json(path: Path, default: dict[str, Any]) -> dict[str, Any]:
     if not path.exists():
         return default
     try:
@@ -36,10 +36,10 @@ def read_json(path: Path, default: Dict[str, Any]) -> Dict[str, Any]:
     return data
 
 
-def read_jsonl(path: Path) -> List[Dict[str, Any]]:
+def read_jsonl(path: Path) -> list[dict[str, Any]]:
     if not path.exists():
         return []
-    rows: List[Dict[str, Any]] = []
+    rows: list[dict[str, Any]] = []
     try:
         with path.open("r", encoding="utf-8") as handle:
             for lineno, line in enumerate(handle, 1):
@@ -60,7 +60,7 @@ def read_jsonl(path: Path) -> List[Dict[str, Any]]:
     return rows
 
 
-def write_json_atomic(path: Path, data: Dict[str, Any]) -> None:
+def write_json_atomic(path: Path, data: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(f".{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
     tmp.write_text(
@@ -71,7 +71,7 @@ def write_json_atomic(path: Path, data: Dict[str, Any]) -> None:
     logger.debug(f"write_json_atomic: {path} ({path.stat().st_size} bytes)")
 
 
-def append_jsonl(path: Path, row: Dict[str, Any]) -> None:
+def append_jsonl(path: Path, row: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     line = json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n"
     with path.open("a", encoding="utf-8") as handle:

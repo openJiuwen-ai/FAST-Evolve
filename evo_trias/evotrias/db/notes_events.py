@@ -9,7 +9,7 @@ differ per ``event_type``.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Dict
+from typing import Any
 
 from evotrias.db import paths
 from evotrias.db.base import DBList
@@ -20,7 +20,7 @@ from evotrias.utils.time import utc_now_iso
 class NotesEvent:
     event_type: str
     run_id: str
-    payload: Dict[str, Any] = field(default_factory=dict)
+    payload: dict[str, Any] = field(default_factory=dict)
     created_at: str = field(default_factory=utc_now_iso)
 
 

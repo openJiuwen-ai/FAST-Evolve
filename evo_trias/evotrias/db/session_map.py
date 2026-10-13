@@ -7,14 +7,13 @@ find the run an event belongs to.
 from __future__ import annotations
 
 from dataclasses import field
-from typing import Dict
 
 from evotrias.db import paths
 from evotrias.db.base import DBObject
 
 
 class SessionMap(DBObject):
-    sessions: Dict[str, str] = field(default_factory=dict)
+    sessions: dict[str, str] = field(default_factory=dict)
 
     def __init__(self):
         super().__init__(paths.SESSION_MAP)
