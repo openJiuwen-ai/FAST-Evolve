@@ -155,7 +155,7 @@ def test_module_entry_reads_utf8_payload_end_to_end(tmp_path):
         "tool_input": {
             "isolation": "worktree",
             "prompt": prompt,
-            "subagent_type": "evotrias_plugin:init-explorer",
+            "subagent_type": "evotrias-init-explorer",
         },
     }
     env = {key: value for key, value in os.environ.items() if not key.startswith("PYTHONIO")}

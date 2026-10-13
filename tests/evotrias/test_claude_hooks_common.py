@@ -65,10 +65,10 @@ def test_merge_lets_deny_override_allow():
 @pytest.mark.parametrize(
     ("raw", "expected"),
     [
-        ("evotrias_plugin:task-executor", Agents.TASK_EXECUTOR),
-        ("evotrias_plugin:init-explorer", Agents.INIT_EXPLORER),
-        ("evotrias_plugin:meta-guidance-generator", Agents.META_GUIDANCE_GENERATOR),
-        ("  EvoTrias_Plugin:Task-Executor ", Agents.TASK_EXECUTOR),
+        ("evotrias-task-executor", Agents.TASK_EXECUTOR),
+        ("evotrias-init-explorer", Agents.INIT_EXPLORER),
+        ("evotrias-meta-guidance-generator", Agents.META_GUIDANCE_GENERATOR),
+        ("  EvoTrias-Task-Executor ", Agents.TASK_EXECUTOR),
         ("Explore", Agents.UNKNOWN),
         ("", Agents.UNKNOWN),
         (None, Agents.UNKNOWN),
@@ -76,3 +76,19 @@ def test_merge_lets_deny_override_allow():
 )
 def test_resolve_agent_name(raw, expected):
     assert resolve_agent_name(raw) == expected
+
+
+@pytest.mark.parametrize(
+    "legacy",
+    [
+        "evotrias_plugin:task-executor",
+        "evotrias_plugin:init-explorer",
+        "evotrias_plugin:meta-guidance-generator",
+        "task-executor",
+        "init-explorer",
+        "meta-guidance-generator",
+    ],
+)
+def test_legacy_agent_names_are_no_longer_recognized(legacy):
+    # Only the evotrias-prefixed project-level names are supported; no compatibility aliases.
+    assert resolve_agent_name(legacy) == Agents.UNKNOWN

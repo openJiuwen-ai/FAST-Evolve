@@ -66,7 +66,7 @@ def tmp_env(monkeypatch, tmp_path):
     return repo
 
 
-def _spawn_args(subagent="task-executor"):
+def _spawn_args(subagent="evotrias-task-executor"):
     """Original task-tool args of an orchestrator spawning an executor."""
     return {
         "description": "Execute replenishment task",
@@ -76,7 +76,7 @@ def _spawn_args(subagent="task-executor"):
     }
 
 
-def _before_payload(call_id="call_1", session="ses_parent", subagent="task-executor"):
+def _before_payload(call_id="call_1", session="ses_parent", subagent="evotrias-task-executor"):
     return {
         "input": {"tool": "task", "sessionID": session, "callID": call_id},
         "output": {"args": _spawn_args(subagent)},
@@ -103,7 +103,7 @@ def _after_payload(call_id="call_1", session="ses_parent", child="ses_child"):
     }
 
 
-def _created_payload(child="ses_child", parent="ses_parent", agent="task-executor"):
+def _created_payload(child="ses_child", parent="ses_parent", agent="evotrias-task-executor"):
     return {
         "id": "evt_created",
         "type": "session.created",
@@ -172,7 +172,7 @@ def test_executor_full_chain_observed_order(tmp_env):
     args = out["args"]
     assert args["description"] == "task_001"
     assert args["prompt"].endswith("\nrun_id:run-Z\ntask_id:task_001\n")
-    assert args["subagent_type"] == "task-executor"
+    assert args["subagent_type"] == "evotrias-task-executor"
     assert args["background"] is True
     snap = sched.pool_snapshot("run-Z")
     assert snap.created == ["task_002"]
@@ -262,8 +262,8 @@ def test_non_executor_children_indexed_and_idle_is_harmless(tmp_env):
     sched.remember_session_run("ses_parent", "run-mixed")
     sched.top_up_tasks("run-mixed", target=1, max_tasks=100)
     expected = {
-        "init-explorer": AgentInfo(Agents.INIT_EXPLORER),
-        "meta-guidance-generator": AgentInfo(Agents.META_GUIDANCE_GENERATOR),
+        "evotrias-init-explorer": AgentInfo(Agents.INIT_EXPLORER),
+        "evotrias-meta-guidance-generator": AgentInfo(Agents.META_GUIDANCE_GENERATOR),
         "general": AgentInfo(Agents.UNKNOWN, {"origin_agent_type": "general"}),
     }
     for agent, want in expected.items():
@@ -290,7 +290,7 @@ def test_idle_for_unregistered_session_is_noop(tmp_env):
 def test_registry_round_trips_typed_entries(tmp_env):
     with oc_glue._Registry() as registry:
         registry.calls["call_1"] = oc_glue.PendingCall(run_id="run-Z", task_id="task_001")
-        registry.sessions["ses_child"] = oc_glue.PendingSession(agent="task-executor", parent_id="ses_parent")
+        registry.sessions["ses_child"] = oc_glue.PendingSession(agent="evotrias-task-executor", parent_id="ses_parent")
     reloaded = oc_glue._Registry()
     assert reloaded.calls["call_1"] == oc_glue.PendingCall(run_id="run-Z", task_id="task_001")
     assert isinstance(reloaded.sessions["ses_child"], oc_glue.PendingSession)

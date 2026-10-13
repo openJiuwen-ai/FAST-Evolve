@@ -18,9 +18,9 @@ _CONFIGURE_RUN_TOOL = "evotrias_configure_run"
 _TASK_TOOL = "task"
 
 _AGENT_TYPE_MAP: dict[str, Agents] = {
-    "task-executor": Agents.TASK_EXECUTOR,
-    "init-explorer": Agents.INIT_EXPLORER,
-    "meta-guidance-generator": Agents.META_GUIDANCE_GENERATOR,
+    "evotrias-task-executor": Agents.TASK_EXECUTOR,
+    "evotrias-init-explorer": Agents.INIT_EXPLORER,
+    "evotrias-meta-guidance-generator": Agents.META_GUIDANCE_GENERATOR,
 }
 
 

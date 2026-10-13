@@ -68,7 +68,7 @@ def _spawn_tool_input(prompt="task_description: number guessing"):
     return {
         "description": "Execute replenishment task",
         "prompt": prompt,
-        "subagent_type": "evotrias_plugin:task-executor",
+        "subagent_type": "evotrias-task-executor",
         "run_in_background": True,
     }
 
@@ -83,7 +83,7 @@ def _start_executor(run_id, agent_id):
         {
             "session_id": "sess-1",
             "agent_id": agent_id,
-            "agent_type": "evotrias_plugin:task-executor",
+            "agent_type": "evotrias-task-executor",
             "hook_event_name": "SubagentStart",
         },
     )
@@ -95,7 +95,7 @@ def _make_task_executor_payload(agent_id, tool_name, tool_input, run_id, task_id
     return {
         "session_id": "sess-1",
         "agent_id": agent_id,
-        "agent_type": "evotrias_plugin:task-executor",
+        "agent_type": "evotrias-task-executor",
         "hook_event_name": "PreToolUse",
         "tool_name": tool_name,
         "tool_input": tool_input,
@@ -122,7 +122,7 @@ def test_executor_spawn_full_chain(tmp_env):
     updated = out["hookSpecificOutput"]["updatedInput"]
     assert updated["description"] == "task_001"
     assert updated["prompt"].endswith("\nrun_id:run-Z\ntask_id:task_001\n")
-    assert updated["subagent_type"] == "evotrias_plugin:task-executor"
+    assert updated["subagent_type"] == "evotrias-task-executor"
     assert updated["run_in_background"] is True
     snap = sched.pool_snapshot("run-Z")
     assert snap.created == ["task_002"]
@@ -153,7 +153,7 @@ def test_executor_spawn_full_chain(tmp_env):
         {
             "session_id": "sess-1",
             "agent_id": "agent-5",
-            "agent_type": "evotrias_plugin:task-executor",
+            "agent_type": "evotrias-task-executor",
             "hook_event_name": "SubagentStart",
         },
     )
@@ -178,7 +178,7 @@ def test_executor_bind_backfills_index_when_subagent_start_ran_first(tmp_env):
         {
             "session_id": "sess-1",
             "agent_id": "agent-5",
-            "agent_type": "evotrias_plugin:task-executor",
+            "agent_type": "evotrias-task-executor",
             "hook_event_name": "SubagentStart",
         },
     )
@@ -243,7 +243,7 @@ def test_subagent_start_skips_when_no_run_for_session(tmp_env):
     payload = {
         "session_id": "sess-unknown",
         "agent_id": "agent-7",
-        "agent_type": "evotrias_plugin:task-executor",
+        "agent_type": "evotrias-task-executor",
         "hook_event_name": "SubagentStart",
     }
     out = hook_manager.dispatch("claude", "subagent_start", payload)
@@ -259,8 +259,8 @@ def test_subagent_start_indexes_non_executors_without_claiming_a_task(tmp_env):
     sched.remember_session_run("sess-1", "run-mixed")
     sched.top_up_tasks("run-mixed", target=2, max_tasks=100)
     expected = {
-        "evotrias_plugin:init-explorer": AgentInfo(Agents.INIT_EXPLORER),
-        "evotrias_plugin:meta-guidance-generator": AgentInfo(Agents.META_GUIDANCE_GENERATOR),
+        "evotrias-init-explorer": AgentInfo(Agents.INIT_EXPLORER),
+        "evotrias-meta-guidance-generator": AgentInfo(Agents.META_GUIDANCE_GENERATOR),
         "general-purpose": AgentInfo(Agents.UNKNOWN, {"origin_agent_type": "general-purpose"}),
         "Explore": AgentInfo(Agents.UNKNOWN, {"origin_agent_type": "Explore"}),
     }
@@ -306,7 +306,7 @@ def test_subagent_start_indexes_non_executors_without_claiming_a_task(tmp_env):
 def test_configure_run_post_records_session_run(tmp_env):
     payload = {
         "session_id": "sess-9",
-        "tool_name": "mcp__plugin_evotrias_plugin_evotrias__configure_run",
+        "tool_name": "mcp__evotrias__configure_run",
         "tool_input": {"run_id": "run-9", "max_total_tasks": 50},
         "hook_event_name": "PostToolUse",
     }
@@ -319,7 +319,7 @@ def test_configure_run_post_without_session_id_registers_nothing(tmp_env):
     # A bare payload.get("session_id") used to hand None to the scheduler,
     # which str()-ed it into a literal "None" session key.
     payload = {
-        "tool_name": "mcp__plugin_evotrias_plugin_evotrias__configure_run",
+        "tool_name": "mcp__evotrias__configure_run",
         "tool_input": {"run_id": "run-9", "max_total_tasks": 50},
         "hook_event_name": "PostToolUse",
     }
@@ -336,7 +336,7 @@ def test_subagent_stop_completes_task_from_recorded_success(tmp_env):
     payload = {
         "session_id": "sess-1",
         "agent_id": "agent-10",
-        "agent_type": "evotrias_plugin:task-executor",
+        "agent_type": "evotrias-task-executor",
         "hook_event_name": "SubagentStop",
     }
     hook_manager.dispatch("claude", "subagent_stop", payload)
@@ -352,7 +352,7 @@ def test_subagent_stop_fails_task_with_last_message(tmp_env):
     payload = {
         "session_id": "sess-1",
         "agent_id": "agent-11",
-        "agent_type": "evotrias_plugin:task-executor",
+        "agent_type": "evotrias-task-executor",
         "hook_event_name": "SubagentStop",
         "last_assistant_message": "I could not produce a solution: verifier timed out repeatedly." * 5,
     }
@@ -451,7 +451,7 @@ def test_executor_spawn_with_isolation_stacks_task_injection_strip_and_allow(tmp
     assert "isolation" not in updated
     assert updated["description"] == "task_001"
     assert updated["prompt"].endswith("\nrun_id:run-Z\ntask_id:task_001\n")
-    assert updated["subagent_type"] == "evotrias_plugin:task-executor"
+    assert updated["subagent_type"] == "evotrias-task-executor"
     assert updated["run_in_background"] is True
 
 
@@ -462,7 +462,7 @@ def test_isolation_stripped_for_non_executor_agent_in_run(tmp_env):
         "isolation": "worktree",
         "model": "sonnet",
         "prompt": "run_id: example",
-        "subagent_type": "evotrias_plugin:init-explorer",
+        "subagent_type": "evotrias-init-explorer",
     }
 
     out = hook_manager.dispatch("claude", "pre_tool_use", _agent_payload(tool_input))
@@ -474,13 +474,13 @@ def test_isolation_stripped_for_non_executor_agent_in_run(tmp_env):
 
 
 def test_isolation_stripped_outside_any_run_without_permission_decision(tmp_env):
-    tool_input = {"isolation": "worktree", "prompt": "p", "subagent_type": "evotrias_plugin:meta-guidance-generator"}
+    tool_input = {"isolation": "worktree", "prompt": "p", "subagent_type": "evotrias-meta-guidance-generator"}
 
     out = hook_manager.dispatch("claude", "pre_tool_use", _agent_payload(tool_input, session_id="sess-unknown"))
 
     assert out is not None
     specific = out["hookSpecificOutput"]
-    assert specific["updatedInput"] == {"prompt": "p", "subagent_type": "evotrias_plugin:meta-guidance-generator"}
+    assert specific["updatedInput"] == {"prompt": "p", "subagent_type": "evotrias-meta-guidance-generator"}
     assert "permissionDecision" not in specific
 
 
@@ -498,7 +498,7 @@ def test_known_agent_dispatch_without_isolation_is_only_allowed(tmp_env):
     sched.remember_session_run("sess-1", "run-Z")
 
     out = hook_manager.dispatch(
-        "claude", "pre_tool_use", _agent_payload({"prompt": "p", "subagent_type": "evotrias_plugin:init-explorer"})
+        "claude", "pre_tool_use", _agent_payload({"prompt": "p", "subagent_type": "evotrias-init-explorer"})
     )
 
     assert out is not None

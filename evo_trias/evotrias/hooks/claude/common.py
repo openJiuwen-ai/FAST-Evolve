@@ -7,9 +7,9 @@ from typing import Any
 from evotrias.enums import Agents
 
 AGENT_TYPE_MAP: dict[str, Agents] = {
-    "evotrias_plugin:task-executor": Agents.TASK_EXECUTOR,
-    "evotrias_plugin:init-explorer": Agents.INIT_EXPLORER,
-    "evotrias_plugin:meta-guidance-generator": Agents.META_GUIDANCE_GENERATOR,
+    "evotrias-task-executor": Agents.TASK_EXECUTOR,
+    "evotrias-init-explorer": Agents.INIT_EXPLORER,
+    "evotrias-meta-guidance-generator": Agents.META_GUIDANCE_GENERATOR,
 }
 
 

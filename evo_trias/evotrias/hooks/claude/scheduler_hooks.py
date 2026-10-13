@@ -10,7 +10,7 @@ from evotrias.hooks import hook_manager
 from evotrias.hooks.claude.common import current_tool_input, merge_pre_tool_use_output, resolve_agent_name
 from evotrias.logger import logger
 
-_CONFIGURE_RUN_TOOL = "mcp__plugin_evotrias_plugin_evotrias__configure_run"
+_CONFIGURE_RUN_TOOL = "mcp__evotrias__configure_run"
 
 
 def _resolve_agent_type(payload: dict) -> Agents:
