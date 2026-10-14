@@ -1,8 +1,11 @@
-"""Contracts of the agent / skill templates, checked on what each harness actually renders."""
+"""Contracts of the shipped templates: agents / skills as each harness renders them, plus the harness-specific files."""
 
 from __future__ import annotations
 
 import asyncio
+import importlib
+import json
+import pkgutil
 import re
 from importlib.resources import files
 from importlib.resources.abc import Traversable
@@ -13,9 +16,13 @@ import pytest
 import yaml
 from fastmcp import Client
 
+import evotrias.hooks.claude
+import evotrias.hooks.opencode
+from evotrias.enums_and_consts import MCP_SERVER_NAME
 from evotrias.harness.base import Harness
 from evotrias.harness.claude import ClaudeHarness
 from evotrias.harness.opencode import OpencodeHarness
+from evotrias.hooks import broker
 from evotrias.mcp import mcp, public_tools
 from evotrias.setup.render_template import render_tree
 
@@ -29,6 +36,10 @@ TEMPLATE_FILES = {
     "skills/evolve/SKILL.md.jinja",
     "skills/evotrias-task-exec/SKILL.md.jinja",
     "skills/evotrias-init-explore/SKILL.md",
+    "claude/settings.json",
+    "claude/mcp.json",
+    "opencode/opencode.json",
+    "opencode/plugins/evotrias-bridge.ts",
 }
 AGENT_NAMES = ("evotrias-init-explorer", "evotrias-meta-guidance-generator", "evotrias-task-executor")
 MASTER_SKILL = "skills/evolve/SKILL.md"
@@ -78,7 +89,9 @@ class Rendered(NamedTuple):
 def rendered(request, tmp_path_factory) -> Rendered:
     harness = request.param
     root = tmp_path_factory.mktemp(harness.name)
-    render_tree(TEMPLATES, root, harness.template_context())
+    # only the shared trees; claude/ and opencode/ hold harness-specific files
+    for tree in ("agents", "skills"):
+        render_tree(TEMPLATES / tree, root / tree, harness.template_context())
     return Rendered(harness, root)
 
 
@@ -270,3 +283,76 @@ def test_prose_tool_names_follow_harness(rendered):
 
     assert f"create that JSON file with the {tool['write']} tool, not {tool['bash']}." in task_skill
     assert f"the {tool['bash']} tool already reports the command exit code" in task_skill
+
+
+# ---- harness-specific files: claude/ and opencode/ ----
+
+
+def _json(rel: str) -> dict:
+    return json.loads((TEMPLATES / rel).read_text(encoding="utf-8"))
+
+
+@pytest.fixture
+def registered_events():
+    """Events each harness registers, from a freshly re-imported registry (other tests clear it)."""
+    saved = {key: list(entries) for key, entries in broker._handlers.items()}
+    broker._handlers.clear()
+    for package in (evotrias.hooks.claude, evotrias.hooks.opencode):
+        for info in pkgutil.iter_modules(package.__path__, f"{package.__name__}."):
+            importlib.reload(importlib.import_module(info.name))
+    events: dict[str, set[str]] = {}
+    for harness, event in broker._handlers:
+        events.setdefault(harness, set()).add(event)
+    yield events
+    broker._handlers.clear()
+    broker._handlers.update(saved)
+
+
+def test_claude_hooks_cover_registered_events(registered_events):
+    hooks = _json("claude/settings.json")["hooks"]
+    events = set()
+    for claude_event, entries in hooks.items():
+        event = re.sub(r"(?<!^)(?=[A-Z])", "_", claude_event).lower()
+        assert entries == [
+            {"matcher": "*", "hooks": [{"type": "command", "command": f"python -m evotrias.hooks claude {event}"}]}
+        ]
+        events.add(event)
+
+    assert events == registered_events["claude"]
+
+
+def test_opencode_bridge_forwards_registered_events(registered_events):
+    bridge = (TEMPLATES / "opencode/plugins/evotrias-bridge.ts").read_text(encoding="utf-8")
+
+    assert 'Bun.spawn(["python", "-m", "evotrias.hooks", "opencode", event]' in bridge
+    for event in registered_events["opencode"]:
+        assert f'"{event}"' in bridge
+
+
+def test_claude_allow_rules_match_templates():
+    allow = _json("claude/settings.json")["permissions"]["allow"]
+    skills = {child.name for child in (TEMPLATES / "skills").iterdir()}
+    agents = {child.name.removesuffix(".md.jinja") for child in (TEMPLATES / "agents").iterdir()}
+
+    assert sorted(allow) == sorted(
+        [f"Skill({name})" for name in skills] + [f"Agent({name})" for name in agents] + [ClaudeHarness().mcp("*")]
+    )
+
+
+def test_mcp_server_configs_launch_the_package_server():
+    claude_servers = _json("claude/mcp.json")["mcpServers"]
+    opencode_servers = _json("opencode/opencode.json")["mcp"]
+
+    assert claude_servers == {MCP_SERVER_NAME: {"command": "python", "args": ["-m", "evotrias.mcp"]}}
+    assert opencode_servers == {
+        MCP_SERVER_NAME: {"type": "local", "command": ["python", "-m", "evotrias.mcp"], "enabled": True}
+    }
+    assert _json("claude/settings.json")["enabledMcpjsonServers"] == [MCP_SERVER_NAME]
+
+
+def test_harness_files_have_no_repo_checkout_leftovers():
+    # uv / PYTHONPATH / hooks_entry assumed the workspace lived inside the repository
+    leftovers = re.compile(r"\buv\b|PYTHONPATH|hooks_entry")
+    for tree in ("claude", "opencode"):
+        for rel in _walk(TEMPLATES / tree, f"{tree}/"):
+            assert leftovers.findall((TEMPLATES / rel).read_text(encoding="utf-8")) == [], rel
