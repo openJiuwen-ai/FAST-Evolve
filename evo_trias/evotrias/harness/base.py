@@ -8,6 +8,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from typing import Any
 
+from evotrias.enums_and_consts import InstallMode
+
 _DETECT_TIMEOUT_S = 10
 
 
@@ -30,6 +32,10 @@ class Harness(ABC):
     default_args: dict[str, tuple[str, set[str]]] = {}
     # environment variables injected at launch
     env: dict[str, str] = {}
+    # workspace directory the shared skills go to; users drop their problem skills here too
+    skills_dir: str
+    # (source under templates/, destination in the workspace, how it is installed)
+    install_entries: list[tuple[str, str, InstallMode]]
 
     @abstractmethod
     def mcp(self, tool: str) -> str:

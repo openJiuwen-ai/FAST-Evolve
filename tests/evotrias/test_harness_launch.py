@@ -7,6 +7,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from evotrias.enums_and_consts import InstallMode
 from evotrias.harness import base
 from evotrias.harness.claude import ClaudeHarness
 from evotrias.harness.opencode import OpencodeHarness
@@ -124,3 +125,10 @@ def test_get_harness_by_name():
 def test_get_unknown_harness_lists_known_names():
     with pytest.raises(ValueError, match=r"unknown harness 'claud'; expected one of \['claude', 'opencode'\]"):
         get_harness("claud")
+
+
+def test_skills_dir_is_where_shared_skills_install():
+    assert ClaudeHarness().skills_dir == ".claude/skills"
+    assert OpencodeHarness().skills_dir == ".opencode/skills"
+    for harness in HARNESSES:
+        assert ("skills", harness.skills_dir, InstallMode.RENDER_JINJA) in harness.install_entries

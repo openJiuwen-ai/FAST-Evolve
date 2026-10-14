@@ -1,6 +1,7 @@
 """JSON / JSONL file primitives shared by every module that touches disk.
 
-Write conventions: ``indent=2, ensure_ascii=False, sort_keys=True`` plus a
+Write conventions: ``indent=2, ensure_ascii=False, sort_keys=True`` (callers
+merging into files they do not own pass ``sort_keys=False``) plus a
 trailing newline for JSON; one compact object per line for JSONL.  JSON is
 written to ``.{name}.{pid}.{tid}.tmp`` next to the target and moved into
 place with ``os.replace`` so readers never see a partial file.
@@ -60,11 +61,11 @@ def read_jsonl(path: Path) -> list[dict[str, Any]]:
     return rows
 
 
-def write_json_atomic(path: Path, data: dict[str, Any]) -> None:
+def write_json_atomic(path: Path, data: dict[str, Any], *, sort_keys: bool = True) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(f".{path.name}.{os.getpid()}.{threading.get_ident()}.tmp")
     tmp.write_text(
-        json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
+        json.dumps(data, ensure_ascii=False, indent=2, sort_keys=sort_keys) + "\n",
         encoding="utf-8",
     )
     os.replace(tmp, path)

@@ -8,7 +8,7 @@ from jinja2 import UndefinedError
 
 from evotrias.harness.claude import ClaudeHarness
 from evotrias.harness.opencode import OpencodeHarness
-from evotrias.setup.render_template import render_tree
+from evotrias.setup.install_modes import render_jinja
 
 HARNESSES = [ClaudeHarness(), OpencodeHarness()]
 TEMPLATE_TOOLS = ("skill", "read", "write", "edit", "glob", "grep", "bash", "webfetch")
@@ -18,7 +18,7 @@ def _render(harness, template: str, tmp_path) -> str:
     src, dst = tmp_path / "src", tmp_path / "dst"
     src.mkdir()
     (src / "t.md.jinja").write_bytes(template.encode("utf-8"))
-    render_tree(src, dst, harness.template_context())
+    render_jinja(src, dst, harness.template_context())
     return (dst / "t.md").read_text(encoding="utf-8")
 
 

@@ -36,3 +36,11 @@ class SearchState(Enum):
     EXPLORING = "exploring"
     WATCHING = "watching"
     STOPPED = "stopped"
+
+
+class InstallMode(Enum):
+    """How setup puts one template entry into the workspace (strategies in ``evotrias.setup.install_modes``)."""
+
+    RENDER_JINJA = "render_jinja"  # *.jinja rendered without the suffix, other files copied; overwrites
+    MERGE_JSON = "merge_json"  # merged into the workspace's existing JSON
+    OVERWRITE = "overwrite"  # copied byte for byte; overwrites

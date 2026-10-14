@@ -18,13 +18,13 @@ from fastmcp import Client
 
 import evotrias.hooks.claude
 import evotrias.hooks.opencode
-from evotrias.enums_and_consts import MCP_SERVER_NAME
+from evotrias.enums_and_consts import MCP_SERVER_NAME, InstallMode
 from evotrias.harness.base import Harness
 from evotrias.harness.claude import ClaudeHarness
 from evotrias.harness.opencode import OpencodeHarness
 from evotrias.hooks import broker
 from evotrias.mcp import mcp, public_tools
-from evotrias.setup.render_template import render_tree
+from evotrias.setup.install_modes import render_jinja
 
 TEMPLATES = files("evotrias") / "templates"
 HARNESSES = [ClaudeHarness(), OpencodeHarness()]
@@ -91,7 +91,7 @@ def rendered(request, tmp_path_factory) -> Rendered:
     root = tmp_path_factory.mktemp(harness.name)
     # only the shared trees; claude/ and opencode/ hold harness-specific files
     for tree in ("agents", "skills"):
-        render_tree(TEMPLATES / tree, root / tree, harness.template_context())
+        render_jinja(TEMPLATES / tree, root / tree, harness.template_context())
     return Rendered(harness, root)
 
 
@@ -356,3 +356,16 @@ def test_harness_files_have_no_repo_checkout_leftovers():
     for tree in ("claude", "opencode"):
         for rel in _walk(TEMPLATES / tree, f"{tree}/"):
             assert leftovers.findall((TEMPLATES / rel).read_text(encoding="utf-8")) == [], rel
+
+
+@pytest.mark.parametrize("harness", HARNESSES, ids=lambda h: h.name)
+def test_install_entries_cover_shared_and_own_templates(harness):
+    covered: set[str] = set()
+    for src, _dst, mode in harness.install_entries:
+        node = TEMPLATES / src
+        if mode == InstallMode.RENDER_JINJA:
+            assert node.is_dir(), src  # render_jinja walks a directory
+        covered |= _walk(node, f"{src}/") if node.is_dir() else {src}
+
+    own = {rel for rel in TEMPLATE_FILES if rel.split("/")[0] in ("agents", "skills", harness.name)}
+    assert covered == own
