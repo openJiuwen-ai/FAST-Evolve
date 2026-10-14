@@ -17,6 +17,8 @@ class OpencodeHarness(Harness):
         "webfetch": "webfetch",
     }
     background_arg = "background"
+    executable = "opencode"
+    env = {"OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS": "true"}
 
     def mcp(self, tool: str) -> str:
         return f"{MCP_SERVER_NAME}_{tool}"

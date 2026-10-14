@@ -17,6 +17,8 @@ class ClaudeHarness(Harness):
         "webfetch": "WebFetch",
     }
     background_arg = "run_in_background"
+    executable = "claude"
+    default_args = {"--permission-mode": ("auto", {"--permission-mode", "--dangerously-skip-permissions"})}
 
     def mcp(self, tool: str) -> str:
         return f"mcp__{MCP_SERVER_NAME}__{tool}"
