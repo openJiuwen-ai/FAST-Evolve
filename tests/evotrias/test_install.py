@@ -44,6 +44,11 @@ def _quiet(log, monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
 
 
+def _install(harness, workspace: Path) -> list[Path]:
+    """Run the install generator to the end; the files written by every step."""
+    return [path for _label, written in install(harness, workspace) for path in written]
+
+
 def _files(root: Path) -> set[str]:
     return {path.relative_to(root).as_posix() for path in root.rglob("*") if path.is_file()}
 
@@ -64,7 +69,7 @@ def _template_json(rel: str) -> dict:
 def test_install_into_empty_workspace(harness, tmp_path):
     workspace = tmp_path / "ws"
 
-    written = install(harness, workspace)
+    written = _install(harness, workspace)
 
     assert _files(workspace) == EXPECTED_FILES[harness.name]
     assert {path.relative_to(workspace).as_posix() for path in written} == EXPECTED_FILES[harness.name]
@@ -73,7 +78,7 @@ def test_install_into_empty_workspace(harness, tmp_path):
 
 @pytest.mark.parametrize("harness", HARNESSES, ids=lambda h: h.name)
 def test_agents_are_rendered_for_the_harness(harness, tmp_path):
-    install(harness, tmp_path)
+    _install(harness, tmp_path)
 
     agents_dir = next(dst for src, dst, _mode in harness.install_entries if src == "agents")
     text = (tmp_path / agents_dir / "evotrias-task-executor.md").read_text(encoding="utf-8")
@@ -82,14 +87,14 @@ def test_agents_are_rendered_for_the_harness(harness, tmp_path):
 
 
 def test_claude_config_files_equal_templates_in_empty_workspace(tmp_path):
-    install(ClaudeHarness(), tmp_path)
+    _install(ClaudeHarness(), tmp_path)
 
     assert _json(tmp_path / ".claude/settings.json") == _template_json("claude/settings.json")
     assert _json(tmp_path / ".mcp.json") == _template_json("claude/mcp.json")
 
 
 def test_opencode_files_equal_templates_in_empty_workspace(tmp_path):
-    install(OpencodeHarness(), tmp_path)
+    _install(OpencodeHarness(), tmp_path)
 
     assert _json(tmp_path / "opencode.json") == _template_json("opencode/opencode.json")
     bridge = (TEMPLATES / "opencode/plugins/evotrias-bridge.ts").read_bytes()
@@ -112,7 +117,7 @@ def test_claude_install_keeps_user_config(tmp_path):
     )
     (tmp_path / ".mcp.json").write_text(json.dumps({"mcpServers": {"github": {"command": "gh"}}}), encoding="utf-8")
 
-    install(ClaudeHarness(), tmp_path)
+    _install(ClaudeHarness(), tmp_path)
 
     settings = _json(tmp_path / ".claude/settings.json")
     template = _template_json("claude/settings.json")
@@ -130,7 +135,7 @@ def test_opencode_install_keeps_user_config_but_forces_permission(tmp_path):
         encoding="utf-8",
     )
 
-    install(OpencodeHarness(), tmp_path)
+    _install(OpencodeHarness(), tmp_path)
 
     config = _json(tmp_path / "opencode.json")
     assert config["model"] == "x/y"
@@ -146,7 +151,7 @@ def test_install_leaves_user_files_alone(harness, tmp_path):
     notes = tmp_path / "notes.txt"
     notes.write_text("keep\n", encoding="utf-8")
 
-    install(harness, tmp_path)
+    _install(harness, tmp_path)
 
     assert problem_skill.read_text(encoding="utf-8") == "mine\n"
     assert notes.read_text(encoding="utf-8") == "keep\n"
@@ -155,17 +160,17 @@ def test_install_leaves_user_files_alone(harness, tmp_path):
 def test_unusable_user_json_is_replaced(tmp_path):
     (tmp_path / ".mcp.json").write_text("{ // comments are not JSON\n}", encoding="utf-8")
 
-    install(ClaudeHarness(), tmp_path)
+    _install(ClaudeHarness(), tmp_path)
 
     assert _json(tmp_path / ".mcp.json") == _template_json("claude/mcp.json")
 
 
 @pytest.mark.parametrize("harness", HARNESSES, ids=lambda h: h.name)
 def test_install_twice_changes_nothing(harness, tmp_path):
-    install(harness, tmp_path)
+    _install(harness, tmp_path)
     before = _snapshot(tmp_path)
 
-    written = install(harness, tmp_path)
+    written = _install(harness, tmp_path)
 
     assert _snapshot(tmp_path) == before
     merged = {dst for _src, dst, mode in harness.install_entries if mode == InstallMode.MERGE_JSON}
@@ -173,11 +178,20 @@ def test_install_twice_changes_nothing(harness, tmp_path):
 
 
 def test_switching_harness_keeps_the_previous_one(tmp_path):
-    install(ClaudeHarness(), tmp_path)
+    _install(ClaudeHarness(), tmp_path)
     claude_files = {rel: data for rel, data in _snapshot(tmp_path).items() if not rel.startswith(".evotrias/")}
 
-    install(OpencodeHarness(), tmp_path)
+    _install(OpencodeHarness(), tmp_path)
 
     after = _snapshot(tmp_path)
     assert {rel: after[rel] for rel in claude_files} == claude_files
     assert after[".evotrias/active_harness"] == b"opencode\n"
+
+
+@pytest.mark.parametrize("harness", HARNESSES, ids=lambda h: h.name)
+def test_install_steps_one_entry_at_a_time(harness, tmp_path):
+    steps = install(harness, tmp_path)
+
+    assert list(tmp_path.iterdir()) == []  # lazy: nothing happens before iterating
+    labels = [label for label, _written in steps]
+    assert labels == [dst for _src, dst, _mode in harness.install_entries] + [".evotrias/active_harness"]

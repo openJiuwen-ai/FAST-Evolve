@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import signal
 import subprocess
+import sys
 from importlib.metadata import version
 from types import SimpleNamespace
 
@@ -13,6 +14,7 @@ from evotrias import cli
 from evotrias.db import paths
 from evotrias.harness.claude import ClaudeHarness
 from evotrias.harness.opencode import OpencodeHarness
+from evotrias.setup import tui
 
 
 @pytest.fixture(autouse=True)
@@ -70,7 +72,7 @@ def test_help_is_evotrias_own(launched, capsys):
     assert launched == []
 
 
-@pytest.mark.parametrize("args", [["foo"], ["setup"], ["setup", "claud"]], ids=["command", "missing", "harness"])
+@pytest.mark.parametrize("args", [["foo"], ["setup", "claud"]], ids=["command", "harness"])
 def test_bad_command_line_exits_2(launched, args):
     with pytest.raises(SystemExit) as exit_info:
         cli.main(args)
@@ -80,6 +82,23 @@ def test_bad_command_line_exits_2(launched, args):
 
 
 # ---- setup ----
+
+
+def test_setup_without_a_harness_runs_the_tui(monkeypatch, workspace, launched):
+    calls = []
+    monkeypatch.setattr(tui, "run_tui", lambda path: calls.append(path) or 5)
+
+    assert cli.main(["setup"]) == 5
+    assert calls == [workspace]
+    assert launched == []
+
+
+def test_cli_does_not_load_textual():
+    # the launcher and `setup <harness>` must not pay for the TUI's imports
+    code = "import sys, evotrias.cli; print('textual' in sys.modules)"
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
+
+    assert result.stdout.strip() == "False"
 
 
 def test_setup_installs_and_reports_the_version(monkeypatch, workspace, capsys):

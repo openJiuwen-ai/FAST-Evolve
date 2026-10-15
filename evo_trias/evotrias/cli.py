@@ -27,6 +27,10 @@ def main(argv: list[str] | None = None) -> int:
     if not args or (args[0].startswith("-") and args[0] not in _OWN_OPTIONS):
         return _launch(args)
     ns = _parser().parse_args(args)
+    if ns.harness is None:
+        from evotrias.setup.tui import run_tui  # textual is only loaded for the interactive setup
+
+        return run_tui(Path.cwd())
     return _setup(ns.harness)
 
 
@@ -38,8 +42,10 @@ def _parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--version", action="version", version=f"evotrias {version('evotrias')}")
     commands = parser.add_subparsers(dest="command", required=True)
-    setup = commands.add_parser("setup", help="set the current directory up as a workspace")
-    setup.add_argument("harness", choices=[harness.name for harness in HARNESSES])
+    setup = commands.add_parser(
+        "setup", help="set the current directory up as a workspace (interactive without a harness)"
+    )
+    setup.add_argument("harness", nargs="?", choices=[harness.name for harness in HARNESSES])
     return parser
 
 
@@ -59,7 +65,8 @@ def _setup(name: str) -> int:
             f"warning: this directory is already set up for {previous}; setting it up for {harness.name}.",
             file=sys.stderr,
         )
-    install(harness, Path.cwd())
+    for _destination, _written in install(harness, Path.cwd()):
+        pass
     print(f"Set up for {harness.name} ({found}).")
     print('Run "evotrias" to start.')
     return 0
