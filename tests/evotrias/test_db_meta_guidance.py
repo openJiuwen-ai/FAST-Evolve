@@ -54,8 +54,12 @@ def test_round_trip_rebuilds_every_nested_shape():
             constraints=["x"],
         )
         state.active_guidance.append(_guidance("mg_0001"))
-        state.tried_guidance.append(_guidance("mg_0000", status="exhausted", outcome="failed", outcomes=[{"fitness": None}]))
-        state.task_assignments["task_002"] = Assignment(task_id="task_002", guidance_id="mg_0001", anchor_parent_id="task_001")
+        state.tried_guidance.append(
+            _guidance("mg_0000", status="exhausted", outcome="failed", outcomes=[{"fitness": None}])
+        )
+        state.task_assignments["task_002"] = Assignment(
+            task_id="task_002", guidance_id="mg_0001", anchor_parent_id="task_001"
+        )
         state.next_guidance_index = 2
 
     reloaded = MetaGuidanceState(RUN_ID)

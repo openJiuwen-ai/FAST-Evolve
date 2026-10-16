@@ -6,7 +6,7 @@ from evotrias.db.agent_index import AgentInfo
 from evotrias.db.attempts import AttemptRecord, Attempts
 from evotrias.db.config import Config
 from evotrias.db.task_contexts import TaskContexts
-from evotrias.enums import Agents, Decisions, Tools
+from evotrias.enums_and_consts import Agents, Decisions, Tools
 from evotrias.permissions import evaluate_permission
 
 
@@ -229,9 +229,7 @@ def test_init_explorer_bash_and_read_are_not_write_scoped(configured_run):
 
 def test_init_explorer_write_scope_does_not_apply_to_task_executor(configured_run):
     # The rule is registered for INIT_EXPLORER only; the executor keeps its own scope.
-    decision, _ = evaluate_permission(
-        Tools.WRITE, _write("runs/run-X/tasks/task_001/direction.txt"), RUN, _task_info()
-    )
+    decision, _ = evaluate_permission(Tools.WRITE, _write("runs/run-X/tasks/task_001/direction.txt"), RUN, _task_info())
     assert decision != Decisions.ALLOW
 
 
@@ -277,9 +275,7 @@ def test_task_executor_denies_malformed_attempt_id(bad):
 
 
 def test_task_executor_denies_own_direction_txt():
-    decision, _ = evaluate_permission(
-        Tools.WRITE, _write("runs/run-X/tasks/task_001/direction.txt"), RUN, _task_info()
-    )
+    decision, _ = evaluate_permission(Tools.WRITE, _write("runs/run-X/tasks/task_001/direction.txt"), RUN, _task_info())
     assert decision == Decisions.DENY
 
 
@@ -629,3 +625,19 @@ def test_cross_run_rule_bypasses_bash_and_empty_paths():
     assert bash == Decisions.BYPASS
     assert glob == Decisions.BYPASS
     assert read == Decisions.BYPASS
+
+
+@pytest.mark.parametrize("subagent", [Agents.INIT_EXPLORER, Agents.TASK_EXECUTOR, Agents.META_GUIDANCE_GENERATOR])
+def test_main_may_dispatch_known_agents(subagent):
+    decision, _ = evaluate_permission(Tools.AGENT, {"subagent": subagent}, RUN, AgentInfo(Agents.MAIN))
+    assert decision == Decisions.ALLOW
+
+
+def test_main_dispatch_of_unknown_agent_bypasses():
+    decision, _ = evaluate_permission(Tools.AGENT, {"subagent": Agents.UNKNOWN}, RUN, AgentInfo(Agents.MAIN))
+    assert decision == Decisions.BYPASS
+
+
+def test_agent_dispatch_rule_not_registered_for_subagents():
+    decision, _ = evaluate_permission(Tools.AGENT, {"subagent": Agents.TASK_EXECUTOR}, RUN, _task_info())
+    assert decision == Decisions.BYPASS

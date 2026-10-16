@@ -232,8 +232,7 @@ runs/
 benchmarks/skills/cloudcast/profiles/
 benchmarks/skills/cloudcast/examples/
 benchmarks/skills/eplb/expert-load.json
-benchmarks/skills/llm_sql/datasets/
-uv.lock
+benchmarks/skills/llm-sql/datasets/
 
 .vscode/
 

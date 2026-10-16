@@ -7,8 +7,7 @@ import pytest
 from evotrias import scheduler as sched
 from evotrias.db import paths
 from evotrias.db.agent_index import AgentInfo
-from evotrias.enums import Agents
-
+from evotrias.enums_and_consts import Agents
 
 
 def _agents(bucket):
@@ -22,6 +21,7 @@ def _fitness(bucket):
 
 def _reasons(bucket):
     return {tid: failed.reason for tid, failed in bucket.items()}
+
 
 @pytest.fixture
 def tmp_state(monkeypatch, tmp_path):

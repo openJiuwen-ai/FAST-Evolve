@@ -1,0 +1,272 @@
+---
+name: evolve
+description: Triggered when the user asks to evolve, optimize, search, or iteratively improve something. Starts the self-evolution loop.
+---
+
+# Self-Evolution Master Skill
+
+You are now running the **self-evolution master skill**, the orchestrator. Your responsibilities are: initialize a run, maintain the task queue, react to MCP convergence/meta-evolve actions, delegate requested meta-guidance generation, stop replenishment only on hard budget/external stops, wait for already launched tasks to finish, and call Evolution Controller MCP to generate a deterministic run summary report.
+
+## Orchestrator Boundary Constraint
+
+The orchestrator only handles queue scheduling, compact MCP control-plane calls, and exact-template agent dispatches. It must not read task-content project files, invoke task-content skills, retrieve a pending meta-guidance request, generate guidance, inspect the current-best candidate or verifier/evaluator, or commit guidance. Initial exploration, task execution, and meta-guidance generation are executed by dedicated agents with separate conversation contexts but one shared main-repository working directory.
+
+### Dispatch Template Constraint (ALL subagent dispatches)
+
+The dispatch prompt MUST be produced by filling in the appropriate template below — **no other text is allowed**. Do not add, remove, or rearrange lines. Do not insert explanatory prose before, after, or between the parameter lines. Each `<placeholder>` is replaced with its actual value; everything else stays literal.
+
+**Template for evotrias-init-explorer dispatch:**
+```
+run_id: <run_id>
+task_description: <task_description>
+num_directions: <num_directions>
+```
+
+**Template for evotrias-task-executor dispatch:**
+```
+task_description: <task_description>
+max_attempts: <max_attempts>
+```
+
+**Template for evotrias-meta-guidance-generator dispatch:**
+```
+run_id: <run_id>
+request_id: <request_id>
+```
+
+These templates are **exclusive** — they define the exact and complete content of the dispatch prompt. Any deviation is a constraint violation, including but not limited to:
+
+- Adding workflow instructions ("first read X, then do Y")
+- Adding format specifications ("output as JSON with fields A, B, C")
+- Adding rationale or strategy guidance ("focus on diverse approaches")
+- Adding role descriptions ("You are the evotrias-init-explorer agent...")
+- Adding any prose, commentary, or context that is not a parameter line
+- Reordering lines or changing the key names
+
+### `task_description` Fidelity Constraint
+
+`task_description` must be identical to the user's original input submitted to the skill, character by character. Any form of rewriting, expansion, supplementation, interpretation, translation, or inference is prohibited — even if you believe your version is clearer, more complete, or easier for the subagent to understand.
+
+### `max_attempts` Dispatch Constraint
+
+`max_attempts` MUST be explicitly included in every evotrias-task-executor dispatch. It is **never** omitted or left to default. The first `LINEAGE_ROOT_NUMBER` evotrias-task-executor dispatches of the run are root tasks and use `max_attempts = 10`; all later dispatches use `max_attempts = 3`. This distinction is essential: root tasks explore from scratch and need more attempts, while later tasks build on parent/inspiration context and need fewer.
+
+## Architecture Roles
+
+| Component | Responsibility |
+|---|---|
+| This skill (orchestrator) | Initialize run, maintain task queue, route MCP `action`, dispatch meta-guidance requests by ID, finalization |
+| evotrias-meta-guidance-generator agent | Fetch one pending request, inspect generation evidence, generate and commit guidance, return a compact result |
+| evotrias-task-executor agent | Execute the full lifecycle of individual tasks |
+| Evolution Controller MCP | Parent/inspiration selection, attempt recording, scheduler-state persistence, convergence/meta-guidance state, run summary generation |
+
+---
+
+## Step 1: Confirm Run Parameters
+
+Before any run creation or MCP call, determine and confirm the three run parameters. They are independent knobs — never derive one from another:
+
+| Parameter | Meaning | Default |
+|---|---|---|
+| `LINEAGE_ROOT_NUMBER` | Number of initial exploration directions generated at initialization; equals the number of lineage root tasks the run establishes | 4 |
+| `MAX_CONCURRENT_TASKS` | Maximum number of evotrias-task-executors running in parallel | 4 |
+| `MAX_TOTAL_TASKS` | Hard budget: total number of tasks the run may create before stopping | 50 |
+
+1. Extract each value from the user's original request when stated:
+   - `MAX_TOTAL_TASKS`: an iteration/task count (e.g., "200 iterations", "200 tasks", "max 200", "run 200 rounds").
+   - `LINEAGE_ROOT_NUMBER`: an initial direction/lineage/root count (e.g., "6 initial directions", "6 lineages", "start from 6 roots").
+   - `MAX_CONCURRENT_TASKS`: a parallelism level (e.g., "8 in parallel", "concurrency 8", "8 workers at a time").
+2. For any value not stated, use its default from the table.
+3. Present all three to the user in one compact message — name, chosen value, whether it was extracted or defaulted, and a one-line meaning — and ask for confirmation or adjustments.
+4. Only after the user confirms, proceed to Step 2 with the confirmed values. These confirmed values are referenced by name throughout the rest of this skill.
+
+---
+
+## Step 2: Run Initialization
+
+1. Derive `task_slug` from the user's original input.
+   - When the input contains the word `benchmark`, use the nearest preceding ASCII snake-case identifier as the benchmark name. For example, use `minimizing_max_min_dist_3` for `run the minimizing_max_min_dist_3 benchmark end to end.`.
+   - For the compact `/evolve <identifier>` form, use that explicit identifier; for example, `/evolve circle_packing` uses `circle_packing`.
+   - Otherwise derive a concise descriptive label for the task target.
+   - Normalize the label to lowercase ASCII snake case using only `[a-z0-9_]`, trim leading/trailing underscores, and limit it to 64 characters. If normalization produces an empty label, use `task`.
+   - `task_slug` is only a run identifier component. It must not change the original input passed as `task_description`.
+2. Generate `run_id`: `<task_slug>_YYYYMMDDHHMMSS`.
+   - Use the current local start time with second-level precision. Use the {{ tool.bash }} tool to execute `date +%Y%m%d%H%M%S`.
+3. Register the confirmed parameters with the controller:
+   - Call `configure_run(run_id, max_total_tasks=<MAX_TOTAL_TASKS>, lineage_root_number=<LINEAGE_ROOT_NUMBER>, max_concurrent_tasks=<MAX_CONCURRENT_TASKS>, task_description=<original user input>)` BEFORE any other controller MCP call for this run. The controller records all three values; they are locked for the rest of the run.
+   - Store `dashboard.url` from the response when available. Print exactly one high-visibility startup banner, with a blank line before and after it:
+
+     ```text
+     ┌─ 🦖 EvoTrias UI
+     └─ 🖥️  <dashboard.url>
+     ```
+
+     Do not emit raw ANSI color codes because renderer support varies. The banner is printed only once, so its visibility does not create recurring context cost. If the dashboard did not start, print one short warning and continue; UI availability is never a reason to stop evolution.
+4. Create the run workspace directory and persistent state files. **All `runs/` paths are relative to the project root (cwd), not to the skill's base directory.** Use {{ tool.bash }} to execute:
+
+   ```bash
+   mkdir -p "runs/<run_id>"
+   ```
+
+---
+
+## Step 3: Generate Initial Exploration Directions
+
+Invoke the `evotrias-init-explorer` agent using the **evotrias-init-explorer dispatch template** (see Dispatch Template Constraint in Orchestrator Boundary Constraint section). Fill in:
+- `run_id`: the current run_id
+- `task_description`: the user's original input verbatim
+- `num_directions`: `LINEAGE_ROOT_NUMBER`
+
+Wait for `evotrias-init-explorer` to complete before proceeding to Step 4.
+
+---
+
+## Step 4: Task Queue Scheduling
+
+The MCP owns all batch sizing: `check_convergence` tells you how many tasks to create via `tasks_to_create`, and you dispatch exactly that many — never more, never fewer, never inferred. Any returned value, including 0, is a normal scheduling decision; on 0 dispatch nothing and keep looping.
+
+Task completion data is persisted by the controller as subagents record their attempts; notifications merely prompt the orchestrator to call `check_convergence` again.
+
+### Data Flow
+
+All `runs/` paths below are relative to the project root (cwd).
+
+```
+runs/<run_id>/
+```
+
+### Scheduling Pseudocode
+
+```text
+first_batch = true
+just_after_meta = false
+dispatched_total = 0   // evotrias-task-executor dispatches so far; the first LINEAGE_ROOT_NUMBER dispatches are root tasks
+
+WHILE true:
+  // Wait-gate: every check_convergence call (except the first and the one
+  // right after a meta-guidance commit) must be preceded by at least one
+  // evotrias-task-executor finishing. Without this gate the loop would hammer the
+  // MCP in a tight cycle. The two exceptions: first_batch and just_after_meta.
+  IF not first_batch and not just_after_meta:
+    wait for at least one evotrias-task-executor to finish
+  just_after_meta = false
+
+  // The first check_convergence call is mandatory: on first_batch the
+  // wait-gate is skipped, but the call itself must NOT be. Every batch's
+  // task count comes only from c.tasks_to_create — never inferred or
+  // hardcoded. tasks_to_create == 0 with action "continue" is normal —
+  // dispatch nothing and keep looping.
+  c = check_convergence(run_id, concurrency=MAX_CONCURRENT_TASKS)
+
+  IF c.action == "budget_exhausted":
+    BREAK WHILE LOOP
+
+  IF c.action == "request_meta_guidance":
+    request_id = c.request_id
+    Dispatch to evotrias-meta-guidance-generator with `{{ background_arg }}: false` using the evotrias-meta-guidance-generator dispatch template (fill: run_id, request_id)
+    Wait for the evotrias-meta-guidance-generator compact result.
+
+    just_after_meta = true
+    CONTINUE   // re-check convergence; the second check sees active guidance and goes to continue
+
+  // action == "continue"
+  // The first LINEAGE_ROOT_NUMBER dispatches are root tasks and get 10
+  // attempts; later dispatches get 3. Count dispatches — do not key off
+  // first_batch.
+  max_attempts = 10 if dispatched_total < LINEAGE_ROOT_NUMBER else 3
+  REPEAT c.tasks_to_create TIMES:
+    Dispatch to evotrias-task-executor with `{{ background_arg }}: true` using the evotrias-task-executor dispatch template (fill: task_description, max_attempts=max_attempts).
+    dispatched_total += 1
+  END REPEAT
+  first_batch = false
+
+  // Compact terminal visibility
+  Emit at most one compact progress line, and only when:
+    - completed task count reaches a multiple of 5, OR
+    - a new global best appears, OR
+    - meta-guidance is requested/committed, OR
+    - the run enters stopping/finalization
+  Do not emit repeated waiting messages when no persisted state changed
+
+END WHILE
+
+// After the while loop exits (action == budget_exhausted), wait for any still-running evotrias-task-executors to finish, finally do finalization (see Step 5).
+```
+
+### Compact Terminal Progress
+
+The dashboard is the detailed observability surface. Never print the Unicode progress table, completed artifact paths, Notes content, meta-guidance content, task-by-task history, or the full running-task list in the main terminal.
+
+When one of the throttled visibility conditions in the pseudocode is met, print exactly one line in this shape:
+
+```text
+Progress <completed>/<MAX_TOTAL_TASKS> · best <best_fitness_or_—> · <running_count> active · 🖥️ UI → <dashboard.url>
+```
+
+This line is a heartbeat, not a report. Do not print it more than once for the same completed count unless the run state changed (for example meta-guidance was committed or stopping began). While merely waiting for subagents, print nothing unless there has been no user-visible output for at least 60 seconds; in that case print only `Evolution is active · <running_count> agents · 🖥️ UI → <dashboard.url>`.
+
+Fitness is always maximized. `best_fitness` MUST be `convergence.diagnostics.current_best_fitness` from the latest `check_convergence` result (`—` while it is null). Do not infer direction from raw benchmark metrics such as loss, c3, runtime, or distance.
+
+### Critical Constraints
+
+1. Once `action == "budget_exhausted"`, stop launching new tasks.
+2. If tasks are still running, wait for all of them to complete before ending the run.
+3. After all launched tasks have completed, you must call `finalize_run(run_id)` exactly as the finalization step.
+4. `finalize_run` returns report refs. Do not paste the full report into the conversation context.
+5. Never call `check_convergence` in a tight loop — the wait-gate ensures each call (except the first and the one right after a meta commit) is preceded by at least one evotrias-task-executor finishing.
+6. The **first `check_convergence` call is mandatory and must not be skipped** — even though the wait-gate is bypassed on `first_batch`. The first batch's `tasks_to_create` comes only from this call; never infer it or hardcode it.
+7. `check_convergence` returns `tasks_to_create` on `continue`; spawn exactly that many. `tasks_to_create == 0` is a normal scheduling decision — dispatch nothing, do not treat it as a stop signal, and keep looping.
+8. Success and failure both count as task completion. Both should trigger a `check_convergence` call. Do not stop replenishment on failure.
+9. Every evotrias-task-executor dispatch MUST set `{{ background_arg }}: true` and include `max_attempts` (10 for the first `LINEAGE_ROOT_NUMBER` dispatches — the root tasks — and 3 thereafter).
+10. Plateau, WATCHING, `request_meta_guidance`, and failed meta-guidance generation are NOT stop signals.
+11. The orchestrator must never retrieve the pending meta-guidance payload, read its artifact/evaluator evidence, generate the guidance JSON, or commit it. It passes only `run_id` and `request_id` to `evotrias-meta-guidance-generator`.
+12. Never print or repeat the meta worker's request payload or guidance. Its compact result is the only worker content allowed in orchestrator context.
+
+### Meta-Guidance Worker Dispatch
+
+When `check_convergence` returns `action == "request_meta_guidance"`, invoke `evotrias-meta-guidance-generator` with the exact dispatch template (fill: `run_id`, `request_id` from `c.request_id`). Pass only the two identifiers; the worker retrieves the persisted request and commits its own output. Wait in the foreground so a successful commit becomes active before the re-check.
+
+The worker returns only its compact result contract. After it returns, set `just_after_meta = true` and loop back to `check_convergence`.
+
+---
+
+## Step 5: Run Finalization
+
+### 5.1 Final Compact Progress Update
+
+After the scheduling loop exits (`action == "budget_exhausted"`) and all still-running evotrias-task-executors have finished, emit one final compact progress line using the format below, taking `best_fitness` from the latest `check_convergence` diagnostics. Do not print a table or artifact paths.
+
+### 5.2 Final Convergence Check & Finalize
+
+```text
+finalize_result = finalize_run(run_id)
+```
+
+### 5.3 Report
+
+On normal stop, report only:
+
+```text
+Run finalized.
+report_ref: <finalize_result.report_ref>
+summary_ref: <finalize_result.summary_ref>
+```
+
+Do not write a long run summary yourself. The deterministic report is written by MCP to:
+
+```text
+runs/<run_id>/run_summary.md
+runs/<run_id>/run_summary.json
+```
+
+---
+
+## Error Handling
+
+| Situation | Action |
+|---|---|
+| MCP tool returns error | Retry once; if persistent, stop launching new tasks, wait for already launched tasks to complete, then call `finalize_run(run_id, stop_reason="mcp_error")` |
+| evotrias-task-executor fails | Still call `check_convergence`; MCP decides whether to stop or continue from recorded attempts |
+| evotrias-meta-guidance-generator returns `not_committed`, fails to return its compact result, or fails generation | Keep the MCP request pending, continue replenishment, and allow one later completion event to retry it |
+| evotrias-meta-guidance-generator returns `mcp_error` after its own retry and the authoritative post-check does not confirm a commit | Apply the persistent MCP error rule above |
+| User interrupts | Stop launching new tasks; if possible, wait for launched tasks to complete; then call `finalize_run(run_id, stop_reason="user_interrupted")` |

@@ -7,7 +7,7 @@ import pytest
 from evotrias.db.attempts import AttemptRecord, Attempts
 from evotrias.db.config import PlateauConfig
 from evotrias.db.run_state import RunState
-from evotrias.enums import SearchState
+from evotrias.enums_and_consts import SearchState
 from evotrias.evolve_ctrl.convergence_detector import FitnessPlateauDetector
 from evotrias.evolve_ctrl.lineage_tree import LineageTree
 from evotrias.evolve_ctrl.success_pool import SuccessPool
@@ -46,9 +46,7 @@ def _seed_successes(fitnesses):
 
 
 def _detector(window=2, patience=2, threshold=0.0):
-    return FitnessPlateauDetector(
-        PlateauConfig(window=window, improvement_threshold=threshold, patience=patience)
-    )
+    return FitnessPlateauDetector(PlateauConfig(window=window, improvement_threshold=threshold, patience=patience))
 
 
 def test_too_few_successes_stays_exploring():

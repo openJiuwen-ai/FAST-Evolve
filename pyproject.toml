@@ -1,47 +1,40 @@
-[build-system]
-requires = ["setuptools>=77"]
-build-backend = "setuptools.build_meta"
-
-[project]
-name = "evotrias"
-version = "0.1.0"
-description = "Agent Self-Evolution System for Optimization Benchmarks"
-readme = "README.md"
-requires-python = ">=3.10"
-license = "Apache-2.0"
-dependencies = [
-    "fastmcp>=3.3.0",
-]
+[tool.uv.workspace]
+members = ["evo_trias"]
 
 [dependency-groups]
 dev = [
     "pytest>=7.0.0",
     "pyyaml>=6.0",
     "black>=22.0.0",
-    "isort>=5.10.0",
+    "ruff>=0.17.0",
     "pyright>=1.1",
 ]
 
 [tool.black]
 line-length = 120
-target-version = ['py310']
-include = '\.pyi?$'
+target-version = ['py311']
+include = '^/(evo_trias|tests)/.*\.pyi?$'
+force-exclude = '^/(benchmarks|test_problem)/'
 
-[tool.isort]
-profile = "black"
-line_length = 120
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+include = ["evo_trias/**/*.py", "tests/**/*.py"]
+extend-exclude = ["benchmarks", "test_problem"]
+force-exclude = true
+
+[tool.ruff.lint]
+select = ["F", "I", "UP"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["evotrias"]
 
 [tool.pyright]
-include = ["evotrias"]
-pythonVersion = "3.10"
+include = ["evo_trias/evotrias"]
+extraPaths = ["evo_trias"]
+pythonVersion = "3.11"
 typeCheckingMode = "standard"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--strict-markers"
-
-[tool.setuptools.packages.find]
-include = ["evotrias*"]
-
-[tool.setuptools.package-data]
-"evotrias.dashboard" = ["static/**"]
+addopts = "--strict-markers --import-mode=importlib"

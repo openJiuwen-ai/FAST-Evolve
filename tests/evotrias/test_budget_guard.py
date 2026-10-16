@@ -21,8 +21,12 @@ def test_task_budget_reached():
 
 
 def test_time_budget_needs_both_limit_and_elapsed():
-    assert _guard(max_total_tasks=10, max_time_seconds=None).exhaustion_reason(total_tasks=1, elapsed_seconds=999.0) == ""
-    assert _guard(max_total_tasks=10, max_time_seconds=60.0).exhaustion_reason(total_tasks=1, elapsed_seconds=None) == ""
+    assert (
+        _guard(max_total_tasks=10, max_time_seconds=None).exhaustion_reason(total_tasks=1, elapsed_seconds=999.0) == ""
+    )
+    assert (
+        _guard(max_total_tasks=10, max_time_seconds=60.0).exhaustion_reason(total_tasks=1, elapsed_seconds=None) == ""
+    )
     reason = _guard(max_total_tasks=10, max_time_seconds=60.0).exhaustion_reason(total_tasks=1, elapsed_seconds=60.0)
     assert "60" in reason and "Time budget" in reason
 

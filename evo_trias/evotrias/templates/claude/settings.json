@@ -1,0 +1,40 @@
+{
+  "enabledMcpjsonServers": ["evotrias"],
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [{ "type": "command", "command": "python -m evotrias.hooks claude pre_tool_use" }]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [{ "type": "command", "command": "python -m evotrias.hooks claude post_tool_use" }]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "*",
+        "hooks": [{ "type": "command", "command": "python -m evotrias.hooks claude subagent_start" }]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "*",
+        "hooks": [{ "type": "command", "command": "python -m evotrias.hooks claude subagent_stop" }]
+      }
+    ]
+  },
+  "permissions": {
+    "allow": [
+      "Skill(evolve)",
+      "Skill(evotrias-task-exec)",
+      "Skill(evotrias-init-explore)",
+      "Agent(evotrias-init-explorer)",
+      "Agent(evotrias-task-executor)",
+      "Agent(evotrias-meta-guidance-generator)",
+      "mcp__evotrias__*"
+    ]
+  }
+}

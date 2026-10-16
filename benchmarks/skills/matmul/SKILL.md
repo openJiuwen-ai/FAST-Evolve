@@ -1,7 +1,6 @@
 ---
 name: matmul
 description: Use when user wants to solve matmul problems, or execute matmul tasks.
-argument-hint: [run_id] [task_id] [artifact_ref]
 ---
 
 # Matrix Multiplication Tensor Decomposition (n=2, m=4, p=5)
@@ -12,10 +11,12 @@ You are an expert in computational linear algebra, numerical optimization, and A
 
 ## Evaluator
 
+In the commands below, `<skill_dir>` is the directory containing this SKILL.md.
+
 **IMPORTANT**: To evaluate a program, run the evaluator script directly:
 
 ```bash
-uv run python benchmarks/skills/matmul/scripts/evaluator.py --run-id <run_id> --task-id <task_id> --artifact-ref <artifact_ref> --out runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/eval_result.json
+python <skill_dir>/scripts/evaluator.py --run-id <run_id> --task-id <task_id> --artifact-ref <artifact_ref> --out runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/eval_result.json
 ```
 
 For the self-evolution workflow, evaluator success means the candidate is valid
@@ -26,7 +27,7 @@ keep editing and rerunning the same attempt just because the fitness could be
 higher.
 
 Do not run extra shell commands to probe the Python environment. The verifier
-command above is the only execution command needed by task-executor.
+command above is the only execution command needed by evotrias-task-executor.
 
 ## Problem Context
 

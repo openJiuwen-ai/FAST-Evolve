@@ -28,7 +28,9 @@ def _note(note_id: str, note_type: str = "positive", **overrides) -> Note:
         lesson="l",
         actionable_guidance="g",
         evidence_summary="e",
-        source=NoteSource(run_id=RUN_ID, task_id="task_001", attempt_id="attempt_001", parent_success_record_id="task_000"),
+        source=NoteSource(
+            run_id=RUN_ID, task_id="task_001", attempt_id="attempt_001", parent_success_record_id="task_000"
+        ),
         trigger=NoteTrigger(kind="material_improvement", relative_delta=0.1, child_fitness=1.1, parent_fitness=1.0),
         refs=NoteRefs(child_artifact_ref="c.py", parent_artifact_ref="p.py"),
     )
@@ -74,7 +76,11 @@ def test_note_requests_get_returns_last_match():
 
 def test_notes_events_append_and_iterate():
     events = NotesEvents(RUN_ID)
-    events.append(NotesEvent(event_type="note_request_skipped", run_id=RUN_ID, payload={"reason": "warmup", "task_id": "task_001"}))
+    events.append(
+        NotesEvent(
+            event_type="note_request_skipped", run_id=RUN_ID, payload={"reason": "warmup", "task_id": "task_001"}
+        )
+    )
     events.append(NotesEvent(event_type="note_committed", run_id=RUN_ID, payload={"note_id": "n1"}))
     got = list(events)
     assert [e.event_type for e in got] == ["note_request_skipped", "note_committed"]

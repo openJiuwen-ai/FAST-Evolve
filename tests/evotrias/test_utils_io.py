@@ -54,6 +54,13 @@ def test_write_json_atomic_on_disk_format(tmp_path, log):
     assert path.read_text(encoding="utf-8") == expected
 
 
+def test_write_json_atomic_can_keep_key_order(tmp_path, log):
+    path = tmp_path / "settings.json"
+    io.write_json_atomic(path, {"z": 1, "a": {"y": 2, "x": 1}}, sort_keys=False)
+    assert path.read_text(encoding="utf-8").index('"z"') < path.read_text(encoding="utf-8").index('"a"')
+    assert list(json.loads(path.read_text(encoding="utf-8"))["a"]) == ["y", "x"]
+
+
 def test_read_json_missing_file_returns_default_silently(tmp_path, log):
     default = {"fresh": True}
     assert io.read_json(tmp_path / "absent.json", default) is default

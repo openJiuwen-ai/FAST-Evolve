@@ -1,7 +1,6 @@
 ---
 name: prism
 description: Use when the user wants to solve or evolve the Prism GPU model-placement benchmark.
-argument-hint: [run_id] [task_id] [artifact_ref]
 ---
 
 # Prism GPU Model Placement
@@ -19,10 +18,12 @@ main_artifact_name = solution.py
 artifact_ref = runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/solution.py
 ```
 
+In the commands below, `<skill_dir>` is the directory containing this SKILL.md.
+
 Run only:
 
 ```bash
-uv run python benchmarks/skills/prism/scripts/evaluator.py --run-id <run_id> --task-id <task_id> --artifact-ref <artifact_ref> --out runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/eval_result.json
+python <skill_dir>/scripts/evaluator.py --run-id <run_id> --task-id <task_id> --artifact-ref <artifact_ref> --out runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/eval_result.json
 ```
 
 The evaluator validates model identity, placement completeness, and GPU memory

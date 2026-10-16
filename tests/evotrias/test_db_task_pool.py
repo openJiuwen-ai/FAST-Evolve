@@ -10,7 +10,7 @@ from evotrias.db import paths
 from evotrias.db.agent_index import AgentIndex, AgentInfo
 from evotrias.db.session_map import SessionMap
 from evotrias.db.task_pool import TaskAssigned, TaskCompleted, TaskFailed, TaskPool
-from evotrias.enums import Agents
+from evotrias.enums_and_consts import Agents
 
 RUN_ID = "pool_store_test"
 
@@ -23,7 +23,14 @@ def cwd(monkeypatch, tmp_path):
 
 def test_task_pool_empty_and_next_task_id_persists_only_inside_with():
     pool = TaskPool(RUN_ID)
-    assert (pool.created, pool.pending, pool.queued, pool.running, pool.completed, pool.failed) == ([], [], {}, {}, {}, {})
+    assert (pool.created, pool.pending, pool.queued, pool.running, pool.completed, pool.failed) == (
+        [],
+        [],
+        {},
+        {},
+        {},
+        {},
+    )
     assert pool.next_seq == 1
     assert pool.next_task_id() == "task_001"
     assert not (paths.run_dir(RUN_ID) / paths.TASK_POOL).exists()
@@ -35,7 +42,13 @@ def test_task_pool_empty_and_next_task_id_persists_only_inside_with():
     assert reloaded.next_seq == 3
     assert reloaded.created == ["task_001", "task_002"]
     assert set(json.loads((paths.run_dir(RUN_ID) / paths.TASK_POOL).read_text(encoding="utf-8"))) >= {
-        "created", "pending", "queued", "running", "completed", "failed", "next_seq"
+        "created",
+        "pending",
+        "queued",
+        "running",
+        "completed",
+        "failed",
+        "next_seq",
     }
 
 

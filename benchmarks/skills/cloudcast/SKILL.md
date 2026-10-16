@@ -1,7 +1,6 @@
 ---
 name: cloudcast
 description: Use when the user wants to solve or evolve the Cloudcast multi-cloud broadcast routing benchmark.
-argument-hint: [run_id] [task_id] [artifact_ref]
 ---
 
 # Cloudcast Multi-Cloud Broadcast Optimization
@@ -20,10 +19,12 @@ main_artifact_name = solution.py
 artifact_ref = runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/solution.py
 ```
 
+In the commands below, `<skill_dir>` is the directory containing this SKILL.md.
+
 Run only the benchmark evaluator command:
 
 ```bash
-uv run python benchmarks/skills/cloudcast/scripts/evaluator.py --run-id <run_id> --task-id <task_id> --artifact-ref <artifact_ref> --out runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/eval_result.json
+python <skill_dir>/scripts/evaluator.py --run-id <run_id> --task-id <task_id> --artifact-ref <artifact_ref> --out runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/eval_result.json
 ```
 
 The evaluator writes the normalized result with `status`, `artifact_ref`,
@@ -70,7 +71,7 @@ The following source-controlled-by-download files are required under this skill:
 Download them once with:
 
 ```bash
-uv run python benchmarks/skills/cloudcast/scripts/download_data.py
+python <skill_dir>/scripts/download_data.py
 ```
 
 The evaluator uses only the benchmark data and the candidate artifact.
