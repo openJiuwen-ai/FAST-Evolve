@@ -6,18 +6,17 @@
 
 </div>
 
-EvoTrias 将编码智能体、基准评估器和持久化搜索状态组织在同一个进化循环中。
+EvoTrias 将编码智能体、任务评估器和持久化搜索状态组织在同一个进化循环中。
 只需提供优化任务与验证器，它就能并行探索多种方向、评估候选方案、保留有效发现，
 并基于当前最优结果持续搜索。
 
 ## 核心能力
 
 - **并行探索**：从彼此不同的初始方向出发，以滚动任务队列持续生成候选方案。
-- **验证器驱动**：候选方案的适应度由各基准自带的评估器决定，任务评分逻辑与控制器解耦。
+- **验证器驱动**：候选方案的适应度由各任务自带的评估器决定，任务评分逻辑与控制器解耦。
 - **持久化搜索经验**：记录成功候选、谱系、尝试历史和本轮 Notes，供后续任务复用。
 - **策略自适应**：检测搜索停滞，并可生成有使用上限的元指导，以改进或替换当前策略。
 - **实时可观测**：只读仪表盘集中展示适应度、谱系、活跃任务、近期活动、Notes 和元指导。
-- **可扩展基准**：内置数学、系统和算法类基准技能，同时由每个基准独立维护评估契约。
 
 ## 工作原理
 
@@ -27,12 +26,12 @@ EvoTrias 将编码智能体、基准评估器和持久化搜索状态组织在�
        ↓
 Evolution Controller MCP
   ├─ 管理选择、谱系、Notes、收敛状态和元指导状态
-  └─ 向无状态的 meta-guidance-generator 智能体提供 pending request
+  └─ 向无状态的 evotrias-meta-guidance-generator 智能体提供 pending request
        ↓
-任务执行智能体
-  └─ 生成候选方案并调用基准验证器
+evotrias-task-executor 智能体
+  └─ 生成候选方案并调用任务评估器
        ↓
-基准评估器
+任务评估器
   └─ 向控制器返回归一化适应度与产物
 ```
 
@@ -44,73 +43,43 @@ Evolution Controller MCP
 ### 环境要求
 
 - Python 3.11+
-- [uv](https://docs.astral.sh/uv/)
-- 使用内置插件工作流时需要
-  [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) 或
+  [opencode](https://opencode.ai)
 
 ### 安装
 
 在仓库根目录运行：
 
-```powershell
-uv sync
-uv run python benchmarks/install.py --all
+```bash
+pip install ./evo_trias
 ```
 
-基准安装脚本会将内置基准技能及其评估命令注册到
-`.claude/settings.local.json`。
-
-### Benchmark依赖
-
-Benchmark是插件，其 Python 依赖不属于包本身。运行基准前，请先安装对应分组的
-依赖集：
-
-```powershell
-uv pip install -r benchmarks/requirements/math.txt   # 数学类
-uv pip install -r benchmarks/requirements/adrs.txt   # ADRS
-uv pip install -r benchmarks/requirements/gpu.txt    # GPU算子
-```
-
-`frontier_cs_algo` 不需要额外依赖。注意：`uv sync` 会移除项目未声明的包，
-因此每次 sync 之后需要重新执行对应的 `uv pip install` 命令（后续计划将
-安装动作集成进 `benchmarks/install.py`）。
-
-在同一个终端会话中，将仓库根目录加入 `PYTHONPATH`：
-
-```powershell
-# PowerShell
-$env:PYTHONPATH = "$(Get-Location);$env:PYTHONPATH"
-```
+### 配置工作区
 
 ```bash
-# Linux (bash)
-export PYTHONPATH=`pwd`:$PYTHONPATH
+mkdir my-workspace
+cd my-workspace
+evotrias setup
 ```
 
-### 运行基准
+选择一个 harness，setup 会把 EvoTrias 的智能体、技能和 harness 配置装进工作区。
+再次运行 `evotrias setup` 可以为同一工作区再配置另一个 harness。
 
-先进入项目虚拟环境：
+### 添加待进化的任务
 
-```powershell
-# PowerShell
-.\.venv\Scripts\Activate.ps1
-```
+把待进化的任务写成一个技能：在它的 `SKILL.md` 中描述任务本身、候选解如何生成、
+候选解如何评测。然后把这个技能目录拷进工作区的技能目录（setup 会提示位置）。
+
+### 运行
 
 ```bash
-# Linux (bash)
-source .venv/bin/activate
+evotrias
 ```
 
-然后加载 EvoTrias 工作流与基准插件并启动 Claude Code：
-
-```powershell
-claude --plugin-dir evotrias_plugin --plugin-dir benchmarks
-```
-
-然后提交进化任务：
+它会启动最后一次 setup 的 harness。然后提交进化任务，点名要进化的任务技能：
 
 ```text
-/evotrias_plugin:evolve run the circle_packing benchmark end to end.
+/evolve evolve <task skill name>
 ```
 
 EvoTrias 会在 `runs/` 下创建具名运行，启动仪表盘，探索多个初始方向，并持续调度
@@ -119,11 +88,9 @@ EvoTrias 会在 `runs/` 下创建具名运行，启动仪表盘，探索多个�
 ## 仓库结构
 
 ```text
-evotrias/               核心包：db（状态）、evolve_ctrl（进化控制）、dashboard、mcp（服务入口）、hooks、scheduler
-evotrias_plugin/        工作流技能与任务执行智能体
-benchmarks/             基准技能、评估器与参考资料
-docs/                   集成指南
-tests/                  测试用例
+evotrias/               核心包：db（状态）、evolve_ctrl（进化控制）、scheduler、permissions、mcp（服务入口）、hooks、dashboard、setup、cli
+evotrias/templates/     由 "evotrias setup" 安装的智能体、技能与 harness 配置
+docs/                   MCP 接口文档
 ```
 
 控制器 MCP 的工具契约见 [docs/mcp_interface_CN.md](mcp_interface_CN.md)。
@@ -182,8 +149,8 @@ EvoTrias 将 agent 工作区与控制器内部状态分开保存，两者都相�
 
 ```text
 runs/<run_id>/                                        agent 工作区
-  tasks/<task_id>/direction.txt                       由 init-explorer 写入
-  tasks/<task_id>/attempts/<attempt_id>/solution.py   由 task-executor 写入（或 solution.cpp）
+  tasks/<task_id>/direction.txt                       由 evotrias-init-explorer 写入
+  tasks/<task_id>/attempts/<attempt_id>/solution.py   由 evotrias-task-executor 写入（或 solution.cpp）
   tasks/<task_id>/attempts/<attempt_id>/eval_result.json
   run_summary.md                                      由 finalize_run 写入
   run_summary.json
@@ -199,12 +166,4 @@ runs/<run_id>/                                        agent 工作区
 
 每个 run 的状态文件清单见 [docs/mcp_interface_CN.md](mcp_interface_CN.md) 第 3 节。
 这两个位置都属于本地运行状态，并已被 Git 忽略。需要分享结果时，应使用最终总结或
-经过整理的基准报告，而不是提交完整运行目录。
-
-## 开发与测试
-
-```powershell
-.\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\pyright
-.\.venv\Scripts\python.exe -m compileall evotrias evotrias_plugin benchmarks
-```
+经过整理的报告，而不是提交完整运行目录。

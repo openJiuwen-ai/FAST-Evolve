@@ -2,7 +2,7 @@
 
 [English](mcp_interface.md) | **中文**
 
-本文是 `evotrias.mcp`（Evolution Controller MCP）的公开工具契约。核心目标是减少 agent 上下文占用：能由 MCP 从本地状态恢复的信息，不让主 agent 或 task-executor 反复转述。
+本文是 `evotrias.mcp`（Evolution Controller MCP）的公开工具契约。核心目标是减少 agent 上下文占用：能由 MCP 从本地状态恢复的信息，不让主 agent 或 evotrias-task-executor 反复转述。
 
 `evotrias.mcp` 是薄入口。`evotrias/mcp/public_tools.py` 声明面向 agent 的契约（工具名、参数、默认值、docstring），把每次调用转发给 `evotrias.evolve_ctrl.controller`；算法在那里运行，run 状态经 `evotrias.db` 读写。本文描述契约，`controller.py` 是实现。
 
@@ -141,7 +141,7 @@ get_meta_guidance_prompt(run_id: str, task_id: str)
 - 必须在 `select_parent` 之后调用。
 - 如果该 task 被分配了 active guidance，MCP 返回 ready-to-inject meta-guidance prompt。
 - 如果没有 active guidance，返回 `available: false`。
-- task-executor 应把该 prompt 作为 required strategy 使用；如果它和 parent/inspiration 的常规方向冲突，以 meta-guidance 为更高优先级，但不能违反任务要求和 verifier 输出契约。
+- evotrias-task-executor 应把该 prompt 作为 required strategy 使用；如果它和 parent/inspiration 的常规方向冲突，以 meta-guidance 为更高优先级，但不能违反任务要求和 verifier 输出契约。
 
 ### `record_attempt`
 
@@ -165,7 +165,7 @@ MCP 内部步骤：
 3. 追加写 `attempts.jsonl`。记录粒度是 attempt 而非 task，因为 Notes 需要失败 attempt 作证据；同一 task/attempt 重复调用幂等。
 4. `status == "success"` 且顶层 `fitness` 为数值时，标记该 attempt `in_success_pool`。一个 task 只入池一次：同一 task 再次成功只记 warning，不再入池。
 5. task 的末次 attempt（成功，或 attempt 序号达到 `max_attempts`）时记录 meta-guidance outcome，支持后续归因。
-6. 返回 Notes request，供 task-executor 生成局部经验。
+6. 返回 Notes request，供 evotrias-task-executor 生成局部经验。
 
 `attempt_id` 的解析顺序：入参 → result JSON 的 `attempt_id` 字段 → `verification_result_ref` 的父目录名（形如 `attempt_*` 时）→ `task_id`。
 
@@ -255,7 +255,7 @@ budget_exhausted      # 达到硬预算，停止提交新 task
 get_meta_guidance_request(run_id: str, request_id: str = "")
 ```
 
-返回 pending request，供无状态的 `meta-guidance-generator` 生成结构化 guidance。主 agent 只传递 `run_id` 和 `request_id`，不读取该 payload。请求中包含：
+返回 pending request，供无状态的 `evotrias-meta-guidance-generator` 生成结构化 guidance。主 agent 只传递 `run_id` 和 `request_id`，不读取该 payload。请求中包含：
 
 - 原始 `task_description`
 - `current_best`：请求创建时的 canonical best，作为生成 guidance 的 anchor parent（record id、fitness、artifact ref、summary、metrics、profile）。`artifact_excerpt` 和 `artifact_excerpt_truncated` 在取用时从 artifact 现读，不落盘。
@@ -326,7 +326,7 @@ run_state.json               task_description、search state、stop reason、dia
 task_contexts.json           每个 task 的 parent / inspirations / guidance 分配 / 结果
 attempts.jsonl               每条已记录 attempt 一行；success pool 由此派生
 notes.jsonl                  已提交的 run-local notes
-note_requests.jsonl          发给 task-executor 的 note request
+note_requests.jsonl          发给 evotrias-task-executor 的 note request
 notes_events.jsonl           Notes 完整时间线（request 创建/跳过、校验失败、note 提交）
 meta_guidance_state.json     pending / active / tried guidance、watching 标记、task 分配
 meta_guidance_events.jsonl   meta-guidance 全生命周期（watching、request、commit、分配、结果、归档）
@@ -336,7 +336,7 @@ agent_index.json             调度 agent 登记，由 scheduler 写
 
 success pool 不是文件：每次调用时从 `attempts.jsonl`（`in_success_pool` 的记录）加 `task_contexts.json`（selection 计数）在内存中重建。
 
-MCP 拥有 `.evotrias/` 下的一切。`runs/<run_id>/` 下的 artifact、verifier 结果和运行工作区归调用方/插件所有，MCP 只以路径 ref 引用；唯一例外是 finalize 报告，由 MCP 写到 `runs/<run_id>/run_summary.md` 和 `runs/<run_id>/run_summary.json`。
+MCP 拥有 `.evotrias/` 下的一切。`runs/<run_id>/` 下的 artifact、verifier 结果和运行工作区归调用方（agent）所有，MCP 只以路径 ref 引用；唯一例外是 finalize 报告，由 MCP 写到 `runs/<run_id>/run_summary.md` 和 `runs/<run_id>/run_summary.json`。
 
 用尽的 meta-guidance 在 run 生命周期内完整保留，不会从持久化历史中截断。
 
@@ -352,9 +352,9 @@ Meta-guidance 激活时，会记录创建时的 canonical best；每次分配给
 
 ## 5. Prompt 组装边界
 
-MCP 只返回 refs 和 ready-to-inject prompt section，不为 task-executor 读取或拼接 artifact 内容。唯一例外是 `get_meta_guidance_request` 里交给 meta-guidance worker 的 `artifact_excerpt`。
+MCP 只返回 refs 和 ready-to-inject prompt section，不为 evotrias-task-executor 读取或拼接 artifact 内容。唯一例外是 `get_meta_guidance_request` 里交给 meta-guidance worker 的 `artifact_excerpt`。
 
-task-executor 的顺序：
+evotrias-task-executor 的顺序：
 
 1. 调 `select_parent`。
 2. 调 `select_inspirations`。
@@ -369,5 +369,5 @@ Meta-guidance 与 parent/inspirations 的关系：
 - parent 是 anchor、baseline、实现参考或 fallback；
 - inspiration 是普通参考；
 - meta-guidance 可以要求走明显不同的新方向；
-- 不要求 task-executor 生硬融合冲突的 inspiration；
+- 不要求 evotrias-task-executor 生硬融合冲突的 inspiration；
 - 任何 guidance 都不能覆盖任务要求和 verifier 输出契约。

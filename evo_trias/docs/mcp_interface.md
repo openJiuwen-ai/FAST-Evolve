@@ -5,7 +5,7 @@
 This document is the public tool contract of `evotrias.mcp`, the Evolution
 Controller MCP. Its goal is to keep agent context small: whatever the MCP can
 recover from local state is never re-stated by the orchestrator or the
-task-executor.
+evotrias-task-executor.
 
 `evotrias.mcp` is a thin shell. `evotrias/mcp/public_tools.py` declares the
 agent-facing contract (tool names, arguments, defaults, docstrings) and forwards
@@ -172,7 +172,7 @@ Semantics:
 - If the task was assigned active guidance, returns a ready-to-inject
   meta-guidance prompt section.
 - Otherwise returns `available: false`.
-- The task-executor treats the prompt as a required strategy: when it conflicts
+- The evotrias-task-executor treats the prompt as a required strategy: when it conflicts
   with the usual parent/inspiration direction, meta-guidance takes priority, but
   it can never override the task requirements or the verifier output contract.
 
@@ -206,7 +206,7 @@ What the MCP does:
    pool again.
 5. On the task's final attempt (a success, or an attempt number that reaches
    `max_attempts`), records the meta-guidance outcome for later attribution.
-6. Returns Notes requests for the task-executor to distill local experience.
+6. Returns Notes requests for the evotrias-task-executor to distill local experience.
 
 `attempt_id` is resolved from the argument, then the `attempt_id` field of the
 result JSON, then the parent directory of `verification_result_ref` when it is
@@ -320,7 +320,7 @@ Input:
 get_meta_guidance_request(run_id: str, request_id: str = "")
 ```
 
-Returns the pending request for the stateless `meta-guidance-generator` to
+Returns the pending request for the stateless `evotrias-meta-guidance-generator` to
 produce structured guidance. The orchestrator passes only `run_id` and
 `request_id` and never reads this payload. The request carries:
 
@@ -406,7 +406,7 @@ run_state.json               task_description, search state, stop reason, diagno
 task_contexts.json           per-task parent / inspirations / guidance assignment / outcome
 attempts.jsonl               one record per recorded attempt; the success pool derives from it
 notes.jsonl                  committed run-local notes
-note_requests.jsonl          note requests issued to task-executors
+note_requests.jsonl          note requests issued to `evotrias-task-executor` agents
 notes_events.jsonl           complete Notes timeline (request created/skipped, validation failed, note committed)
 meta_guidance_state.json     pending / active / tried guidance, watching marker, task assignments
 meta_guidance_events.jsonl   full meta-guidance lifecycle (watching, request, commit, assignment, outcome, archive)
@@ -419,7 +419,7 @@ The success pool is not a file: it is rebuilt in memory on every call from
 (selection counts).
 
 The MCP owns everything under `.evotrias/`. Artifacts, verifier results and the
-run workspace under `runs/<run_id>/` are owned by the caller/plugin and are only
+run workspace under `runs/<run_id>/` are owned by the caller (the agents) and are only
 referenced by path-like refs. The one exception is the finalize report, which
 the MCP writes to `runs/<run_id>/run_summary.md` and
 `runs/<run_id>/run_summary.json`.
@@ -444,11 +444,11 @@ in the same batch continues from the latest best.
 ## 5. Prompt assembly boundary
 
 The MCP returns only refs and ready-to-inject prompt sections; it never reads
-or concatenates artifact content for the task-executor. The one exception is
+or concatenates artifact content for the evotrias-task-executor. The one exception is
 the `artifact_excerpt` handed to the meta-guidance worker inside
 `get_meta_guidance_request`.
 
-Task-executor order:
+`evotrias-task-executor` order:
 
 1. `select_parent`
 2. `select_inspirations`
@@ -463,6 +463,6 @@ How meta-guidance relates to parent / inspirations:
 - the parent is the anchor, baseline, implementation reference or fallback;
 - inspirations are ordinary references;
 - meta-guidance may demand a clearly different new direction;
-- the task-executor is not required to force-merge conflicting inspirations;
+- the evotrias-task-executor is not required to force-merge conflicting inspirations;
 - no guidance can override the task requirements or the verifier output
   contract.

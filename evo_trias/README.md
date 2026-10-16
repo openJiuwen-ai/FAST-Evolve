@@ -6,7 +6,7 @@
 
 </div>
 
-EvoTrias coordinates coding agents, benchmark evaluators, and persistent search
+EvoTrias coordinates coding agents, task evaluators, and persistent search
 state in one evolution loop. Give it an optimization task and a verifier; it
 explores multiple directions, evaluates candidates, preserves useful discoveries,
 and keeps searching from the strongest results.
@@ -15,7 +15,7 @@ and keeps searching from the strongest results.
 
 - **Parallel exploration** — starts from distinct root directions and maintains a
   rolling queue of candidate-generation tasks.
-- **Verifier-driven search** — benchmark-owned evaluators decide candidate fitness,
+- **Verifier-driven search** — task-owned evaluators decide candidate fitness,
   keeping task-specific scoring separate from the controller.
 - **Persistent search intelligence** — records successful candidates, lineage,
   attempts, and run-local Notes for later tasks.
@@ -23,8 +23,6 @@ and keeps searching from the strongest results.
   to refine or replace the current search strategy.
 - **Live observability** — includes a read-only dashboard for fitness, lineage,
   active tasks, recent activity, Notes, and meta-guidance.
-- **Extensible benchmarks** — ships with math, systems, and algorithmic benchmark
-  skills, while keeping evaluator contracts owned by each benchmark.
 
 ## How It Works
 
@@ -34,12 +32,12 @@ Host coding agent
        ↓
 Evolution Controller MCP
   ├─ manages selection, lineage, Notes, convergence, and meta-guidance state
-  └─ exposes pending requests to a stateless meta-guidance-generator agent
+  └─ exposes pending requests to a stateless evotrias-meta-guidance-generator agent
        ↓
-Task-executor agents
-  └─ generate candidates and invoke the benchmark verifier
+evotrias-task-executor agents
+  └─ generate candidates and invoke the task evaluator
        ↓
-Benchmark evaluators
+Task evaluators
   └─ return normalized fitness and artifacts to the controller
 ```
 
@@ -52,74 +50,46 @@ filling the host agent's context window.
 ### Prerequisites
 
 - Python 3.11+
-- [uv](https://docs.astral.sh/uv/)
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) for the bundled
-  plugin workflow
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) or
+  [opencode](https://opencode.ai)
 
 ### Install
 
 From the repository root:
 
-```powershell
-uv sync
-uv run python benchmarks/install.py --all
+```bash
+pip install ./evo_trias
 ```
 
-The benchmark installer registers the bundled benchmark skills and their
-evaluator commands in `.claude/settings.local.json`.
-
-### Benchmark Dependencies
-
-Benchmarks are plugins; their Python dependencies are not part of the package.
-Before running a benchmark, install the requirement set for its group:
-
-```powershell
-uv pip install -r benchmarks/requirements/math.txt   # math benchmarks
-uv pip install -r benchmarks/requirements/adrs.txt   # ADRS benchmarks
-uv pip install -r benchmarks/requirements/gpu.txt    # GPU kernel benchmarks
-```
-
-`frontier_cs_algo` needs no extra dependencies. Note that `uv sync` prunes
-packages that are not declared by the project, so re-run the matching
-`uv pip install` command after syncing (automatic installation via
-`benchmarks/install.py` is planned).
-
-Add the repository root to `PYTHONPATH` in the same shell session:
-
-```powershell
-# PowerShell
-$env:PYTHONPATH = "$(Get-Location);$env:PYTHONPATH"
-```
+### Set Up a Workspace
 
 ```bash
-# Linux (bash)
-export PYTHONPATH=`pwd`:$PYTHONPATH
+mkdir my-workspace
+cd my-workspace
+evotrias setup
 ```
 
-### Run a Benchmark
+Pick a harness and setup installs the EvoTrias agents, skills, and harness
+configuration into the workspace. Run `evotrias setup` again to add the other
+harness to the same workspace.
 
-Activate the project virtual environment:
+### Add the Task to Evolve
 
-```powershell
-# PowerShell
-.\.venv\Scripts\Activate.ps1
-```
+Write the task as a skill: its `SKILL.md` describes the task, how a candidate
+solution is produced, and how a candidate is evaluated. Copy the skill directory
+into the workspace's skills directory (setup shows where).
+
+### Run
 
 ```bash
-# Linux (bash)
-source .venv/bin/activate
+evotrias
 ```
 
-Then start Claude Code with the EvoTrias workflow and benchmark plugins:
-
-```powershell
-claude --plugin-dir evotrias_plugin --plugin-dir benchmarks
-```
-
-Then submit an evolution task:
+This starts the harness set up last. Then submit an evolution task that names
+the task skill:
 
 ```text
-/evotrias_plugin:evolve run the circle_packing benchmark end to end.
+/evolve evolve <task skill name>
 ```
 
 EvoTrias creates a named run under `runs/`, launches the dashboard, explores
@@ -129,11 +99,9 @@ configured task or time budget is exhausted.
 ## Repository Layout
 
 ```text
-evotrias/               Core package: db (state), evolve_ctrl (evolution control), dashboard, mcp (server entry), hooks, scheduler
-evotrias_plugin/        Workflow skills and task-executor agents
-benchmarks/             Benchmark skills, evaluators, and references
-docs/                   Integration guides
-tests/                  Testcases
+evotrias/               Core package: db (state), evolve_ctrl (evolution control), scheduler, permissions, mcp (server entry), hooks, dashboard, setup, cli
+evotrias/templates/     Agents, skills, and harness configuration installed by "evotrias setup"
+docs/                   MCP interface reference
 ```
 
 The controller MCP tool contract is documented in [docs/mcp_interface.md](docs/mcp_interface.md).
@@ -195,8 +163,8 @@ relative to the working directory:
 
 ```text
 runs/<run_id>/                                        agent workspace
-  tasks/<task_id>/direction.txt                       written by init-explorer
-  tasks/<task_id>/attempts/<attempt_id>/solution.py   written by task-executor (or solution.cpp)
+  tasks/<task_id>/direction.txt                       written by evotrias-init-explorer
+  tasks/<task_id>/attempts/<attempt_id>/solution.py   written by evotrias-task-executor (or solution.cpp)
   tasks/<task_id>/attempts/<attempt_id>/eval_result.json
   run_summary.md                                      written by finalize_run
   run_summary.json
@@ -212,13 +180,5 @@ runs/<run_id>/                                        agent workspace
 
 The per-run state files are listed in [docs/mcp_interface.md](docs/mcp_interface.md)
 (section 3). Both locations are local runtime state and are ignored by Git. Share
-the final summaries or a curated benchmark report instead of committing complete
+the final summaries or a curated report instead of committing complete
 run directories.
-
-## Development
-
-```powershell
-.\.venv\Scripts\python.exe -m pytest -q
-.\.venv\Scripts\pyright
-.\.venv\Scripts\python.exe -m compileall evotrias evotrias_plugin benchmarks
-```
