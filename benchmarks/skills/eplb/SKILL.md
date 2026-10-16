@@ -1,7 +1,6 @@
 ---
 name: eplb
 description: Use when the user wants to solve or evolve the Expert Parallelism Load Balancer benchmark for MoE inference.
-argument-hint: [run_id] [task_id] [artifact_ref]
 ---
 
 # Expert Parallelism Load Balancer
@@ -19,10 +18,12 @@ main_artifact_name = solution.py
 artifact_ref = runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/solution.py
 ```
 
+In the commands below, `<skill_dir>` is the directory containing this SKILL.md.
+
 Run only:
 
 ```bash
-uv run python benchmarks/skills/eplb/scripts/evaluator.py --run-id <run_id> --task-id <task_id> --artifact-ref <artifact_ref> --out runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/eval_result.json
+python <skill_dir>/scripts/evaluator.py --run-id <run_id> --task-id <task_id> --artifact-ref <artifact_ref> --out runs/<run_id>/tasks/<task_id>/attempts/<attempt_id>/eval_result.json
 ```
 
 The evaluator writes the standard result JSON. Structural or runtime errors are
@@ -69,5 +70,5 @@ checked into the repository because it is a large external workload file. The
 evaluator reports a clear failure if the file is absent. Download it once with:
 
 ```bash
-uv run python benchmarks/skills/eplb/scripts/download_data.py
+python <skill_dir>/scripts/download_data.py
 ```
