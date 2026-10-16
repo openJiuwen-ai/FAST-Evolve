@@ -18,9 +18,8 @@ from textual.timer import Timer
 from textual.widgets import Button, ContentSwitcher, OptionList, Static
 from textual.widgets.option_list import Option
 
-from evotrias.db import paths
-from evotrias.harness.base import Harness
-from evotrias.harness.registry import HARNESSES, get_harness
+from evotrias.setup.harness.base import Harness
+from evotrias.setup.harness.registry import HARNESSES, get_harness
 from evotrias.setup.install import install
 from evotrias.setup.tui_art import (
     AMBER,
@@ -39,6 +38,7 @@ from evotrias.setup.tui_art import (
     TEAL,
     render_dino,
 )
+from evotrias.setup.workspace import read_active_harness
 
 # install itself takes milliseconds; pace the steps so each line can be seen
 STEP_INTERVAL_S = 0.15
@@ -79,14 +79,13 @@ class SetupApp(App[int]):
     def __init__(self, workspace: Path, detect: Callable[[Harness], str | None] = _detect) -> None:
         super().__init__()
         self.workspace = workspace
-        active = workspace / paths.ACTIVE_HARNESS
-        self.current = active.read_text(encoding="utf-8").strip() if active.exists() else None
+        self.current = read_active_harness(workspace)
         self._detect = detect
         # harness name -> version; a name is missing while its detection still runs
         self.versions: dict[str, str | None] = {}
         # index this app last highlighted on its own; any other highlight is the user's choice
         self._auto_highlight: int | None = None
-        self._steps: Iterator[tuple[str, list[Path]]] | None = None
+        self._steps: Iterator[str] | None = None
         self._timer: Timer | None = None
         self._lines: list[tuple[str, str]] = []  # (status, text): status is "running", "done" or "failed"
 
@@ -245,7 +244,7 @@ class SetupApp(App[int]):
         if self._lines and self._lines[-1][0] == "running":
             self._lines[-1] = ("done", self._lines[-1][1])
         try:
-            label, _written = next(self._steps)
+            label = next(self._steps)
         except StopIteration:
             self._finish(harness)
             return
@@ -298,6 +297,6 @@ class SetupApp(App[int]):
             self.exit(0)
 
 
-def run_tui(workspace: Path) -> int:
+def setup_tui(workspace: Path) -> int:
     """Run the interactive setup in ``workspace``; 0 unless setting up failed."""
     return SetupApp(workspace).run() or 0

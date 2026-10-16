@@ -72,11 +72,32 @@ def test_evolve_ctrl_does_not_import_mcp_or_hooks():
 
 
 def test_harness_does_not_depend_on_runtime_layers():
-    # harness only generates workspace files; it must not pull in the runtime.
+    # harness only describes workspace files and launch commands; it must not pull in the runtime.
     runtime = {"hooks", "mcp", "db", "evolve_ctrl", "dashboard", "scheduler", "permissions"}
-    assert _violations("evotrias/harness/", runtime) == []
+    assert _violations("evotrias/setup/harness/", runtime) == []
 
 
-def test_harness_does_not_import_setup():
+def _setup_modules_imported(module_path: Path) -> set[str]:
+    """``evotrias.setup.<name>`` modules (by ``name``) a file imports."""
+    names: set[str] = set()
+    for node in ast.walk(ast.parse(module_path.read_text(encoding="utf-8"))):
+        if isinstance(node, ast.Import):
+            modules = [alias.name for alias in node.names]
+        elif isinstance(node, ast.ImportFrom) and node.module and node.level == 0:
+            modules = [f"{node.module}.{alias.name}" for alias in node.names]
+        else:
+            continue
+        for module in modules:
+            parts = module.split(".")
+            if parts[:2] == ["evotrias", "setup"] and len(parts) > 2:
+                names.add(parts[2])
+    return names
+
+
+def test_harness_does_not_import_the_rest_of_setup():
     # setup (the installer) builds on harness descriptions, never the other way round.
-    assert _violations("evotrias/harness/", {"setup"}) == []
+    violations = {
+        path.relative_to(PACKAGE_ROOT.parent).as_posix(): sorted(_setup_modules_imported(path) - {"harness"})
+        for path in sorted((PACKAGE_ROOT / "setup" / "harness").rglob("*.py"))
+    }
+    assert {module: names for module, names in violations.items() if names} == {}

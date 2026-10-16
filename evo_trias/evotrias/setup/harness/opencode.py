@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from evotrias.enums_and_consts import MCP_SERVER_NAME, InstallMode
-from evotrias.harness.base import Harness
+from evotrias.setup.harness.base import Harness
 
 
 class OpencodeHarness(Harness):

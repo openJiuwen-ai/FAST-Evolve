@@ -1,4 +1,4 @@
-"""Tests for evotrias.setup.tui, driven headless through textual's Pilot."""
+"""Tests for evotrias.setup.setup_tui, driven headless through textual's Pilot."""
 
 from __future__ import annotations
 
@@ -10,10 +10,10 @@ from pathlib import Path
 import pytest
 from textual.widgets import ContentSwitcher, OptionList, Static
 
-from evotrias.db import paths
 from evotrias.enums_and_consts import InstallMode
-from evotrias.setup import install_modes, tui
-from evotrias.setup.tui import SetupApp
+from evotrias.setup import install, setup_tui
+from evotrias.setup.setup_tui import SetupApp
+from evotrias.setup.workspace import ACTIVE_HARNESS
 
 FOUND = {"claude": "2.1.226 (Claude Code)", "opencode": "1.18.23"}
 
@@ -21,7 +21,7 @@ FOUND = {"claude": "2.1.226 (Claude Code)", "opencode": "1.18.23"}
 @pytest.fixture(autouse=True)
 def _quiet(log, monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(tui, "STEP_INTERVAL_S", 0.01)
+    monkeypatch.setattr(setup_tui, "STEP_INTERVAL_S", 0.01)
 
 
 def _detector(found: dict[str, str], gate: threading.Event | None = None):
@@ -63,8 +63,8 @@ def _rows(app: SetupApp) -> list[tuple[str, bool]]:
 
 
 def _bind(workspace: Path, name: str) -> None:
-    (workspace / paths.ACTIVE_HARNESS).parent.mkdir(parents=True, exist_ok=True)
-    (workspace / paths.ACTIVE_HARNESS).write_text(f"{name}\n", encoding="utf-8")
+    (workspace / ACTIVE_HARNESS).parent.mkdir(parents=True, exist_ok=True)
+    (workspace / ACTIVE_HARNESS).write_text(f"{name}\n", encoding="utf-8")
 
 
 async def _press_button(pilot, app: SetupApp, button_id: str) -> None:
@@ -190,7 +190,7 @@ def test_selecting_a_harness_sets_the_workspace_up(tmp_path, name):
 
     _run(app, scenario)
     assert app.return_value == 0
-    assert (tmp_path / paths.ACTIVE_HARNESS).read_text(encoding="utf-8") == f"{name}\n"
+    assert (tmp_path / ACTIVE_HARNESS).read_text(encoding="utf-8") == f"{name}\n"
     assert any(rel.startswith(f".{name}/agents/") for rel in _files(tmp_path))
 
 
@@ -211,7 +211,7 @@ def test_a_failing_step_is_shown_and_exits_1(monkeypatch, tmp_path):
     def broken(src, dst, context):
         raise PermissionError("read-only workspace")
 
-    monkeypatch.setitem(install_modes.STRATEGIES, InstallMode.MERGE_JSON, broken)
+    monkeypatch.setitem(install.STRATEGIES, InstallMode.MERGE_JSON, broken)
     app = SetupApp(tmp_path, _detector(FOUND))
 
     async def scenario(pilot):

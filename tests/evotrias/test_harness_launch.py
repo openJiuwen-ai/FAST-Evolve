@@ -8,10 +8,10 @@ from types import SimpleNamespace
 import pytest
 
 from evotrias.enums_and_consts import InstallMode
-from evotrias.harness import base
-from evotrias.harness.claude import ClaudeHarness
-from evotrias.harness.opencode import OpencodeHarness
-from evotrias.harness.registry import HARNESSES, get_harness
+from evotrias.setup.harness import base
+from evotrias.setup.harness.claude import ClaudeHarness
+from evotrias.setup.harness.opencode import OpencodeHarness
+from evotrias.setup.harness.registry import HARNESSES, get_harness
 
 # ---- launch_command ----
 

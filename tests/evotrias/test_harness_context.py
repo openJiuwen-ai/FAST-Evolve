@@ -6,9 +6,9 @@ import pytest
 import yaml
 from jinja2 import UndefinedError
 
-from evotrias.harness.claude import ClaudeHarness
-from evotrias.harness.opencode import OpencodeHarness
-from evotrias.setup.install_modes import render_jinja
+from evotrias.setup.harness.claude import ClaudeHarness
+from evotrias.setup.harness.opencode import OpencodeHarness
+from evotrias.setup.install import render_jinja
 
 HARNESSES = [ClaudeHarness(), OpencodeHarness()]
 TEMPLATE_TOOLS = ("skill", "read", "write", "edit", "glob", "grep", "bash", "webfetch")

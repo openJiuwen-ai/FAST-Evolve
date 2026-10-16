@@ -1,4 +1,5 @@
-"""Tests for evotrias.setup.install: a workspace set up end to end for each harness."""
+"""Tests for evotrias.setup.install: the install strategies, the JSON merge rules, and a workspace
+set up end to end for each harness."""
 
 from __future__ import annotations
 
@@ -7,12 +8,220 @@ from pathlib import Path
 
 import pytest
 import yaml
+from jinja2 import UndefinedError
 
 from evotrias.enums_and_consts import InstallMode
-from evotrias.harness.claude import ClaudeHarness
-from evotrias.harness.opencode import OpencodeHarness
-from evotrias.harness.registry import HARNESSES
-from evotrias.setup.install import TEMPLATES, install
+from evotrias.setup.harness.claude import ClaudeHarness
+from evotrias.setup.harness.opencode import OpencodeHarness
+from evotrias.setup.harness.registry import HARNESSES
+from evotrias.setup.install import (
+    STRATEGIES,
+    TEMPLATES,
+    install,
+    merge_json,
+    merge_json_data,
+    overwrite,
+    render_jinja,
+)
+
+# ---- strategies: render_jinja ----
+
+
+def _write(path, text: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(text.encode("utf-8"))
+
+
+def test_jinja_file_is_rendered_and_suffix_dropped(tmp_path):
+    src, dst = tmp_path / "src", tmp_path / "dst"
+    _write(src / "agent.md.jinja", "harness={{ harness }}\n")
+
+    render_jinja(src, dst, {"harness": "claude"})
+
+    assert not (dst / "agent.md.jinja").exists()
+    assert (dst / "agent.md").read_bytes() == b"harness=claude\n"
+
+
+def test_other_files_are_copied_byte_for_byte(tmp_path):
+    src, dst = tmp_path / "src", tmp_path / "dst"
+    _write(src / "plain.md", "{{ not_a_variable }}\r\n")
+    blob = bytes(range(256))
+    (src / "logo.png").write_bytes(blob)
+
+    render_jinja(src, dst, {})
+
+    assert (dst / "plain.md").read_bytes() == b"{{ not_a_variable }}\r\n"
+    assert (dst / "logo.png").read_bytes() == blob
+
+
+def test_nested_directories_are_recreated(tmp_path):
+    src, dst = tmp_path / "src", tmp_path / "dst"
+    _write(src / "skills" / "evolve" / "SKILL.md.jinja", "x\n")
+    _write(src / "plugins" / "bridge.ts", "y\n")
+
+    render_jinja(src, dst, {})
+
+    assert (dst / "skills" / "evolve" / "SKILL.md").read_text(encoding="utf-8") == "x\n"
+    assert (dst / "plugins" / "bridge.ts").read_text(encoding="utf-8") == "y\n"
+
+
+def test_undefined_variable_raises(tmp_path):
+    src = tmp_path / "src"
+    _write(src / "a.md.jinja", "{{ tool.reed }}\n")
+
+    with pytest.raises(UndefinedError):
+        render_jinja(src, tmp_path / "dst", {"tool": {"read": "Read"}})
+
+
+def test_block_tags_leave_no_blank_lines(tmp_path):
+    src, dst = tmp_path / "src", tmp_path / "dst"
+    _write(src / "a.md.jinja", 'before\n    {% if harness == "claude" %}\nclaude only\n    {% endif %}\nafter\n')
+
+    render_jinja(src, dst, {"harness": "claude"})
+    assert (dst / "a.md").read_text(encoding="utf-8") == "before\nclaude only\nafter\n"
+
+    render_jinja(src, dst, {"harness": "opencode"})
+    assert (dst / "a.md").read_text(encoding="utf-8") == "before\nafter\n"
+
+
+def test_rendered_output_keeps_trailing_newline_and_uses_lf(tmp_path):
+    src, dst = tmp_path / "src", tmp_path / "dst"
+    _write(src / "a.md.jinja", "line1\r\nline2\r\n")
+
+    render_jinja(src, dst, {})
+
+    assert (dst / "a.md").read_bytes() == b"line1\nline2\n"
+
+
+def test_existing_files_not_in_template_are_kept(tmp_path):
+    src, dst = tmp_path / "src", tmp_path / "dst"
+    _write(src / "a.md", "new\n")
+    _write(dst / "a.md", "old\n")
+    _write(dst / "user-skill" / "SKILL.md", "mine\n")
+
+    render_jinja(src, dst, {})
+
+    assert (dst / "a.md").read_text(encoding="utf-8") == "new\n"
+    assert (dst / "user-skill" / "SKILL.md").read_text(encoding="utf-8") == "mine\n"
+
+
+def test_renders_nested_directories(tmp_path):
+    src, dst = tmp_path / "src", tmp_path / "dst"
+    _write(src / "a.md.jinja", "a\n")
+    _write(src / "sub" / "b.txt", "b\n")
+
+    render_jinja(src, dst, {})
+
+    assert sorted(p.relative_to(dst).as_posix() for p in dst.rglob("*") if p.is_file()) == ["a.md", "sub/b.txt"]
+
+
+# ---- merge_json_data ----
+
+
+def test_merge_objects_keeps_user_keys():
+    user = {"mcpServers": {"github": {"command": "gh"}}, "theme": "dark"}
+    template = {"mcpServers": {"evotrias": {"command": "python"}}}
+
+    assert merge_json_data(user, template) == {
+        "mcpServers": {"github": {"command": "gh"}, "evotrias": {"command": "python"}},
+        "theme": "dark",
+    }
+
+
+def test_merge_arrays_appends_missing_elements_only():
+    user = {"allow": ["Bash(ls *)", "Skill(evolve)"]}
+    template = {"allow": ["Skill(evolve)", "mcp__evotrias__*"]}
+
+    assert merge_json_data(user, template) == {"allow": ["Bash(ls *)", "Skill(evolve)", "mcp__evotrias__*"]}
+
+
+def test_merge_arrays_dedupes_equal_objects():
+    hook = {"matcher": "*", "hooks": [{"type": "command", "command": "python -m evotrias.hooks claude pre_tool_use"}]}
+    mine = {"matcher": "Bash", "hooks": [{"type": "command", "command": "my-check"}]}
+
+    assert merge_json_data({"PreToolUse": [mine, hook]}, {"PreToolUse": [hook]}) == {"PreToolUse": [mine, hook]}
+
+
+@pytest.mark.parametrize(
+    ("user", "template"),
+    [("ask", "allow"), ({"bash": "ask"}, "allow"), ("x", {"k": 1}), ([1], {"k": 1})],
+    ids=["scalar", "object-to-scalar", "scalar-to-object", "array-to-object"],
+)
+def test_merge_scalar_or_type_mismatch_takes_template(user, template):
+    assert merge_json_data({"permission": user}, {"permission": template}) == {"permission": template}
+
+
+def test_merge_does_not_modify_inputs():
+    user = {"a": {"b": [1]}}
+    template = {"a": {"b": [2], "c": 3}}
+
+    merge_json_data(user, template)
+
+    assert user == {"a": {"b": [1]}}
+    assert template == {"a": {"b": [2], "c": 3}}
+
+
+# ---- merge_json / overwrite / STRATEGIES ----
+
+
+def test_merge_json_creates_missing_file(tmp_path, log):
+    src, dst = tmp_path / "t.json", tmp_path / "ws" / "settings.json"
+    _write(src, '{"k": [1]}')
+
+    merge_json(src, dst, {})
+
+    assert json.loads(dst.read_text(encoding="utf-8")) == {"k": [1]}
+
+
+def test_merge_json_keeps_user_key_order(tmp_path, log):
+    src, dst = tmp_path / "t.json", tmp_path / "settings.json"
+    _write(src, '{"a": 1}')
+    _write(dst, '{"z": 0, "b": 0}')
+
+    merge_json(src, dst, {})
+
+    assert list(json.loads(dst.read_text(encoding="utf-8"))) == ["z", "b", "a"]
+
+
+def test_merge_json_skips_write_when_nothing_changes(tmp_path, log):
+    src, dst = tmp_path / "t.json", tmp_path / "settings.json"
+    _write(src, '{"a": [1]}')
+    _write(dst, '{"a": [1, 2]}')
+    mtime = dst.stat().st_mtime_ns
+
+    merge_json(src, dst, {})
+
+    assert dst.read_text(encoding="utf-8") == '{"a": [1, 2]}'
+    assert dst.stat().st_mtime_ns == mtime
+
+
+@pytest.mark.parametrize("content", ["{not json", "[1, 2]", ""], ids=["invalid", "top-level-array", "empty"])
+def test_merge_json_replaces_unusable_user_file(tmp_path, log, content):
+    src, dst = tmp_path / "t.json", tmp_path / "settings.json"
+    _write(src, '{"a": 1}')
+    _write(dst, content)
+
+    merge_json(src, dst, {})
+
+    assert json.loads(dst.read_text(encoding="utf-8")) == {"a": 1}
+    assert log.warnings  # the user's content is dropped, so say so in the log
+
+
+def test_overwrite_copies_bytes(tmp_path):
+    src, dst = tmp_path / "bridge.ts", tmp_path / "ws" / "plugins" / "bridge.ts"
+    src.write_bytes(b"line\r\n")
+    _write(dst, "old\n")
+
+    overwrite(src, dst, {})
+
+    assert dst.read_bytes() == b"line\r\n"
+
+
+def test_every_install_mode_has_a_strategy():
+    assert set(STRATEGIES) == set(InstallMode)
+
+
+# ---- install ----
 
 SHARED_FILES = [
     "agents/evotrias-init-explorer.md",
@@ -44,9 +253,10 @@ def _quiet(log, monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
 
 
-def _install(harness, workspace: Path) -> list[Path]:
-    """Run the install generator to the end; the files written by every step."""
-    return [path for _label, written in install(harness, workspace) for path in written]
+def _install(harness, workspace: Path) -> None:
+    """Run the install generator to the end."""
+    for _step in install(harness, workspace):
+        pass
 
 
 def _files(root: Path) -> set[str]:
@@ -69,10 +279,9 @@ def _template_json(rel: str) -> dict:
 def test_install_into_empty_workspace(harness, tmp_path):
     workspace = tmp_path / "ws"
 
-    written = _install(harness, workspace)
+    _install(harness, workspace)
 
     assert _files(workspace) == EXPECTED_FILES[harness.name]
-    assert {path.relative_to(workspace).as_posix() for path in written} == EXPECTED_FILES[harness.name]
     assert (workspace / ".evotrias/active_harness").read_text(encoding="utf-8") == f"{harness.name}\n"
 
 
@@ -169,12 +378,14 @@ def test_unusable_user_json_is_replaced(tmp_path):
 def test_install_twice_changes_nothing(harness, tmp_path):
     _install(harness, tmp_path)
     before = _snapshot(tmp_path)
+    merged = [tmp_path / dst for _src, dst, mode in harness.install_entries if mode == InstallMode.MERGE_JSON]
+    mtimes = [path.stat().st_mtime_ns for path in merged]
 
-    written = _install(harness, tmp_path)
+    _install(harness, tmp_path)
 
     assert _snapshot(tmp_path) == before
-    merged = {dst for _src, dst, mode in harness.install_entries if mode == InstallMode.MERGE_JSON}
-    assert merged.isdisjoint(path.relative_to(tmp_path).as_posix() for path in written)
+    # merged JSON is not even rewritten when nothing changes
+    assert [path.stat().st_mtime_ns for path in merged] == mtimes
 
 
 def test_switching_harness_keeps_the_previous_one(tmp_path):
@@ -193,5 +404,4 @@ def test_install_steps_one_entry_at_a_time(harness, tmp_path):
     steps = install(harness, tmp_path)
 
     assert list(tmp_path.iterdir()) == []  # lazy: nothing happens before iterating
-    labels = [label for label, _written in steps]
-    assert labels == [dst for _src, dst, _mode in harness.install_entries] + [".evotrias/active_harness"]
+    assert list(steps) == [dst for _src, dst, _mode in harness.install_entries] + [".evotrias/active_harness"]

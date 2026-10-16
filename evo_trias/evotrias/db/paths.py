@@ -22,7 +22,6 @@ DB_ROOT = Path(".evotrias") / "db"
 HOOKS_ROOT = Path(".evotrias") / "hooks"
 LOCKS_ROOT = Path(".evotrias") / "locks"
 RUNS_ROOT = Path("runs")
-ACTIVE_HARNESS = Path(".evotrias") / "active_harness"
 
 SESSION_MAP = DB_ROOT / "session_map.json"
 OPENCODE_REGISTRY = HOOKS_ROOT / "opencode_registry.json"

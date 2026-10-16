@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from evotrias.harness.base import Harness
-from evotrias.harness.claude import ClaudeHarness
-from evotrias.harness.opencode import OpencodeHarness
+from evotrias.setup.harness.base import Harness
+from evotrias.setup.harness.claude import ClaudeHarness
+from evotrias.setup.harness.opencode import OpencodeHarness
 
 HARNESSES: list[Harness] = [ClaudeHarness(), OpencodeHarness()]
 

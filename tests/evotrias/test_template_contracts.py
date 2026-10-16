@@ -19,12 +19,12 @@ from fastmcp import Client
 import evotrias.hooks.claude
 import evotrias.hooks.opencode
 from evotrias.enums_and_consts import MCP_SERVER_NAME, InstallMode
-from evotrias.harness.base import Harness
-from evotrias.harness.claude import ClaudeHarness
-from evotrias.harness.opencode import OpencodeHarness
 from evotrias.hooks import broker
 from evotrias.mcp import mcp, public_tools
-from evotrias.setup.install_modes import render_jinja
+from evotrias.setup.harness.base import Harness
+from evotrias.setup.harness.claude import ClaudeHarness
+from evotrias.setup.harness.opencode import OpencodeHarness
+from evotrias.setup.install import render_jinja
 
 TEMPLATES = files("evotrias") / "templates"
 HARNESSES = [ClaudeHarness(), OpencodeHarness()]

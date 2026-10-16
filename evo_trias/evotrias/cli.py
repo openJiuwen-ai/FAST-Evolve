@@ -12,9 +12,8 @@ import sys
 from importlib.metadata import version
 from pathlib import Path
 
-from evotrias.db import paths
-from evotrias.harness.registry import HARNESSES, get_harness
-from evotrias.setup.install import install
+from evotrias.setup.harness.registry import HARNESSES, get_harness
+from evotrias.setup.workspace import ACTIVE_HARNESS, read_active_harness
 
 # the only leading options evotrias keeps for itself; any other leading option goes to the harness
 _OWN_OPTIONS = ("-h", "--help", "--version")
@@ -27,11 +26,14 @@ def main(argv: list[str] | None = None) -> int:
     if not args or (args[0].startswith("-") and args[0] not in _OWN_OPTIONS):
         return _launch(args)
     ns = _parser().parse_args(args)
+    # setup modules load lazily: the launcher must not pay for jinja2 or textual
     if ns.harness is None:
-        from evotrias.setup.tui import run_tui  # textual is only loaded for the interactive setup
+        from evotrias.setup.setup_tui import setup_tui
 
-        return run_tui(Path.cwd())
-    return _setup(ns.harness)
+        return setup_tui(Path.cwd())
+    from evotrias.setup.setup_cmd import setup_cmd
+
+    return setup_cmd(ns.harness, Path.cwd())
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -49,39 +51,16 @@ def _parser() -> argparse.ArgumentParser:
     return parser
 
 
-def _setup(name: str) -> int:
-    harness = get_harness(name)
-    found = harness.detect()
-    if found is None:
-        print(
-            f'"{harness.executable}" not found or not runnable. '
-            f'Install it, then re-run "evotrias setup {harness.name}".',
-            file=sys.stderr,
-        )
-        return 1
-    if paths.ACTIVE_HARNESS.exists():
-        previous = paths.ACTIVE_HARNESS.read_text(encoding="utf-8").strip()
-        print(
-            f"warning: this directory is already set up for {previous}; setting it up for {harness.name}.",
-            file=sys.stderr,
-        )
-    for _destination, _written in install(harness, Path.cwd()):
-        pass
-    print(f"Set up for {harness.name} ({found}).")
-    print('Run "evotrias" to start.')
-    return 0
-
-
 def _launch(user_args: list[str]) -> int:
-    if not paths.ACTIVE_HARNESS.exists():
-        print('No EvoTrias workspace here. Run "evotrias setup <harness>" first.', file=sys.stderr)
+    name = read_active_harness(Path.cwd())
+    if name is None:
+        print('No EvoTrias workspace here. Run "evotrias setup" first.', file=sys.stderr)
         return 1
-    name = paths.ACTIVE_HARNESS.read_text(encoding="utf-8").strip()
     try:
         harness = get_harness(name)
     except ValueError:
         print(
-            f'{paths.ACTIVE_HARNESS.as_posix()} names unknown harness {name!r}. Re-run "evotrias setup <harness>".',
+            f'{ACTIVE_HARNESS.as_posix()} names unknown harness {name!r}. Re-run "evotrias setup".',
             file=sys.stderr,
         )
         return 1
@@ -91,28 +70,18 @@ def _launch(user_args: list[str]) -> int:
     if path is None:
         print(f'"{harness.executable}" not found on PATH.', file=sys.stderr)
         return 1
-    print(f'Detected workspace bound to {harness.name}. Run "{_display(command.argv)}".', flush=True)
+    windows = sys.platform == "win32"
+    shown = subprocess.list2cmdline(command.argv) if windows else shlex.join(command.argv)
+    print(f'Detected workspace bound to {harness.name}. Run "{shown}".', flush=True)
     env = {**os.environ, **command.env}
-    run = _run_windows if os.name == "nt" else _exec_posix
-    return run(path, command.argv, env)
-
-
-def _display(argv: list[str]) -> str:
-    return subprocess.list2cmdline(argv) if os.name == "nt" else shlex.join(argv)
-
-
-def _exec_posix(path: str, argv: list[str], env: dict[str, str]) -> int:
-    """Replace this process with the harness; only returns if exec itself fails (it raises then)."""
-    os.execve(path, argv, env)
-    return 0  # unreachable unless os.execve is replaced
-
-
-def _run_windows(path: str, argv: list[str], env: dict[str, str]) -> int:
-    """Windows has no real exec (os.execv spawns and exits, leaving the shell and the harness
-    fighting over the console), so wait for the harness and pass its exit code on."""
-    # Ctrl-C reaches every process on the console; let the harness handle it alone
+    if not windows:
+        os.execve(path, command.argv, env)  # replaces this process
+        return 0  # unreachable unless os.execve is replaced
+    # Windows has no real exec (os.execv spawns and exits, leaving the shell and the harness
+    # fighting over the console), so wait for the harness and pass its exit code on.  Ctrl-C
+    # reaches every process on the console; let the harness handle it alone.
     previous = signal.signal(signal.SIGINT, signal.SIG_IGN)
     try:
-        return subprocess.run([path, *argv[1:]], env=env).returncode
+        return subprocess.run([path, *command.argv[1:]], env=env).returncode
     finally:
         signal.signal(signal.SIGINT, previous)
