@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """
 Matrix Multiplication Tensor Decomposition Evaluator
 
@@ -14,7 +15,8 @@ import sys
 import tempfile
 import time
 import traceback
-from typing import Any, Dict
+from typing import Any
+
 import numpy as np
 
 BENCHMARK = 32  # Best known rank from Google
@@ -106,7 +108,7 @@ except Exception as e:
                 os.unlink(p)
 
 
-def evaluate(program_path: str, timeout_seconds: int = 600) -> Dict[str, Any]:
+def evaluate(program_path: str, timeout_seconds: int = 600) -> dict[str, Any]:
     start_time = time.time()
     try:
         decomposition, n, m, p, loss, rank = run_program_with_timeout(program_path, timeout_seconds=timeout_seconds)
@@ -153,7 +155,7 @@ def evaluate(program_path: str, timeout_seconds: int = 600) -> Dict[str, Any]:
 def is_successful(r): return not r.get("traceback") and not r.get("error") and r.get("validity", 0) >= 1.0
 
 
-def format_result(result: Dict[str, Any], artifact_ref: str) -> Dict[str, Any]:
+def format_result(result: dict[str, Any], artifact_ref: str) -> dict[str, Any]:
     """Format result into status, fitness, metrics, misc."""
     success = is_successful(result)
     status = "success" if success else "failure"

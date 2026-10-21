@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Static art for the setup TUI: palette (design.md §6.5), dino and banner (§6.4)."""
 
 from __future__ import annotations

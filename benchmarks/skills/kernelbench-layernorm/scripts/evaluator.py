@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """
 KernelBench evaluator with structured JSON output.
 
@@ -8,7 +9,6 @@ Usage:
         --out <output_json_path>
 """
 
-import json
 import os
 import re
 import subprocess
@@ -52,7 +52,7 @@ def evaluate(program_path: str):
         num_perf_trials = int(os.environ.get("KERNELBENCH_NUM_PERF_TRIALS", "100"))
         timeout = int(os.environ.get("KERNELBENCH_TIMEOUT", "300"))
 
-        with open(program_path, "r") as f:
+        with open(program_path) as f:
             program_content = f.read()
 
         is_triton = bool(

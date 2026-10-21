@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Tests for evotrias.setup.workspace: reading and writing the workspace's harness binding."""
 
 from __future__ import annotations

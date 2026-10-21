@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Requests for the agent to distil a note, persisted as ``note_requests.jsonl``.
 
 Appended by the controller when an attempt meets a note trigger; consumed by

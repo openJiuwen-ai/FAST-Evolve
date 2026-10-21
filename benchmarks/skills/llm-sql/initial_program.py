@@ -1,11 +1,12 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 # EVOLVE-BLOCK-START
+from collections import Counter
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from functools import cache
+
+import networkx as nx
 import pandas as pd
 from solver import Algorithm
-from typing import Tuple, List, Dict
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from functools import lru_cache
-from collections import Counter
-import networkx as nx
 
 
 class Evolved(Algorithm):
@@ -26,7 +27,7 @@ class Evolved(Algorithm):
         self.col_stop = None
         self.base = 2000
 
-    def find_max_group_value(self, df: pd.DataFrame, value_counts: Dict, early_stop: int = 0) -> str:
+    def find_max_group_value(self, df: pd.DataFrame, value_counts: dict, early_stop: int = 0) -> str:
         # NOTE: recalculate value counts and length for each value
         value_counts = Counter(df.stack())
         weighted_counts = {val: self.val_len[val] * (count - 1) for val, count in value_counts.items()}  # if count > 1
@@ -94,16 +95,16 @@ class Evolved(Algorithm):
             ), f"Reordered cols len: {len(reordered_cols)}  Original cols len: {len(column_names)}"
             return [getattr(row, col) for col in reordered_cols], cols_with_value
 
-    def get_dependent_columns(self, col: str) -> List[str]:
+    def get_dependent_columns(self, col: str) -> list[str]:
         if self.dep_graph is None or not self.dep_graph.has_node(col):
             return []
         return list(nx.descendants(self.dep_graph, col))
 
-    @lru_cache(maxsize=None)
-    def get_cached_dependent_columns(self, col: str) -> List[str]:
+    @cache
+    def get_cached_dependent_columns(self, col: str) -> list[str]:
         return self.get_dependent_columns(col)
 
-    def fixed_reorder(self, df: pd.DataFrame, row_sort: bool = True) -> Tuple[pd.DataFrame, List[List[str]]]:
+    def fixed_reorder(self, df: pd.DataFrame, row_sort: bool = True) -> tuple[pd.DataFrame, list[list[str]]]:
         num_rows, column_stats = self.calculate_col_stats(df, enable_index=True)
         reordered_columns = [col for col, _, _, _ in column_stats]
         reordered_df = df[reordered_columns]
@@ -172,12 +173,12 @@ class Evolved(Algorithm):
     def recursive_reorder(
         self,
         df: pd.DataFrame,
-        value_counts: Dict,
+        value_counts: dict,
         early_stop: int = 0,
-        original_columns: List[str] = None,
+        original_columns: list[str] = None,
         row_stop: int = 0,
         col_stop: int = 0,
-    ) -> Tuple[pd.DataFrame, List[List[str]]]:
+    ) -> tuple[pd.DataFrame, list[list[str]]]:
         if df.empty or len(df.columns) == 0 or len(df) == 0:
             return df, []
 
@@ -227,7 +228,7 @@ class Evolved(Algorithm):
 
         return final_result_df, []
 
-    def recursive_split_and_reorder(self, df: pd.DataFrame, original_columns: List[str] = None, early_stop: int = 0):
+    def recursive_split_and_reorder(self, df: pd.DataFrame, original_columns: list[str] = None, early_stop: int = 0):
         """
         Recursively split the DataFrame into halves until the size is <= 1000, then apply the recursive reorder function.
         """
@@ -253,7 +254,7 @@ class Evolved(Algorithm):
 
         return reordered_df
 
-    @lru_cache(maxsize=None)
+    @cache
     def calculate_length(self, value):
         if isinstance(value, bool):
             return 4**2
@@ -269,11 +270,11 @@ class Evolved(Algorithm):
         early_stop: int = 0,
         row_stop: int = None,
         col_stop: int = None,
-        col_merge: List[List[str]] = [],
-        one_way_dep: List[Tuple[str, str]] = [],
+        col_merge: list[list[str]] = [],
+        one_way_dep: list[tuple[str, str]] = [],
         distinct_value_threshold: float = 0.8,
         parallel: bool = True,
-    ) -> Tuple[pd.DataFrame, List[List[str]]]:
+    ) -> tuple[pd.DataFrame, list[list[str]]]:
         # Prepare
         initial_df = df.copy()
         if col_merge:

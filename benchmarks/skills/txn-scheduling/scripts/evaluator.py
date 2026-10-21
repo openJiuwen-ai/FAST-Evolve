@@ -1,17 +1,13 @@
-import importlib.util
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
+import argparse
+import json
 import os
 import pickle
-import signal
 import subprocess
 import sys
 import tempfile
 import time
 import traceback
-import argparse
-import json
-
-import numpy as np
-
 
 SCHEDULING_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if SCHEDULING_DIR not in sys.path:
@@ -19,7 +15,6 @@ if SCHEDULING_DIR not in sys.path:
 
 from txn_simulator import Workload
 from workloads import WORKLOAD_1, WORKLOAD_2, WORKLOAD_3
-
 
 DEFAULT_TIMEOUT_SECONDS = 600
 DEADLINE_SAFETY_MARGIN_SECONDS = 15.0

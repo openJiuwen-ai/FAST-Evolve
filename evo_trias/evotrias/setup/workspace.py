@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Which harness a workspace is set up for: the only reader and writer of ``.evotrias/active_harness``."""
 
 from __future__ import annotations

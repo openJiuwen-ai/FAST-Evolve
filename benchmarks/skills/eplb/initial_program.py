@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 # SPDX-License-Identifier: Apache-2.0
 """
 Expert parallelism load balancer (EPLB) for vLLM.

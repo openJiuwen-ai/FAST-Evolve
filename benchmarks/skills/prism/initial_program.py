@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 GPU_MEM_SIZE = 80 # GB
 
 # EVOLVE-BLOCK-START
@@ -54,10 +55,8 @@ def compute_model_placement(gpu_num, models):
 if __name__ == "__main__":
     # Test the algorithm
 
-    from evaluator import generate_test_gpu_models
-    from evaluator import calculate_kvcache_pressure
-    from evaluator import safe_float
     import numpy as np
+    from evaluator import calculate_kvcache_pressure, generate_test_gpu_models, safe_float
 
     test_cases = generate_test_gpu_models()
     all_kvpr = []

@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """
 Circle Packing Evaluator - Standalone evaluation script
 
@@ -19,7 +20,7 @@ import sys
 import tempfile
 import time
 import traceback
-from typing import Any, Dict
+from typing import Any
 
 import numpy as np
 
@@ -36,7 +37,7 @@ def validate_packing(centers, radii):
     return validate_packing_details(centers, radii)["valid"]
 
 
-def validate_packing_details(centers, radii) -> Dict[str, Any]:
+def validate_packing_details(centers, radii) -> dict[str, Any]:
     """Validate circle packing and return structured failure details."""
     if centers.shape != (26, 2) or radii.shape != (26,):
         return _validation_failure(
@@ -124,7 +125,7 @@ def validate_packing_details(centers, radii) -> Dict[str, Any]:
     return {"valid": True}
 
 
-def _validation_failure(failure_type: str, message: str, **details: Any) -> Dict[str, Any]:
+def _validation_failure(failure_type: str, message: str, **details: Any) -> dict[str, Any]:
     return {
         "valid": False,
         "failure_type": failure_type,
@@ -222,7 +223,7 @@ except Exception as e:
             os.unlink(results_path)
 
 
-def evaluate(program_path: str, timeout_seconds: int = 600) -> Dict[str, Any]:
+def evaluate(program_path: str, timeout_seconds: int = 600) -> dict[str, Any]:
     """Evaluate the program and return metrics."""
     start_time = time.time()
 
@@ -286,7 +287,7 @@ def evaluate(program_path: str, timeout_seconds: int = 600) -> Dict[str, Any]:
 # Output Formatting (from standalone_evaluator.py)
 # =============================================================================
 
-def is_successful(result: Dict[str, Any]) -> bool:
+def is_successful(result: dict[str, Any]) -> bool:
     """Check if evaluation was successful."""
     if result.get("traceback"):
         return False
@@ -298,7 +299,7 @@ def is_successful(result: Dict[str, Any]) -> bool:
     return True
 
 
-def get_error_message(result: Dict[str, Any]) -> str:
+def get_error_message(result: dict[str, Any]) -> str:
     """Extract error message from result."""
     if result.get("traceback"):
         return result["traceback"]
@@ -313,7 +314,7 @@ def get_error_message(result: Dict[str, Any]) -> str:
     return "Unknown error"
 
 
-def _format_validation_error(error: Dict[str, Any]) -> str:
+def _format_validation_error(error: dict[str, Any]) -> str:
     """Return a compact one-line validation summary for subagent debugging."""
     parts = [f"type={error.get('failure_type', 'unknown')}"]
     if "circle_indices" in error:
@@ -335,7 +336,7 @@ def _format_validation_error(error: Dict[str, Any]) -> str:
     return "; ".join(parts)
 
 
-def format_result(result: Dict[str, Any], artifact_ref: str) -> Dict[str, Any]:
+def format_result(result: dict[str, Any], artifact_ref: str) -> dict[str, Any]:
     """Format result into status, fitness, metrics, misc."""
     success = is_successful(result)
 
@@ -368,7 +369,7 @@ def format_result(result: Dict[str, Any], artifact_ref: str) -> Dict[str, Any]:
     }
 
 
-def save_result(result: Dict[str, Any], output_path: str, artifact_ref: str) -> None:
+def save_result(result: dict[str, Any], output_path: str, artifact_ref: str) -> None:
     """Save result to JSON file."""
     output_dir = os.path.dirname(output_path)
     if output_dir:

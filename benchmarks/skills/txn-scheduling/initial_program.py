@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 import os
 import random
 import time
@@ -32,17 +33,17 @@ def get_best_schedule(workload, num_seqs):
         txn_seq = [start_txn]
         remaining_txns = [x for x in range(0, workload.num_txns)]
         remaining_txns.remove(start_txn)
-        running_cost = workload.txns[start_txn][0][3]
+        _running_cost = workload.txns[start_txn][0][3]
         # min_costs = []
         # key_map, total_cost = workload.get_incremental_seq_cost(start_txn, {}, 0)
         for i in range(0, workload.num_txns - 1):
             min_cost = 100000 # MAX
-            min_relative_cost = 10
+            _min_relative_cost = 10
             min_txn = -1
             # min_index = 0
             holdout_txns = []
             done = False
-            key_maps = []
+            _key_maps = []
 
             sample = random.random()
             if sample > sample_rate:
@@ -62,7 +63,7 @@ def get_best_schedule(workload, num_seqs):
                 holdout_txns.append(remaining_txns.pop(idx))
                 if workload.debug:
                     print(remaining_txns, holdout_txns)
-                txn_len = workload.txns[t][0][3]
+                _txn_len = workload.txns[t][0][3]
                 test_seq = txn_seq.copy()
                 test_seq.append(t)
                 cost = 0
@@ -76,7 +77,7 @@ def get_best_schedule(workload, num_seqs):
                 if done:
                     break
             assert(min_txn != -1)
-            running_cost = min_cost
+            _running_cost = min_cost
             txn_seq.append(min_txn)
             holdout_txns.remove(min_txn)
             remaining_txns.extend(holdout_txns)
@@ -98,7 +99,7 @@ def get_best_schedule(workload, num_seqs):
 # EVOLVE-BLOCK-END
 
 def get_random_costs():
-    workload_size = 100
+    _workload_size = 100
     workload = Workload(WORKLOAD_1)
 
     makespan1, schedule1 = get_best_schedule(workload, 10)

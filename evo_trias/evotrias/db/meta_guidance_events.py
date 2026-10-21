@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Complete timeline of the meta-guidance loop, persisted as ``meta_guidance_events.jsonl``.
 
 Deliberately overlaps with ``meta_guidance_state.json``: one ordered stream

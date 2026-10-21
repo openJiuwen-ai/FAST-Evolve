@@ -1,8 +1,8 @@
-import pandas as pd
-from typing import List, Tuple
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 from concurrent.futures import ThreadPoolExecutor
+
+import pandas as pd
 from utils import Trie
-import time
 
 
 class Algorithm:
@@ -102,7 +102,7 @@ class Algorithm:
         return df.drop(index=rows)
 
     @staticmethod
-    def merging_columns(df: pd.DataFrame, col_names: List[str], delimiter: str = "_", prepended: bool = False) -> pd.DataFrame:
+    def merging_columns(df: pd.DataFrame, col_names: list[str], delimiter: str = "_", prepended: bool = False) -> pd.DataFrame:
         if not all(col in df.columns for col in col_names):
             raise ValueError("Column names not found in DataFrame")
 

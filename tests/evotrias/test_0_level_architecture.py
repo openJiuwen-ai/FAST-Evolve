@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Package-level dependency rules for ``evotrias``.
 
 Dependencies only point downward: ``mcp -> evolve_ctrl -> db``,

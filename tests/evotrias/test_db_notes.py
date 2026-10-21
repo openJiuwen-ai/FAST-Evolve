@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Tests for evotrias.db.notes, evotrias.db.note_requests, evotrias.db.notes_events."""
 
 from __future__ import annotations

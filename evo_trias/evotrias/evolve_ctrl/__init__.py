@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Evolution control: parent/inspiration selection, convergence, budget, lineage.
 
 Pure algorithm classes and derived in-memory views over ``evotrias.db``.

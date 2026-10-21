@@ -1,4 +1,5 @@
-﻿# ===--------------------------------------------------------------------------------------===#
+﻿# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
+# ===--------------------------------------------------------------------------------------===#
 #
 # This file implements the evaluator for the heilbronn problem for convex regions, with
 # 13 points.
@@ -12,13 +13,14 @@
 #
 # ===--------------------------------------------------------------------------------------===#
 
-import time
-import numpy as np
 import itertools
-from scipy.spatial import ConvexHull
-import sys
 import os
+import sys
+import time
 from importlib import __import__
+
+import numpy as np
+from scipy.spatial import ConvexHull
 
 BENCHMARK = 0.030936889034895654
 NUM_POINTS = 13

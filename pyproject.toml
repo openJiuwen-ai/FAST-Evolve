@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 [tool.uv.workspace]
 members = ["evo_trias"]
 
@@ -19,8 +20,7 @@ force-exclude = '^/(benchmarks|test_problem)/'
 [tool.ruff]
 line-length = 120
 target-version = "py311"
-include = ["evo_trias/**/*.py", "tests/**/*.py"]
-extend-exclude = ["benchmarks", "test_problem"]
+include = ["evo_trias/**/*.py", "tests/**/*.py", "benchmarks/**/*.py", "test_problem/**/*.py"]
 force-exclude = true
 
 [tool.ruff.lint]

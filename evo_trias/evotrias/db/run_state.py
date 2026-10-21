@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Per-run controller state, persisted as ``run_state.json``.
 
 First written by ``configure_run`` (that write is the run's start time,

@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Interactive ``evotrias setup`` (design.md §6.1): welcome, choose a harness, set up, done.
 
 Harnesses are detected in background threads as soon as the app starts, so the welcome page shows

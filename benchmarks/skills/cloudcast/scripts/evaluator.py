@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 import argparse
 import hashlib
 import importlib.util
@@ -14,11 +15,8 @@ from tempfile import TemporaryDirectory
 # The helper modules live beside this evaluator.
 script_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, script_dir)
-from utils import *
-from simulator import *
-from broadcast import *
-import networkx as nx
-
+from simulator import BCSimulator
+from utils import make_nx_graph
 
 BENCHMARK_DIR = Path(__file__).resolve().parents[1]
 
@@ -131,7 +129,7 @@ def validate_broadcast_topology(bc_t, source_node, terminal_nodes, num_partition
                     path_valid = False
                     break
                 
-                edge_src, edge_dst, edge_data = edge[0], edge[1], edge[2]
+                edge_src, edge_dst, _edge_data = edge[0], edge[1], edge[2]
                 
                 # Verify edge exists in graph
                 if not G.has_edge(edge_src, edge_dst):
@@ -246,7 +244,7 @@ def evaluate(program_path):
                     print(f"Processing config: {os.path.basename(jsonfile)}")
 
                     # Load configuration.
-                    with open(jsonfile, "r", encoding="utf-8") as f:
+                    with open(jsonfile, encoding="utf-8") as f:
                         config_name = os.path.basename(jsonfile).split(".")[0]
                         config = json.loads(f.read())
 

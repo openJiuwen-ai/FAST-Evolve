@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Run-local Notes support.
 
 This module intentionally keeps Notes small: notes live inside one run, have

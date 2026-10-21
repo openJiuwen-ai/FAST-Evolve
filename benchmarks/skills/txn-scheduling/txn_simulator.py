@@ -1,6 +1,6 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 import collections
 import json
-import numpy as np
 
 
 class Workload:
@@ -37,8 +37,8 @@ class Workload:
         for txn in self.workload:  # .values()
             txn_ops = []
             ops = txn.split(" ")
-            txn_len = len(ops)
-            skip_txn = False
+            _txn_len = len(ops)
+            _skip_txn = False
             count = 0
             tmp1 = None
             tmp2 = None
@@ -146,12 +146,12 @@ class Workload:
         if self.debug:
             print("seq: ", txn_seq)
         key_map = {}  # <key, [(r/w, lock_start, lock_end, txn_id)]>
-        prev_txn = txn_seq[0]
+        _prev_txn = txn_seq[0]
         total_cost = 0
         txn_id = 0
         cost_map = {}
         for i in range(len(txn_seq)):
-            time = i
+            _time = i
             txn = self.txns[txn_seq[i]]
             txn_start = 1
             txn_total_len = 0
@@ -195,7 +195,7 @@ class Workload:
                 print(txn, txn_start, txn_end, max_release, cost, total_cost)
 
             curr_txn = txn_seq[i]
-            prev_txn = curr_txn
+            _prev_txn = curr_txn
             if self.debug:
                 print(txn_start, txn_end, max_release, cost)
 
@@ -222,7 +222,7 @@ class Workload:
             print(total_cost)
 
         # print(key_map)
-        od = collections.OrderedDict(sorted(cost_map.items()))
+        _od = collections.OrderedDict(sorted(cost_map.items()))
         # print(od.keys())
         # print(od.values())
         return total_cost

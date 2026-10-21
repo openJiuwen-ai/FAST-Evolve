@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Tests for decoupled run-shape configuration.
 
 ``lineage_root_number`` (root-phase mint cap: at most this many tasks exist

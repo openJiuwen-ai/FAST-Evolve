@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Every final task attempt, persisted as ``attempts.jsonl``.
 
 Written once per attempt by ``record_attempt``; the first-hand record that

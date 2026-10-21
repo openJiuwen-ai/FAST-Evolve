@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """JSON / JSONL file primitives shared by every module that touches disk.
 
 Write conventions: ``indent=2, ensure_ascii=False, sort_keys=True`` (callers

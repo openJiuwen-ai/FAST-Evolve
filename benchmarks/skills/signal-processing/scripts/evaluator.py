@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """
 Signal Processing Evaluator
 
@@ -7,17 +8,16 @@ Usage:
 """
 
 import argparse
+import concurrent.futures
 import json
 import os
-import subprocess
 import sys
-import tempfile
 import time
 import traceback
-from typing import Any, Dict
+from typing import Any
+
 import numpy as np
 from scipy.stats import pearsonr
-import concurrent.futures
 
 TARGET_VALUE = 1.0
 
@@ -147,7 +147,7 @@ def generate_test_signals(num_signals=5):
     return test_signals
 
 
-def evaluate(program_path: str, timeout_seconds: int = 360) -> Dict[str, Any]:
+def evaluate(program_path: str, timeout_seconds: int = 360) -> dict[str, Any]:
     start_time = time.time()
     try:
         # Load the program
@@ -224,9 +224,9 @@ def evaluate(program_path: str, timeout_seconds: int = 360) -> Dict[str, Any]:
         success_rate = successful_runs / len(test_signals)
 
         smoothness_score = 1.0 / (1.0 + avg_slope_changes / 20.0)
-        responsiveness_score = 1.0 / (1.0 + avg_lag_error)
+        _responsiveness_score = 1.0 / (1.0 + avg_lag_error)
         accuracy_score = max(0, avg_correlation)
-        efficiency_score = min(1.0, 1.0 / max(0.001, avg_execution_time))
+        _efficiency_score = min(1.0, 1.0 / max(0.001, avg_execution_time))
 
         overall_score = 0.4 * avg_composite_score + 0.2 * smoothness_score + 0.2 * accuracy_score + 0.1 * avg_noise_reduction + 0.1 * success_rate
 
@@ -248,7 +248,7 @@ def evaluate(program_path: str, timeout_seconds: int = 360) -> Dict[str, Any]:
 def is_successful(r): return not r.get("traceback") and not r.get("error") and r.get("validity", 0) >= 1.0
 
 
-def format_result(result: Dict[str, Any], artifact_ref: str) -> Dict[str, Any]:
+def format_result(result: dict[str, Any], artifact_ref: str) -> dict[str, Any]:
     """Format result into status, fitness, metrics, misc."""
     success = is_successful(result)
     status = "success" if success else "failure"

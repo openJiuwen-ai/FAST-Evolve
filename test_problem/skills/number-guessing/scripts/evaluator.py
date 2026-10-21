@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """
 Number Guessing Evaluator - Standalone evaluation script
 
@@ -16,7 +17,7 @@ import os
 import sys
 import time
 import traceback
-from typing import Any, Dict
+from typing import Any
 
 # The secret number to guess - fixed for evaluation
 SECRET_NUMBER = 35146
@@ -24,7 +25,7 @@ MIN_VALUE = 1
 MAX_VALUE = 100000
 
 
-def validate_guess(guess: int) -> Dict[str, Any]:
+def validate_guess(guess: int) -> dict[str, Any]:
     """Validate that the guess is within the valid range."""
     if not isinstance(guess, int):
         return {
@@ -45,14 +46,14 @@ def validate_guess(guess: int) -> Dict[str, Any]:
 
 def read_guess_from_file(file_path: str) -> int:
     """Read guess from text file."""
-    with open(file_path, 'r', encoding='utf-8') as f:
+    with open(file_path, encoding='utf-8') as f:
         content = f.read().strip()
     return int(content)
 
 
-def evaluate(file_path: str) -> Dict[str, Any]:
+def evaluate(file_path: str) -> dict[str, Any]:
     """Evaluate the guess and return metrics."""
-    start_time = time.time()
+    _start_time = time.time()
 
     try:
         guess = read_guess_from_file(file_path)
@@ -81,7 +82,7 @@ def evaluate(file_path: str) -> Dict[str, Any]:
         }
 
 
-def is_successful(result: Dict[str, Any]) -> bool:
+def is_successful(result: dict[str, Any]) -> bool:
     """Check if evaluation was successful."""
     if result.get("traceback"):
         return False
@@ -93,7 +94,7 @@ def is_successful(result: Dict[str, Any]) -> bool:
     return True
 
 
-def get_error_message(result: Dict[str, Any]) -> str:
+def get_error_message(result: dict[str, Any]) -> str:
     """Extract error message from result."""
     if result.get("traceback"):
         return result["traceback"]
@@ -104,7 +105,7 @@ def get_error_message(result: Dict[str, Any]) -> str:
     return "Unknown error"
 
 
-def format_result(result: Dict[str, Any], artifact_ref: str) -> Dict[str, Any]:
+def format_result(result: dict[str, Any], artifact_ref: str) -> dict[str, Any]:
     """Format result into status, fitness, metrics, misc."""
     success = is_successful(result)
     return {
@@ -116,7 +117,7 @@ def format_result(result: Dict[str, Any], artifact_ref: str) -> Dict[str, Any]:
     }
 
 
-def save_result(result: Dict[str, Any], output_path: str, artifact_ref: str) -> None:
+def save_result(result: dict[str, Any], output_path: str, artifact_ref: str) -> None:
     """Save result to JSON file."""
     output_dir = os.path.dirname(output_path)
     if output_dir:

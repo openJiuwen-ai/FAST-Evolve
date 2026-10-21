@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Tests for evotrias.evolve_ctrl.convergence_detector."""
 
 from __future__ import annotations

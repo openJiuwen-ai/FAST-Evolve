@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Download the external Cloudcast benchmark data."""
 
 from __future__ import annotations
@@ -5,7 +6,6 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 from urllib.request import urlretrieve
-
 
 BASE_URL = "https://huggingface.co/datasets/f20180301/adrs-data/resolve/main/cloudcast"
 FILES = [

@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """MCP tool registration for evotrias.
 
 This is the only layer that exposes FastMCP tools, and it stays a thin shell:

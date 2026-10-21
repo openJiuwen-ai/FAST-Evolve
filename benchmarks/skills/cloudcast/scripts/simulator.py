@@ -1,8 +1,8 @@
-from typing import List
-import networkx as nx
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 import json
-from broadcast import *
-from utils import *
+
+import networkx as nx
+
 
 class BCSimulator:
     # Default variables
@@ -12,7 +12,7 @@ class BCSimulator:
     default_vms_per_region: int = 1
     cost_per_instance_hr: float = 0.54  # based on m5.8xlarge spot
     src: str
-    dsts: List[str]
+    dsts: list[str]
     algo: str
     g = nx.DiGraph
 
@@ -25,7 +25,7 @@ class BCSimulator:
         # check if path is dict
         if isinstance(path, str):
             # Read from json
-            with open(path, "r") as f:
+            with open(path) as f:
                 data = json.loads(f.read())
         else:
             data = {
@@ -64,7 +64,7 @@ class BCSimulator:
         print("Egress limits: ", self.egress_limits)
 
     def evaluate_path(self, path, config, write_to_file=False):
-        print(f"\n==============> Evaluation")
+        print("\n==============> Evaluation")
         self.initialization(path, config)
 
         # construct graph
@@ -108,7 +108,7 @@ class BCSimulator:
                 for edge in self.paths[dst][str(partition_id)]:
                     src, dst, edge_data = edge[0], edge[1], edge[2]
                     if not g.has_edge(src, dst):
-                        cost = edge_data["cost"]
+                        _cost = edge_data["cost"]
                         throughput = edge_data["throughput"]  # * self.default_vms_per_region
                         g.add_edge(src, dst, throughput=throughput, cost=edge_data["cost"], flow=throughput)
                         g[src][dst]["partitions"] = set()

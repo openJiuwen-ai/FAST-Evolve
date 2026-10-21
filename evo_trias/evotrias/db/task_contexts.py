@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Per-task evolutionary context, persisted as ``task_contexts.json``.
 
 Selection tools fill a task's context (parent, inspirations, meta guidance);

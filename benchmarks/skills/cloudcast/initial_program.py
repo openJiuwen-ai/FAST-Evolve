@@ -1,9 +1,9 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 # EVOLVE-BLOCK-START
-import networkx as nx
-import json
 import os
+
+import networkx as nx
 import pandas as pd
-from typing import Dict, List
 
 
 def search_algorithm(src, dsts, G, num_partitions):
@@ -21,13 +21,13 @@ def search_algorithm(src, dsts, G, num_partitions):
     return bc_topology
 
 
-class SingleDstPath(Dict):
+class SingleDstPath(dict):
     partition: int
-    edges: List[List]  # [[src, dst, edge data]]
+    edges: list[list]  # [[src, dst, edge data]]
 
 
 class BroadCastTopology:
-    def __init__(self, src: str, dsts: List[str], num_partitions: int = 4, paths: Dict[str, SingleDstPath] = None):
+    def __init__(self, src: str, dsts: list[str], num_partitions: int = 4, paths: dict[str, SingleDstPath] = None):
         self.src = src  # single str
         self.dsts = dsts  # list of strs
         self.num_partitions = num_partitions
@@ -47,14 +47,14 @@ class BroadCastTopology:
     def set_num_partitions(self, num_partitions: int):
         self.num_partitions = num_partitions
 
-    def set_dst_partition_paths(self, dst: str, partition: int, paths: List[List]):
+    def set_dst_partition_paths(self, dst: str, partition: int, paths: list[list]):
         """
         Set paths for partition = partition to reach dst
         """
         partition = str(partition)
         self.paths[dst][partition] = paths
 
-    def append_dst_partition_path(self, dst: str, partition: int, path: List):
+    def append_dst_partition_path(self, dst: str, partition: int, path: list):
         """
         Append path for partition = partition to reach dst
         """
@@ -109,10 +109,10 @@ def make_nx_graph(cost_path=None, throughput_path=None, num_vms=1):
 # EVOLVE-BLOCK-END
 
 # Helper functions that won't be evolved
-def create_broadcast_topology(src: str, dsts: List[str], num_partitions: int = 4):
+def create_broadcast_topology(src: str, dsts: list[str], num_partitions: int = 4):
     """Create a broadcast topology instance"""
     return BroadCastTopology(src, dsts, num_partitions)
 
-def run_search_algorithm(src: str, dsts: List[str], G, num_partitions: int):
+def run_search_algorithm(src: str, dsts: list[str], G, num_partitions: int):
     """Run the search algorithm and return the topology"""
     return search_algorithm(src, dsts, G, num_partitions)

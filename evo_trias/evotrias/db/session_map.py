@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Host session id -> run id, persisted globally as ``session_map.json``.
 
 Written when ``configure_run`` is observed for a session; hooks use it to

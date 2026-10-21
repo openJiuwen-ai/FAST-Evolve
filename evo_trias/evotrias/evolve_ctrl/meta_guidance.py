@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Meta-guidance lifecycle for the Evolution Controller MCP.
 
 Meta-guidance is a lightweight meta-evolve loop: when the search plateaus,

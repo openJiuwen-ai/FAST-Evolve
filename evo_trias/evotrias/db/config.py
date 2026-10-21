@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Per-run configuration, persisted as ``config.json``.
 
 Written once by ``configure_run`` (caller arguments plus environment

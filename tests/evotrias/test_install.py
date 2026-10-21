@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Tests for evotrias.setup.install: the install strategies, the JSON merge rules, and a workspace
 set up end to end for each harness."""
 

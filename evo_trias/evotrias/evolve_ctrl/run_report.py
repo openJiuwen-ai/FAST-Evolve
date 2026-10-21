@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Deterministic run report generation for completed evolution runs.
 
 The report writer deliberately avoids LLM-authored summaries.  It rebuilds the

@@ -1,9 +1,10 @@
-import sys
-import os
-import traceback
-import time
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 import argparse
 import json
+import os
+import sys
+import time
+import traceback
 from pathlib import Path
 
 import pandas as pd
@@ -12,28 +13,15 @@ parent_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, parent_dir)
 import importlib.util
 
-from utils import evaluate_df_prefix_hit_cnt
 from initial_program import Evolved
+from utils import evaluate_df_prefix_hit_cnt
 
 
 def run_quick(
     master_df,
     col_merge,
 ):
-    st = time.time()
-    quick, _ = QuickGreedy().reorder(
-        master_df,
-        early_stop=100000,
-        distinct_value_threshold=0.7,
-        row_stop=4,
-        col_stop=2,
-        col_merge=col_merge,
-    )
-    end = time.time() - st
-
-    results = evaluate_df_prefix_hit_cnt(quick)
-    # results = evaluate_cell_hit_cnt(quick)
-    return results, end
+    raise NotImplementedError("The QuickGreedy baseline is not included in this benchmark; use Evolved instead.")
 
 def run_evolved(
     master_df,
@@ -158,8 +146,8 @@ def evaluate(program_path):
                 total_chars_after = reordered.astype(str).apply(lambda x: x.str.len().sum(), axis=1).sum()
                 
                 # Calculate column counts for additional context
-                original_col_count = len(master_df.columns)
-                reordered_col_count = len(reordered.columns)
+                _original_col_count = len(master_df.columns)
+                _reordered_col_count = len(reordered.columns)
                 
                 # Validate character count (reordered cannot be less than original)
                 if total_chars_after < total_chars_before:

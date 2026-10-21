@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Tests for evotrias.setup.tui_art: the left column fits its width in every mood."""
 
 from __future__ import annotations

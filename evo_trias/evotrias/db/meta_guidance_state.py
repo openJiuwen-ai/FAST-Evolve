@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Meta-guidance lifecycle state, persisted as ``meta_guidance_state.json``.
 
 The source of truth for the meta-evolve loop: the plateau watch window, the

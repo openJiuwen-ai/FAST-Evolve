@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 from __future__ import annotations
 
 from evotrias.enums_and_consts import MCP_SERVER_NAME, InstallMode

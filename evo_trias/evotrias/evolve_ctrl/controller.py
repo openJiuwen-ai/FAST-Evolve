@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Evolution control entry points, one function per MCP tool.
 
 Nothing here is cached between calls: every function takes ``run_id``, reads

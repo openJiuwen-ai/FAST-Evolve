@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 # EVOLVE-BLOCK-START
 
 GPU_MEM_SIZE = 80 # GB

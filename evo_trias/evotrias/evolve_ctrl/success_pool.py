@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """The reusable success pool: every task that produced a valid candidate.
 
 ``SuccessPool`` is an in-memory view derived on construction from two db

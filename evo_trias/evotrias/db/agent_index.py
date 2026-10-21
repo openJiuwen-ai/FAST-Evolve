@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Which agent is doing what in a run, persisted as ``agent_index.json``.
 
 Keyed by the host's agent/session id.  ``attrs`` carries the fields that

@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """The two store base classes behind every file under ``.evotrias/db``.
 
 * ``DBList`` -- an append-only JSONL event log with a dataclass schema.

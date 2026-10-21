@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Live, read-only dashboard for an evotrias run.
 
 The dashboard reads run state through ``evotrias.db`` -- the same objects the
