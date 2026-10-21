@@ -1,4 +1,5 @@
-﻿# ===--------------------------------------------------------------------------------------===#
+﻿# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
+# ===--------------------------------------------------------------------------------------===#
 #
 # This file implements the evaluator for problem of packing unit regular hexagons inside
 # a regular hexagon, with 12 unit hexagons.
@@ -12,13 +13,13 @@
 #
 # ===--------------------------------------------------------------------------------------===#
 
-import sys
+import math
 import os
-from importlib import __import__
+import sys
 import time
+from importlib import __import__
 
 import numpy as np
-import math
 
 N_HEX = 12
 BENCHMARK = 1 / 3.9419123

@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 # EVOLVE-BLOCK-START
 """
 Real-Time Adaptive Signal Processing Algorithm for Non-Stationary Time Series

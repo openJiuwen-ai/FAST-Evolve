@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """``python -m evotrias.mcp``: serve the controller MCP over stdio."""
 
 import os

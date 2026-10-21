@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """``python -m evotrias.hooks <harness> <event>``: one hook entry for every harness.
 
 stdin:  payload JSON from the harness (UTF-8), empty means ``{}``

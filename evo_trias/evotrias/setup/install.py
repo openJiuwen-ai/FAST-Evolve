@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """``install(harness, workspace)``: set a workspace up for one harness (design.md §6.3).
 
 Each install entry is applied by the strategy of its ``InstallMode``.  Every strategy takes

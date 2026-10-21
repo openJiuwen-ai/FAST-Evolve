@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Deterministic fitness-plateau detection.
 
 The detector observes running-best fitness over a rolling window. A sustained

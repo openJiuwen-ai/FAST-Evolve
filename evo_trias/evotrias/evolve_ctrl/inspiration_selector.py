@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Lineage-local Boltzmann inspiration selection with migration.
 
 The inspiration selector complements parent selection.  Most inspiration should

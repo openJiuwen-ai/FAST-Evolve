@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Filesystem-backed state under ``.evotrias/db``.
 
 Keep this ``__init__`` free of imports: ``evotrias.logger`` reads

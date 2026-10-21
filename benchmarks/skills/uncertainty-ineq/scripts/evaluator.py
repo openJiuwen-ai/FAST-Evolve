@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """
 Uncertainty Inequality Evaluator
 
@@ -16,7 +17,7 @@ import os
 import sys
 import time
 import traceback
-from typing import Any, Dict
+from typing import Any
 
 import numpy as np
 import sympy as sp
@@ -112,7 +113,7 @@ def run_program(program_path: str):
     return program.run()
 
 
-def evaluate(program_path: str, timeout_seconds: int = TIMEOUT_SECONDS) -> Dict[str, Any]:
+def evaluate(program_path: str, timeout_seconds: int = TIMEOUT_SECONDS) -> dict[str, Any]:
     start_time = time.time()
 
     try:
@@ -152,13 +153,13 @@ def evaluate(program_path: str, timeout_seconds: int = TIMEOUT_SECONDS) -> Dict[
         }
 
 
-def is_successful(result: Dict[str, Any]) -> bool:
+def is_successful(result: dict[str, Any]) -> bool:
     if result.get("traceback") or result.get("error"):
         return False
     return result.get("combined_score", 0) > 0
 
 
-def format_result(result: Dict[str, Any], artifact_ref: str) -> Dict[str, Any]:
+def format_result(result: dict[str, Any], artifact_ref: str) -> dict[str, Any]:
     success = is_successful(result)
     metric_keys = ["validity", "eval_time", "c4_bound", "target_ratio", "r_max"]
     metrics = {}
@@ -178,7 +179,7 @@ def format_result(result: Dict[str, Any], artifact_ref: str) -> Dict[str, Any]:
     }
 
 
-def save_result(result: Dict[str, Any], output_path: str, artifact_ref: str) -> None:
+def save_result(result: dict[str, Any], output_path: str, artifact_ref: str) -> None:
     output_dir = os.path.dirname(output_path)
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)

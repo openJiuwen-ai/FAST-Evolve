@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Run-local Notes committed by the agent, persisted as ``notes.jsonl``.
 
 One line per committed note.  The three nested records describe why the

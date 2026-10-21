@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Tests for the harness template contexts (claude / opencode)."""
 
 from __future__ import annotations

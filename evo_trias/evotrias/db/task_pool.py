@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """The scheduler's task state machine, persisted as ``task_pool.json``.
 
 Task ids move through the buckets ``created -> pending -> queued -> running

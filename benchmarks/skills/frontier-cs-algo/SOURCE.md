@@ -14,9 +14,11 @@ Per-problem names and runtime metadata were extracted from the sibling
 SHA-256 hashes. The import deliberately excludes CORAL's grader package because
 this benchmark uses one shared EvoTrias evaluator.
 
-The source files are copied byte-for-byte. This preserves the exact public
-task material in the referenced CORAL checkout, including any source-side text
-encoding artifacts.
+Problem statements are copied byte-for-byte. Initial C++ stubs retain their
+original bytes after a community-required copyright comment is prepended.
+The importer adds this header before computing the hashes in `metadata.json`
+and `suite_manifest.json`, so the hashes describe the local files. Source-side
+text encoding artifacts are preserved.
 
 The repository `.gitattributes` marks `statement.txt` and
 `initial_program.cpp` as `-text` so Git does not rewrite their original line

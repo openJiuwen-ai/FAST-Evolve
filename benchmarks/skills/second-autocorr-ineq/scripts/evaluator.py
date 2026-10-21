@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """
 Second Autocorrelation Inequality Evaluator
 
@@ -14,7 +15,8 @@ import sys
 import tempfile
 import time
 import traceback
-from typing import Any, Dict
+from typing import Any
+
 import numpy as np
 
 BENCHMARK = 0.8962799441554086
@@ -43,7 +45,7 @@ def validate_c2(f_values, c2_achieved, n_points):
     norm_inf = np.max(np.abs(convolution))
     if norm_1 < 1e-10 or norm_inf < 1e-10:
         return False
-    computed_c2 = l2_norm_squared / (norm_1 * norm_inf)
+    _computed_c2 = l2_norm_squared / (norm_1 * norm_inf)
     return True
 
 
@@ -91,7 +93,7 @@ except Exception as e:
                 os.unlink(p)
 
 
-def evaluate(program_path: str, timeout_seconds: int = 600) -> Dict[str, Any]:
+def evaluate(program_path: str, timeout_seconds: int = 600) -> dict[str, Any]:
     start_time = time.time()
     try:
         f_values, c2_achieved, loss, n_points = run_program_with_timeout(program_path, timeout_seconds=timeout_seconds)
@@ -102,13 +104,13 @@ def evaluate(program_path: str, timeout_seconds: int = 600) -> Dict[str, Any]:
         combined_score = target_ratio * validity
         return {"c2": float(c2_achieved), "target_ratio": float(target_ratio), "validity": float(validity), "loss": float(loss), "n_points": int(n_points), "eval_time": float(eval_time), "combined_score": float(combined_score)}
     except Exception as e:
-        return {"c2": 0.0, "target_ratio": 0.0, "validity": 0.0, "loss": 0.0, "n_points": 0, "eval_time": float(time.time() - start_time), "validity": 0.0, "error": str(e), "traceback": traceback.format_exc()}
+        return {"c2": 0.0, "target_ratio": 0.0, "validity": 0.0, "loss": 0.0, "n_points": 0, "eval_time": float(time.time() - start_time), "error": str(e), "traceback": traceback.format_exc()}
 
 
 def is_successful(r): return not r.get("traceback") and not r.get("error") and r.get("validity", 0) >= 1.0
 
 
-def format_result(result: Dict[str, Any], artifact_ref: str) -> Dict[str, Any]:
+def format_result(result: dict[str, Any], artifact_ref: str) -> dict[str, Any]:
     success = is_successful(result)
     status = "success" if success else "failure"
     fitness = result.get("combined_score", 0.0)

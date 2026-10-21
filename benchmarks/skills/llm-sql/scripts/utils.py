@@ -1,6 +1,8 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 from concurrent.futures import ThreadPoolExecutor
+
 import pandas as pd
-from typing import List, Tuple
+
 
 class TrieNode:
     def __init__(self):
@@ -43,7 +45,7 @@ def calculate_length(value):
         val = 0
     return val**2
 
-def evaluate_df_prefix_hit_cnt(df: pd.DataFrame) -> Tuple[int, int]:
+def evaluate_df_prefix_hit_cnt(df: pd.DataFrame) -> tuple[int, int]:
     """
     Function to evaluate the prefix hit count of a DataFrame
     """

@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """MCP entry point: the FastMCP server object plus tool registration.
 
 This package is a thin shell.  ``public_tools`` declares the agent-facing

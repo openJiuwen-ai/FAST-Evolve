@@ -1,10 +1,10 @@
-import networkx as nx
-from broadcast import *
-import pandas as pd
-import time
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 import functools
 import os
+import time
 
+import networkx as nx
+import pandas as pd
 
 GBIT_PER_GBYTE = 8
 
@@ -30,7 +30,7 @@ class Timer:
             return self.end - self.start
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def get_path_cost(src, dst, src_tier="PREMIUM", dst_tier="PREMIUM"):
     from skyplane import compute
 

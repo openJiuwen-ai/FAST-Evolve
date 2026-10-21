@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Non-interactive ``evotrias setup <harness>``."""
 
 from __future__ import annotations

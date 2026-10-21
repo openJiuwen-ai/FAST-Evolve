@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Path canonicalisation shared by the permission rules.
 
 Tool calls hand us paths in whatever shape the host produced -- absolute or

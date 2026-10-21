@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """
 Heilbronn Triangle Evaluator (11 points)
 
@@ -7,6 +8,7 @@ Usage:
 """
 
 import argparse
+import itertools
 import json
 import os
 import subprocess
@@ -14,9 +16,9 @@ import sys
 import tempfile
 import time
 import traceback
-from typing import Any, Dict
+from typing import Any
+
 import numpy as np
-import itertools
 
 BENCHMARK = 0.036529889880030156
 NUM_POINTS = 11
@@ -85,7 +87,7 @@ except Exception as e:
                 os.unlink(p)
 
 
-def evaluate(program_path: str, timeout_seconds: int = 600) -> Dict[str, Any]:
+def evaluate(program_path: str, timeout_seconds: int = 600) -> dict[str, Any]:
     start_time = time.time()
     try:
         points = run_program_with_timeout(program_path, timeout_seconds=timeout_seconds)
@@ -119,7 +121,7 @@ def is_successful(r): return not r.get("traceback") and not r.get("error") and r
 def get_error_message(r): return r.get("traceback") or r.get("error") or "Unknown error"
 
 
-def format_result(result: Dict[str, Any], artifact_ref: str) -> Dict[str, Any]:
+def format_result(result: dict[str, Any], artifact_ref: str) -> dict[str, Any]:
     metric_keys = ["validity", "eval_time", "min_area_normalized", "target_ratio"]
     metrics = {}
     for key in metric_keys:

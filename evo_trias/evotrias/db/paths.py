@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Every on-disk location EvoTrias owns, relative to the working directory.
 
 Three roots::

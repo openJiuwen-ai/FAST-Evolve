@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 from evotrias.enums_and_consts import MCP_SERVER_NAME, Agents, Decisions, Tools
 from evotrias.mcp.mcp_server import mcp
 

@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 # Disable progress bar for cleaner output logs
 import os
 
@@ -7,11 +8,12 @@ os.environ["TQDM_DISABLE"] = "1"
 n, m, p = 2, 4, 5
 
 # EVOLVE-BLOCK-START
-import numpy as np
+from dataclasses import dataclass
+
 import jax
 import jax.numpy as jnp
+import numpy as np
 import optax
-from dataclasses import dataclass
 import tqdm
 
 

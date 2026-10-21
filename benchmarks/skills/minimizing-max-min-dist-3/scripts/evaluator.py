@@ -1,4 +1,5 @@
-﻿# ===--------------------------------------------------------------------------------------===#
+﻿# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
+# ===--------------------------------------------------------------------------------------===#
 #
 # This file implements the evaluator for problem of minimizing the ratio of maximum
 # to minimum distance on dimension 3 and with 14 points.
@@ -12,12 +13,13 @@
 #
 # ===--------------------------------------------------------------------------------------===#
 
-import sys
 import os
-from importlib import __import__
-import scipy as sp
+import sys
 import time
+from importlib import __import__
+
 import numpy as np
+import scipy as sp
 
 NUM_POINTS = 14
 DIMENSION = 3

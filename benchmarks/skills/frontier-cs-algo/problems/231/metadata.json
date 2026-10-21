@@ -9,5 +9,5 @@
   "test_case_count": 3,
   "source_task": "examples/frontier_cs_algo/231/task.yaml",
   "statement_sha256": "580addf94e688a795c630cb87e76b11b06f2f92de94efac2d2d726ac8e017f55",
-  "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
+  "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
 }

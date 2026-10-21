@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Tests for evotrias.setup.setup_tui, driven headless through textual's Pilot."""
 
 from __future__ import annotations

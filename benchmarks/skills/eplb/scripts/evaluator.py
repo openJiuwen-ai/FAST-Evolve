@@ -1,14 +1,15 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 import argparse
 import functools
 import importlib.util
 import json
+import os
 import time
 import traceback
-from typing import TypedDict
 from pathlib import Path
+from typing import TypedDict
 
 import torch
-import os
 
 # Workload data belongs to the benchmark root.  The environment override keeps
 # the evaluator easy to exercise with a small fixture without changing the
@@ -24,7 +25,7 @@ NUM_NODES = 4
 
 @functools.cache
 def load_workloads(path: str) -> list[torch.Tensor]: 
-    with open(path, "r") as f:
+    with open(path) as f:
         data = json.load(f)
 
     total_len = len(data['load_history'])

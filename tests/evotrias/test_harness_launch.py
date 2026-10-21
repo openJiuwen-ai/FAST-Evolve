@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Tests for the harness launcher description: launch_command, detect and the registry."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """``evotrias`` command: ``evotrias setup <harness>`` and the launcher ``evotrias [harness options...]``."""
 
 from __future__ import annotations

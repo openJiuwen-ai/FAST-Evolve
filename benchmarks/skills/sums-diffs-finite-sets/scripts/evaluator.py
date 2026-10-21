@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """
 Sums and Differences of Finite Sets Evaluator
 
@@ -16,7 +17,7 @@ import os
 import sys
 import time
 import traceback
-from typing import Any, Dict
+from typing import Any
 
 import numpy as np
 
@@ -60,7 +61,7 @@ def run_program(program_path: str):
     return u_set, c6_bound
 
 
-def evaluate(program_path: str, timeout_seconds: int = TIMEOUT_SECONDS) -> Dict[str, Any]:
+def evaluate(program_path: str, timeout_seconds: int = TIMEOUT_SECONDS) -> dict[str, Any]:
     """Evaluate the program and return metrics."""
     start_time = time.time()
 
@@ -95,13 +96,13 @@ def evaluate(program_path: str, timeout_seconds: int = TIMEOUT_SECONDS) -> Dict[
         }
 
 
-def is_successful(result: Dict[str, Any]) -> bool:
+def is_successful(result: dict[str, Any]) -> bool:
     if result.get("traceback") or result.get("error"):
         return False
     return result.get("combined_score", 0) > 0
 
 
-def format_result(result: Dict[str, Any], artifact_ref: str) -> Dict[str, Any]:
+def format_result(result: dict[str, Any], artifact_ref: str) -> dict[str, Any]:
     success = is_successful(result)
     status = "success" if success else "failure"
     fitness = result.get("combined_score", 0.0)
@@ -125,7 +126,7 @@ def format_result(result: Dict[str, Any], artifact_ref: str) -> Dict[str, Any]:
     return {"status": status, "artifact_ref": artifact_ref, "fitness": fitness, "metrics": metrics, "profile": profile, "misc": misc}
 
 
-def save_result(result: Dict[str, Any], output_path: str, artifact_ref: str) -> None:
+def save_result(result: dict[str, Any], output_path: str, artifact_ref: str) -> None:
     output_dir = os.path.dirname(output_path)
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)

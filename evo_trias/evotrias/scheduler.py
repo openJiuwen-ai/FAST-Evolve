@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Task scheduling for one run: minting, allocation and the task state machine.
 
 Scheduling is not evolution control -- it does not choose parents or judge

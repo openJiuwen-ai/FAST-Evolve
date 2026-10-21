@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Tests for evotrias.hooks.opencode glue (scheduler).
 
 Payload fixtures mirror structures captured from opencode 1.18.21

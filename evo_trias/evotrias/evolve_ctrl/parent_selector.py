@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Lineage-aware parent selection.
 
 This selector implements a soft-island strategy.  It avoids always selecting

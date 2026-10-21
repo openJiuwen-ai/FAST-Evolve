@@ -1,9 +1,11 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 # EVOLVE-BLOCK-START
+from dataclasses import dataclass
+
 import jax
 import jax.numpy as jnp
-import optax
 import numpy as np
-from dataclasses import dataclass
+import optax
 
 
 @dataclass

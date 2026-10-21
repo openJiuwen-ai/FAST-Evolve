@@ -1,3 +1,4 @@
+// Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 // TS->Python bridge: forwarding opencode events to the evotrias broker (python -m evotrias.hooks opencode <event>).
 
 // Bus-event throughput gate: message.part.delta fires per token and must never spawn a python process each.

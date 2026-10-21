@@ -1,12 +1,14 @@
-import importlib.util
-import numpy as np
-import time
-import concurrent.futures
-import traceback
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 import argparse
+import concurrent.futures
+import importlib.util
 import json
 import os
+import time
+import traceback
 from dataclasses import dataclass
+
+import numpy as np
 
 GPU_MEM_SIZE = 80 # GB
 MIN_INT = float('-inf')  # Define MIN_INT as negative infinity
@@ -176,7 +178,7 @@ def evaluate(program_path):
                         "max_kvpr": 0.0,
                         "success_rate": 0.0,
                         "combined_score": 0.0,
-                        "error": f"Duplicate models detected",
+                        "error": "Duplicate models detected",
                     }
 
                 # Check placed models are the exact input objects
@@ -195,7 +197,7 @@ def evaluate(program_path):
                         "max_kvpr": 0.0,
                         "success_rate": 0.0,
                         "combined_score": 0.0,
-                        "error": f"GPU memory constraint violated",
+                        "error": "GPU memory constraint violated",
                     }
 
                 # Calculate metrics using the generated test signal

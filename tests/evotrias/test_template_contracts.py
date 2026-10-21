@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Contracts of the shipped templates: agents / skills as each harness renders them, plus the harness-specific files."""
 
 from __future__ import annotations

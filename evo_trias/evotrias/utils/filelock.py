@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Cross-process advisory file lock.
 
 Non-blocking by design: an unavailable lock yields ``False`` rather than

@@ -1,3 +1,4 @@
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Complete timeline of the Notes subsystem, persisted as ``notes_events.jsonl``.
 
 Deliberately overlaps with ``note_requests.jsonl`` and ``notes.jsonl``: one

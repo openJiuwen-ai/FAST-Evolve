@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """
 Third Autocorrelation Inequality Evaluator
 
@@ -14,14 +15,14 @@ import sys
 import tempfile
 import time
 import traceback
-from typing import Any, Dict, Tuple
+from typing import Any
 
 import numpy as np
 
 BENCHMARK = 1.4556427953745406  # Lower is better
 
 
-def validate_c3(f_values, c3_achieved, n_points) -> Tuple[bool, str, float]:
+def validate_c3(f_values, c3_achieved, n_points) -> tuple[bool, str, float]:
     """Validate the C3 upper-bound solution."""
     f_values = np.asarray(f_values)
     if f_values.shape != (n_points,):
@@ -135,7 +136,7 @@ except Exception as e:
             os.unlink(results_path)
 
 
-def evaluate(program_path: str, timeout_seconds: int = 600) -> Dict[str, Any]:
+def evaluate(program_path: str, timeout_seconds: int = 600) -> dict[str, Any]:
     """Evaluate the program and return metrics."""
     start_time = time.time()
 
@@ -175,14 +176,14 @@ def evaluate(program_path: str, timeout_seconds: int = 600) -> Dict[str, Any]:
         }
 
 
-def is_successful(result: Dict[str, Any]) -> bool:
+def is_successful(result: dict[str, Any]) -> bool:
     if result.get("traceback") or result.get("error"):
         return False
     validity = result.get("validity")
     return validity is not None and validity >= 1.0
 
 
-def get_error_message(result: Dict[str, Any]) -> str:
+def get_error_message(result: dict[str, Any]) -> str:
     if result.get("traceback"):
         return result["traceback"]
     if result.get("error"):
@@ -190,7 +191,7 @@ def get_error_message(result: Dict[str, Any]) -> str:
     return "Unknown error"
 
 
-def format_result(result: Dict[str, Any], artifact_ref: str) -> Dict[str, Any]:
+def format_result(result: dict[str, Any], artifact_ref: str) -> dict[str, Any]:
     success = is_successful(result)
     status = "success" if success else "failure"
     fitness = result.get("combined_score", 0.0)
@@ -215,7 +216,7 @@ def format_result(result: Dict[str, Any], artifact_ref: str) -> Dict[str, Any]:
     return {"status": status, "artifact_ref": artifact_ref, "fitness": fitness, "metrics": metrics, "profile": profile, "misc": misc}
 
 
-def save_result(result: Dict[str, Any], output_path: str, artifact_ref: str) -> None:
+def save_result(result: dict[str, Any], output_path: str, artifact_ref: str) -> None:
     output_dir = os.path.dirname(output_path)
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
