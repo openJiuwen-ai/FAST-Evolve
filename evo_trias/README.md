@@ -1,184 +1,110 @@
 <div align="center">
 
-<img src="assets/evotrias-banner.png" alt="EvoTrias" width="500">
+<img src="../assets/evotrias-banner.png" alt="EvoTrias" width="500">
 
-**English** | [中文](docs/README_CN.md)
+**Program evolution for coding agents**
+
+[![Python](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](../LICENSE)
+[![Release](https://img.shields.io/badge/release-GitCode-C71D23)](https://gitcode.com/openJiuwen/FAST-Evolve/releases)
+[![Project Page](https://img.shields.io/badge/project-evotrias.github.io-6E56CF)](https://evotrias.github.io/)
+
+**English** | [中文](README.zh.md) | [Website](https://evotrias.github.io/)
 
 </div>
 
-EvoTrias coordinates coding agents, task evaluators, and persistent search
-state in one evolution loop. Give it an optimization task and a verifier; it
-explores multiple directions, evaluates candidates, preserves useful discoveries,
-and keeps searching from the strongest results.
+## Overview
 
-## Highlights
+**EvoTrias** is a program evolution plugin for coding agents. Given an optimization task and an evaluator, it drives an existing coding agent to generate, evaluate, and select candidate programs continuously, iterating from the current best solution.
 
-- **Parallel exploration** — starts from distinct root directions and maintains a
-  rolling queue of candidate-generation tasks.
-- **Verifier-driven search** — task-owned evaluators decide candidate fitness,
-  keeping task-specific scoring separate from the controller.
-- **Persistent search intelligence** — records successful candidates, lineage,
-  attempts, and run-local Notes for later tasks.
-- **Strategy adaptation** — detects plateaus and can generate bounded meta-guidance
-  to refine or replace the current search strategy.
-- **Live observability** — includes a read-only dashboard for fitness, lineage,
-  active tasks, recent activity, Notes, and meta-guidance.
+## Key Features
 
-## How It Works
+- ⚖️ **Separation-of-powers architecture**: The three decisions in program evolution — govern, propose, and judge — are owned independently by three planes: Structured Governance, Open Proposal, and Protected Judgment. The planes interact only through typed contracts, and runtime hooks keep each within its own authority.
+- 🔌 **Plugin integration**: Deployed into a workspace as skills, an MCP server, and hooks. Without modifying the coding agent itself, EvoTrias gives it multi-direction, cross-round evolution while fully preserving its autonomous development capability on large codebases.
+- 🧭 **Evidence-driven strategy search**: The controller distills evaluation outcomes into multi-level evidence and adaptively selects parent and inspiration candidates, moving the search from broad to deep as the budget progresses. On stagnation, it generates Meta-guidance to escape the plateau; useful single-attempt experience is distilled into Notes for later tasks to reuse. Search state is persisted by the controller and stays out of the agent's context.
+- 🛡️ **Evaluator isolation**: The task contract is public; the evaluator is private. Permission hooks block access to evaluator sources and other tasks' results at the tool-call level, and candidates receive only normalized validity, fitness, and metrics, so scores faithfully reflect solution quality.
+- 📊 **Real-time observability**: Each run automatically launches a read-only dashboard showing fitness progress, lineage, active tasks, Notes, and Meta-guidance. On completion, a structured result and a Markdown summary are generated.
 
-```text
-Host coding agent
-  └─ initializes the run, schedules tasks, and delegates meta requests by ID
-       ↓
-Evolution Controller MCP
-  ├─ manages selection, lineage, Notes, convergence, and meta-guidance state
-  └─ exposes pending requests to a stateless evotrias-meta-guidance-generator agent
-       ↓
-evotrias-task-executor agents
-  └─ generate candidates and invoke the task evaluator
-       ↓
-Task evaluators
-  └─ return normalized fitness and artifacts to the controller
+### Supported Coding Agents
+
+| Coding agent | Status | Notes |
+| --- | :---: | --- |
+| [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | ✅ Full support | Scheduler and permission hooks fully in effect; suited to long unattended runs |
+| [OpenCode](https://opencode.ai) | ✅ Supported | Core evolution workflow fully available; permission hooks in progress |
+| [Codex](https://github.com/openai/codex) | 🗓️ Planned | — |
+| [JiuwenSwarm](https://gitcode.com/openJiuwen/jiuwenswarm) | 🗓️ Planned | — |
+
+## Documentation
+
+<!-- TODO: links to in-repo docs, examples, and Release -->
+
+## Requirements
+
+| Item | Requirement |
+| --- | --- |
+| OS | Linux, macOS, or Windows |
+| Python | ≥ 3.11 |
+| Coding agent | See [Supported Coding Agents](#supported-coding-agents) |
+
+## Installation
+
+```bash
+git clone https://gitcode.com/openJiuwen/FAST-Evolve.git
+pip install ./FAST-Evolve/evo_trias
 ```
 
-The controller keeps detailed state on disk and exchanges compact task contexts
-with agents. This lets long-running searches reuse prior discoveries without
-filling the host agent's context window.
+Run the following command to verify the installation; it should print the evotrias version:
+
+```bash
+evotrias --version
+```
 
 ## Quick Start
 
-### Prerequisites
+This section uses Claude Code and the built-in Circle Packing benchmark to walk through a complete evolution run. The task is to place 26 non-overlapping circles in a unit square so that the sum of their radii is maximized.
 
-- Python 3.11+
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) or
-  [opencode](https://opencode.ai)
-
-### Install
-
-From the repository root:
+**1. Install task dependencies**
 
 ```bash
-pip install ./evo_trias
+pip install -r FAST-Evolve/benchmarks/requirements/math.txt
 ```
 
-### Set Up a Workspace
+**2. Initialize a workspace**
 
 ```bash
-mkdir my-workspace
-cd my-workspace
-evotrias setup
+mkdir my-workspace && cd my-workspace
+evotrias setup claude
 ```
 
-Pick a harness and setup installs the EvoTrias agents, skills, and harness
-configuration into the workspace. Run `evotrias setup` again to add the other
-harness to the same workspace.
+This command installs the subagents, skills, MCP configuration, and hooks into the current directory. For another coding agent, replace `claude` with its name; omit the name to open an interactive selector.
 
-### Add the Task to Evolve
+**3. Import the task to evolve**
 
-Write the task as a skill: its `SKILL.md` describes the task, how a candidate
-solution is produced, and how a candidate is evaluated. Copy the skill directory
-into the workspace's skills directory (setup shows where).
+```bash
+cp -r ../FAST-Evolve/benchmarks/skills/circle-packing .claude/skills/
+```
 
-### Run
+Tasks are provided as skills and go into the workspace's skills directory. The directory differs by coding agent; for OpenCode, for example, it is `.opencode/skills/`.
+
+**4. Start evolution**
 
 ```bash
 evotrias
 ```
 
-This starts the harness set up last. Then submit an evolution task that names
-the task skill:
+In the launched session, submit the evolution request through the `evolve` skill:
 
 ```text
-/evolve evolve <task skill name>
+/evolve evolve circle-packing, 2 initial directions, 2 in parallel, 10 tasks
 ```
 
-EvoTrias creates a named run under `runs/`, launches the dashboard, explores
-several initial directions, and continues scheduling candidates until the
-configured task or time budget is exhausted.
+Once the run parameters are confirmed, EvoTrias creates a run directory under `runs/` and prints the dashboard URL. It then explores several initial directions in parallel and keeps evolving from the current best solution until the task budget is exhausted. The run summary is written to `runs/<run_id>/run_summary.md`.
 
-## Repository Layout
+> [!TIP]
+> To optimize your own problem, write it as a skill: describe the optimization objective, the output path of candidate programs, and how to invoke the evaluator in `SKILL.md`, then place it in the workspace's skills directory. The benchmark tasks under [`benchmarks/skills/`](../benchmarks/skills/) serve as references.
 
-```text
-evotrias/               Core package: db (state), evolve_ctrl (evolution control), scheduler, permissions, mcp (server entry), hooks, dashboard, setup, cli
-evotrias/templates/     Agents, skills, and harness configuration installed by "evotrias setup"
-docs/                   MCP interface reference
-```
+## License
 
-The controller MCP tool contract is documented in [docs/mcp_interface.md](docs/mcp_interface.md).
+This project is licensed under the [Apache License 2.0](../LICENSE).
 
-Runtime artifacts are written to the gitignored `runs/` and `.evotrias/`
-directories. Each completed run includes machine-readable results and a concise
-Markdown summary.
-
-## Defaults and Runtime Switches
-
-| Setting | Default | Effect |
-| --- | ---: | --- |
-| `LINEAGE_ROOT_NUMBER` | 4 | Initial exploration directions, number of root exploration branches |
-| `MAX_CONCURRENT_TASKS` | 4 | Rolling scheduler queue limit |
-| `MAX_TOTAL_TASKS` | 50 | Hard task budget |
-| Plateau window | 5 successes | Window used for plateau diagnostics |
-| Plateau patience | 4 | Consecutive plateau count required before strategy adaptation |
-| Fitness improvement threshold | 0.0 | A positive running-best improvement is progress |
-| Meta-guidance items per request | 3 | Maximum distinct guidance items generated |
-| Uses per guidance item | 2 | Maximum tasks assigned to each item |
-| Retained tried guidance | 10 | Outcome history available to later guidance requests |
-
-The three scheduling values above can be stated in the evolve request (for
-example "6 initial directions, 8 in parallel, 200 tasks"); they will be confirmed before 
-creating the run and locked when a run is initialized.
-
-Set these environment variables before starting the MCP process; they are
-resolved once by `configure_run` and frozen into the run's `config.json`:
-
-```powershell
-# Disable meta-guidance while retaining plateau diagnostics and normal selection.
-$env:EVOTRIAS_META_EVOLVE_ENABLED = "0"
-
-# Disable run-local Notes.
-$env:EVOTRIAS_NOTES_ENABLED = "0"
-
-# Disable automatic dashboard startup.
-$env:EVOTRIAS_UI_ENABLED = "0"
-
-# Treat relative best-fitness improvement below 1% as plateau.
-$env:EVOTRIAS_PERF_IMPROVEMENT_THRESHOLD = "0.01"
-```
-
-Hard task and time budgets remain active independently of plateau detection.
-
-For remote access, set these before starting EvoTrias:
-
-```bash
-export EVOTRIAS_UI_HOST=0.0.0.0
-export EVOTRIAS_UI_PUBLIC_HOST="<HOST_OR_IP>"
-```
-
-Use the URL printed by EvoTrias. Leave these variables unset for local-only access.
-
-## Run Artifacts
-
-EvoTrias separates the agent workspace from controller-owned state. Both are
-relative to the working directory:
-
-```text
-runs/<run_id>/                                        agent workspace
-  tasks/<task_id>/direction.txt                       written by evotrias-init-explorer
-  tasks/<task_id>/attempts/<attempt_id>/solution.py   written by evotrias-task-executor (or solution.cpp)
-  tasks/<task_id>/attempts/<attempt_id>/eval_result.json
-  run_summary.md                                      written by finalize_run
-  run_summary.json
-```
-
-```text
-.evotrias/
-  db/runs/<run_id>/   controller state (config, run state, attempts, notes, meta-guidance, task pool)
-  hooks/              hook-private state
-  locks/              cross-process locks
-  logs/               MCP process logs
-```
-
-The per-run state files are listed in [docs/mcp_interface.md](docs/mcp_interface.md)
-(section 3). Both locations are local runtime state and are ignored by Git. Share
-the final summaries or a curated report instead of committing complete
-run directories.
+This product serves solely as a workflow orchestration tool and does not embed any AI model capabilities. When users integrate AI models for specific business scenarios, they shall bear full responsibility for compliance obligations under the EU AI Act and other relevant regulatory frameworks.
