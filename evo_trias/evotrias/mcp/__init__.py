@@ -5,7 +5,7 @@ contract (tool names, arguments, defaults, docstrings) and forwards every call
 to ``evotrias.evolve_ctrl.controller``; nothing here touches db objects.
 Dependency direction is ``mcp -> evolve_ctrl -> db``; the read-only dashboard
 is started from ``configure_run`` as a side effect.  The contract is documented
-in ``docs/mcp_interface.md``.
+in ``docs/evo_trias/en/reference/mcp_interface.md``.
 """
 
 from evotrias.mcp.mcp_server import mcp
