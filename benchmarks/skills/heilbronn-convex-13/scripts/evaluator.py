@@ -1,5 +1,4 @@
-﻿# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
-# ===--------------------------------------------------------------------------------------===#
+﻿# ===--------------------------------------------------------------------------------------===#
 #
 # This file implements the evaluator for the heilbronn problem for convex regions, with
 # 13 points.

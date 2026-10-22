@@ -1,5 +1,4 @@
-﻿# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
-# ===--------------------------------------------------------------------------------------===#
+﻿# ===--------------------------------------------------------------------------------------===#
 #
 # This file implements the evaluator for problem of minimizing the ratio of maximum
 # to minimum distance on dimension 3 and with 14 points.

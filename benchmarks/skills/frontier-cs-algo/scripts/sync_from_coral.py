@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Import Frontier-CS algorithmic public task packs from a CORAL checkout."""
 
 from __future__ import annotations
@@ -16,7 +15,6 @@ import yaml
 SKILL_DIR = Path(__file__).resolve().parents[1]
 PROBLEMS_DIR = SKILL_DIR / "problems"
 MANIFEST_PATH = SKILL_DIR / "suite_manifest.json"
-COPYRIGHT_HEADER = b"// Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved."
 
 
 def _sha256(path: Path) -> str:
@@ -77,11 +75,7 @@ def import_tasks(source: Path, *, source_repository: str, source_revision: str) 
         statement_target = target_problem / "statement.txt"
         initial_target = target_problem / "initial_program.cpp"
         shutil.copyfile(statement_source, statement_target)
-        initial_bytes = initial_source.read_bytes()
-        if not initial_bytes.startswith(COPYRIGHT_HEADER):
-            newline = b"\r\n" if b"\r\n" in initial_bytes else b"\n"
-            initial_bytes = COPYRIGHT_HEADER + newline + initial_bytes
-        initial_target.write_bytes(initial_bytes)
+        shutil.copyfile(initial_source, initial_target)
 
         task_name = str(task.get("task", {}).get("name", f"Frontier-CS Algo #{problem_id}"))
         title_prefix = f"Frontier-CS Algo #{problem_id}: "

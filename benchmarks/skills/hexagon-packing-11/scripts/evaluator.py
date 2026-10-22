@@ -1,5 +1,4 @@
-﻿# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
-# ===--------------------------------------------------------------------------------------===#
+﻿# ===--------------------------------------------------------------------------------------===#
 #
 # This file implements the evaluator for problem of packing unit regular hexagons inside
 # a regular hexagon, with 11 unit hexagons.

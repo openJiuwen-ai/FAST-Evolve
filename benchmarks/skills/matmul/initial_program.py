@@ -1,4 +1,3 @@
-# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 # Disable progress bar for cleaner output logs
 import os
 
