@@ -1,4 +1,3 @@
-# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Download the external LLM-SQL CSV datasets."""
 
 from __future__ import annotations

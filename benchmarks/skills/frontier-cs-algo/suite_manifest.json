@@ -27,7 +27,7 @@
       "test_case_count": 70,
       "source_task": "examples/frontier_cs_algo/0/task.yaml",
       "statement_sha256": "dc36cc6b79692693d1f567f52eba7bdece97375a1e614f075dd2a9c2216e081b",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -40,7 +40,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/1/task.yaml",
       "statement_sha256": "9cfe6c52968f2464710df3fdaea0bbaaaa7d79ee0a806e35fdcd2c2cc9fc9a5b",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -53,7 +53,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/2/task.yaml",
       "statement_sha256": "ba3a2c62178bc224d6fa3177a2503628285ba2035207d786a67e2d01ab7f9bbe",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -66,7 +66,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/3/task.yaml",
       "statement_sha256": "67d846a26d098409c0867a50b81727ea59dddf2b1db7fbdf7aab87269537ce7c",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -79,7 +79,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/4/task.yaml",
       "statement_sha256": "da06a42ca585fe0d245b0f12a7ff2eb642a74ea54a5fc6ccb222f5d6eaf9ddcc",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -92,7 +92,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/5/task.yaml",
       "statement_sha256": "69d6e97e83dda594e3f0eb68f5082c09a62fe24481959dae33992c21bf728ce1",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -105,7 +105,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/6/task.yaml",
       "statement_sha256": "9b9e6a48865dcbaf0a37a550e4130e4744a1b4e8b620591b36ee3a0d79651659",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -118,7 +118,7 @@
       "test_case_count": 1,
       "source_task": "examples/frontier_cs_algo/7/task.yaml",
       "statement_sha256": "2fa120dc1befba8ee7c14c6d992c42d068d0e3a51c9dba263c9702d76e2ba609",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -131,7 +131,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/8/task.yaml",
       "statement_sha256": "4a749fa608a4927ff2c08c0d11fa68b9f69ab52222164d156aa992d3e217cc43",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -144,7 +144,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/9/task.yaml",
       "statement_sha256": "8b9b9d2a3568f092aba2e54292d2f86b15f2b9abf7d28436150f73b640541b76",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -157,7 +157,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/10/task.yaml",
       "statement_sha256": "d438fde9179c8fc7a46344c15e04361e0ba54870627bdb21efb229cbe0864b7c",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -170,7 +170,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/11/task.yaml",
       "statement_sha256": "e9205b4769105fce9688b7e4f3d15aa669e87105861aa18018becdb748eef0cd",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -183,7 +183,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/13/task.yaml",
       "statement_sha256": "cb21a56553eef19e0e2ed6e01343c26f367d4efe988abceb9abee403b1667a16",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -196,7 +196,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/14/task.yaml",
       "statement_sha256": "4986ab1f0210b5938a7cf406c9f7212e3554d3989be4283467d053d6629e06b7",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -209,7 +209,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/15/task.yaml",
       "statement_sha256": "694af889f9b26b2b166cf40da8ae701549971232fd516b907386024274b69da2",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -222,7 +222,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/16/task.yaml",
       "statement_sha256": "b3aa84fe0386a60453f78660d79ef6cc569753b3a94844588a1f7b431ef762d5",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -235,7 +235,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/17/task.yaml",
       "statement_sha256": "55ffacd40cdad56faf588aafb7759d7e66628879cb3e36d0f5e60812f997d1ea",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -248,7 +248,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/22/task.yaml",
       "statement_sha256": "fd5a4bd91cd1f8895870cd7d6c104f66fd8b306a06fc8dc230138f579d1b9924",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -261,7 +261,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/23/task.yaml",
       "statement_sha256": "ccf79e0f078c2c097833794c7c22e76073a332546360130758d561079676800a",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -274,7 +274,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/24/task.yaml",
       "statement_sha256": "5a536586331610dd472ad0bed4181a5bb866cb887f89d5efe14f3f694cf9dfb2",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -287,7 +287,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/25/task.yaml",
       "statement_sha256": "8dc4ea3fef2a96113fc4e53557dee70c193cfe700967cc2cb6ea2d31c848419c",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -300,7 +300,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/26/task.yaml",
       "statement_sha256": "737a4ec634fa649b4719695bf910d8a20ab3ff301987127caadc8d3049fbd55a",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -313,7 +313,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/27/task.yaml",
       "statement_sha256": "af6f19b3d83dbebe93af1e8bb49e2000bd68c9b207468bf66ece19a980bc0847",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -326,7 +326,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/28/task.yaml",
       "statement_sha256": "fcbe26f9950f9fc2194e2fee1d6a443faece6580f7b39c7d41802e0d4e1f6f38",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -339,7 +339,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/30/task.yaml",
       "statement_sha256": "cf8a13e066c0d02a8b6133e830f812056488fb285df7b1152b305f1e83751638",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -352,7 +352,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/33/task.yaml",
       "statement_sha256": "396fe974a5cf4b8b8b6edb7f30466e03e0a9b7ad03c1c3cbde0623eae978b79d",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -365,7 +365,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/35/task.yaml",
       "statement_sha256": "6441154bd5ce9b90df13b452fcd3c66770bf311db0150d0ba57cfec5d19c87bf",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -378,7 +378,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/36/task.yaml",
       "statement_sha256": "32e715482ea3f963e6cfc5d56f8d4c201a3e472d96cad10768bb58f866112a6a",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -391,7 +391,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/40/task.yaml",
       "statement_sha256": "46d2ed090f6e1875ee65a9d895c2375b556a903813c000c78d89c246b11983fc",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -404,7 +404,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/41/task.yaml",
       "statement_sha256": "10656ab6584d6fbfc6270e7a3d7b739f7abefb88af25b7081c27d022075a567d",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -417,7 +417,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/42/task.yaml",
       "statement_sha256": "0f98b475b692fffef94a06f3ff6d692d16dac4a5121e320945869e2625025f9d",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -430,7 +430,7 @@
       "test_case_count": 1,
       "source_task": "examples/frontier_cs_algo/43/task.yaml",
       "statement_sha256": "79f14fe8f639ff8cc1c1954c52c0831b442c4debe13ed4866d4841a95ed9fe51",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -443,7 +443,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/44/task.yaml",
       "statement_sha256": "098bbda17599031bf0f657feee50995328f39a411c40110b48108db84f3b408b",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -456,7 +456,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/45/task.yaml",
       "statement_sha256": "bac33e1190cb38fabd0b4bc8607d0fff9bd5727afea430810dcfd467e38a97bd",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -469,7 +469,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/46/task.yaml",
       "statement_sha256": "ca4a2befd893940ed67a9a4c8db98bece5c80d759a2849a09266740e4b55fa2f",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -482,7 +482,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/47/task.yaml",
       "statement_sha256": "7257158f34a9b4f747a02db2aa0447c711fc6b7304c0c7874ced0cdf15c193c4",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -495,7 +495,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/48/task.yaml",
       "statement_sha256": "f1bf0a3ae24231b1d15f8a6a0d7961bf1ff097dafbffb591edd19e96ac4a2bc3",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -508,7 +508,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/50/task.yaml",
       "statement_sha256": "4b657161f4c8b447da0d4d0996615fc256d309133c5ef33c616891b073e7e600",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -521,7 +521,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/52/task.yaml",
       "statement_sha256": "323b69c1d2c36f4399b8cfddadc23eabce83dad5d8f7a79bbeed78db48c6318c",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -534,7 +534,7 @@
       "test_case_count": 1,
       "source_task": "examples/frontier_cs_algo/53/task.yaml",
       "statement_sha256": "cd0e0e81aa1371e416ba8a9c59d02c4b54b862dbc1059854d98ebfb1ad4df938",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -547,7 +547,7 @@
       "test_case_count": 1,
       "source_task": "examples/frontier_cs_algo/54/task.yaml",
       "statement_sha256": "2759b43b57f48cd58603e06f3abe0eab74585dd97f32b35edaacda5c04d38c8a",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -560,7 +560,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/57/task.yaml",
       "statement_sha256": "494daccecbf52d5aadb42c131aa976bbd02828a2d57a862b2d345a62b56cc1bd",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -573,7 +573,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/58/task.yaml",
       "statement_sha256": "d372488f220188296ea5a08fc844e0fafc4e0e94bad07fd938c72b7b4ca9292d",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -586,7 +586,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/59/task.yaml",
       "statement_sha256": "e6ee97fd9f358df204bc7c9a1a09832291456b817aced652677f059ef7b689b6",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -599,7 +599,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/60/task.yaml",
       "statement_sha256": "12009cdd79e9320f6a6c6ab49e53d0a66cb5149f84244157a598c7c455b5c63a",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -612,7 +612,7 @@
       "test_case_count": 10,
       "source_task": "examples/frontier_cs_algo/61/task.yaml",
       "statement_sha256": "c90f64424db7f27e702ec8dae461e67cbd01f8f76e87b31919d682d40bbbd723",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -625,7 +625,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/62/task.yaml",
       "statement_sha256": "11c28a10a5a0d400cc8aedd68a05735e1db4d4f504420e2820e3cff66d517fe4",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -638,7 +638,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/63/task.yaml",
       "statement_sha256": "2873063a9bf5b3c276527d253ac0507a803e2c3d46a3b1c39630aa52f6a38495",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -651,7 +651,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/64/task.yaml",
       "statement_sha256": "6f784cb6fab432d4756d4a66469e839126ed9b6ab8d198bcfd4bf08c302ac30e",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -664,7 +664,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/68/task.yaml",
       "statement_sha256": "756b0fd434309e5e81e655fbffa848238dd347b1c0d035820a100602e729377a",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -677,7 +677,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/69/task.yaml",
       "statement_sha256": "4207d502e5969705003028006d18ce4c9223e6149ab1fc3622d8b64d8fe6929c",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -690,7 +690,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/70/task.yaml",
       "statement_sha256": "849805216e34c3b22f50a471b4995a353c8a9b0bfcafa3b37182ca0c2bce1b49",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -703,7 +703,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/72/task.yaml",
       "statement_sha256": "850174ad5add9f2e7248e8b6f6ef0807ce5698db1d6ceed0fce9af83e736daa0",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -716,7 +716,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/73/task.yaml",
       "statement_sha256": "8e86002d6c2822bbf93e2d6553fbeb07d9b598e6dbd5e8c4642ac3204944c869",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -729,7 +729,7 @@
       "test_case_count": 1,
       "source_task": "examples/frontier_cs_algo/75/task.yaml",
       "statement_sha256": "2b4f49bfda6a985fb336f066c818b3fec4718623803344d6fe126a3468819f7a",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -742,7 +742,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/77/task.yaml",
       "statement_sha256": "f8a18e2ff87246ba3524cd6c7db688a4fe04734ba6ed6420cf8956f0db5131f6",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -755,7 +755,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/79/task.yaml",
       "statement_sha256": "24cc9860f58627a3c369ed6f21b58f23cd8e29810c2d15ed56b6c182a8f373b1",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -768,7 +768,7 @@
       "test_case_count": 1,
       "source_task": "examples/frontier_cs_algo/80/task.yaml",
       "statement_sha256": "194b618aa3d5eb96573378ba804fb417dff2d16e44c1a244b2195f1205d8b389",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -781,7 +781,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/81/task.yaml",
       "statement_sha256": "f3b9a73b2fd6d56817fca057573f503e1e361519d4ab133c89ffd17b2ad98582",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -794,7 +794,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/82/task.yaml",
       "statement_sha256": "934015299fca07179405b647a77cb758b32c9aba071e9cb2821dd7c1b2eda5a2",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -807,7 +807,7 @@
       "test_case_count": 1,
       "source_task": "examples/frontier_cs_algo/83/task.yaml",
       "statement_sha256": "a7794abc4c623870f9509b9ee24a8c6bac9d5639a2267135299b69493131217d",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -820,7 +820,7 @@
       "test_case_count": 1,
       "source_task": "examples/frontier_cs_algo/85/task.yaml",
       "statement_sha256": "0dc5933df6b2a2df5dfc0ec770fe55bcd7583bdf25e79833c4dff729d12b9e43",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -833,7 +833,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/86/task.yaml",
       "statement_sha256": "59aad8b784f9f5028e99244225bf5006fbdd634ab1f556b2f0ac06ae0ff6d073",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -846,7 +846,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/87/task.yaml",
       "statement_sha256": "f01163a269c7d4cfd36451b02de74e94ab640ddd42a603d5b9459e9e010cf3a2",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -859,7 +859,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/89/task.yaml",
       "statement_sha256": "5d9a8c55c719cec0ab3a75b3f44ed9ef69623b7fef9b959da1c30fe0cec61867",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -872,7 +872,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/93/task.yaml",
       "statement_sha256": "8e0d09ec9cf10be0318419ab18085cab8fb96b8dfe71f842087cbb84d4bcfdb8",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -885,7 +885,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/101/task.yaml",
       "statement_sha256": "897976086ef197400df141c7a7f409ad5dce6886e13b86e456abbd968f071046",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -898,7 +898,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/104/task.yaml",
       "statement_sha256": "2c4f1bdbd8fd842c322784dc12252f929aa112bce1ba6401511b9e39e88aadf7",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -911,7 +911,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/106/task.yaml",
       "statement_sha256": "80409befe22b6bf9d093e3ea6deb9bc13ffe5a36531626aec0c54a9587e4a45f",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -924,7 +924,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/107/task.yaml",
       "statement_sha256": "c40c055c91efa51ce3001868663e84ff5e52da14b4623eeb37aeab5a27c4e6f7",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -937,7 +937,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/108/task.yaml",
       "statement_sha256": "f319ab47854140ac17f9138cea841d0984a3627cbe11617a3bf6811b9ab4aafe",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -950,7 +950,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/109/task.yaml",
       "statement_sha256": "887132fedffeee5933e604b1b3b3837928718f31e52c04bbbb15fae8e8d5ae2b",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -963,7 +963,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/110/task.yaml",
       "statement_sha256": "624077bcd6488b2a1ec813a6e8d203a8362fb4164c0a571435fa14cad2427ad4",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -976,7 +976,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/111/task.yaml",
       "statement_sha256": "bd13b2d8209bb8d6166fe7e05fa1b4c6e39af92860c399a2a13297142c4dc05d",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -989,7 +989,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/112/task.yaml",
       "statement_sha256": "a0f363bb14aa22fcf85f5ff1c8ec73fa03cbd320bf3dbfde9beac1cfca94ac78",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1002,7 +1002,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/113/task.yaml",
       "statement_sha256": "c17af88cd597ae96e6088dbe70228070c1c068013b6b3cf1a69c428168a1e309",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1015,7 +1015,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/117/task.yaml",
       "statement_sha256": "dfaf77b60ff1be9567372d3ae8616f3cddac1532bcd714292077eb5bb58d6489",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1028,7 +1028,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/119/task.yaml",
       "statement_sha256": "7a0e4a3c82d3b6474dfb5d5afca3ce95edd257145419183cab339d9ba97151f4",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1041,7 +1041,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/120/task.yaml",
       "statement_sha256": "aac460585567fc1b40793e0deca9b8dee65469001a87c828d90754d39b007657",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1054,7 +1054,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/121/task.yaml",
       "statement_sha256": "fceb663bec879af6a17f691d65e7db84cc2e12247901554478cd863273f7dc58",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1067,7 +1067,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/122/task.yaml",
       "statement_sha256": "40131e98be3a3e064c6fd2fb5b37f28f1cc38762e272ba72b42e3736d168a9d4",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1080,7 +1080,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/123/task.yaml",
       "statement_sha256": "b5fde2818a24cf9ca5c86a18366a0057284bd257074e470d3268b469b2bcb6d5",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1093,7 +1093,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/124/task.yaml",
       "statement_sha256": "4347f43caf17d7ea5c68f18a04533e3b86be687d99f16d95606c5b2ff81cdc81",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1106,7 +1106,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/125/task.yaml",
       "statement_sha256": "21c8703b11a05ae924c404384a456c7fac85ba1dd2020e1eba3ab057473bcd28",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1119,7 +1119,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/127/task.yaml",
       "statement_sha256": "382ef5c93f86d1684ea22553a388f804466479f354f2020b34730e90bebb180c",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1132,7 +1132,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/132/task.yaml",
       "statement_sha256": "535fa6b682a244ea034e934c71616054a21cc46e24bc73907fefaf9d50f99d26",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1145,7 +1145,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/133/task.yaml",
       "statement_sha256": "8b391d0b31516be0353cbe0940b7da20352843402f2b9be687f098c95b0281a1",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1158,7 +1158,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/134/task.yaml",
       "statement_sha256": "24c0929be4a3b372f7992e15c4013baf7430c35a4c61e43b5d0c6b69e63a4de2",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1171,7 +1171,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/135/task.yaml",
       "statement_sha256": "4394803f9795e74a29cd31285c32dab250dd835977dff2f69c28500ef1c2eac8",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1184,7 +1184,7 @@
       "test_case_count": 1,
       "source_task": "examples/frontier_cs_algo/137/task.yaml",
       "statement_sha256": "c5126f31a8d94001c198c3f56fb515116d23a24b559501422e9a2afdf5230c48",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1197,7 +1197,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/138/task.yaml",
       "statement_sha256": "6105b3526d5e8faf185dc4efbcc86ebe267f7bcaba7f9f95830775fc549d57b9",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1210,7 +1210,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/140/task.yaml",
       "statement_sha256": "4bdbe4bbf7c895d16c3394cb7e56833bf1da611f80a2fb2d0af7a6508aeebae6",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1223,7 +1223,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/141/task.yaml",
       "statement_sha256": "271b5490b93b3cee391ec0dc2a8af46d60c7ece3322b34c71899d1f44d0581a8",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1236,7 +1236,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/142/task.yaml",
       "statement_sha256": "e5de8bacb0c4795a3861e66e5310ec4092cd9d4aee237c7bcfc739ed9dc5ed15",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1249,7 +1249,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/143/task.yaml",
       "statement_sha256": "99841a9042ee217376746e52e9de69e897e72f0a5da249703dbe62aaf3c91c37",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1262,7 +1262,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/144/task.yaml",
       "statement_sha256": "326df419ff93d7195cfc9d1b09008ac1a1e3ca93e7c507312d04bc5a3cfc82d0",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1275,7 +1275,7 @@
       "test_case_count": 2,
       "source_task": "examples/frontier_cs_algo/145/task.yaml",
       "statement_sha256": "35b1abea75c7e4f20da6edde20a6997b567f8164412a36519d4160b0cda26fb6",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1288,7 +1288,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/147/task.yaml",
       "statement_sha256": "99be25a1cab581453bb6caee8d5ce5e0f01db469c9497082a425ec3b303480ca",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1301,7 +1301,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/148/task.yaml",
       "statement_sha256": "0f744f93ac1359a514a408c7f789f9b2e437dadc9ab8c01d66b0a25fa131dee9",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1314,7 +1314,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/149/task.yaml",
       "statement_sha256": "623f6b8ac9997a1af58ac8b0a7289e78a6a4a7996a15ddf3328a3e9227bf6a99",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1327,7 +1327,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/150/task.yaml",
       "statement_sha256": "9f10d1e7a5c2eb015c95328a73fe236237aced50dd8ad0236b817fd6ffd3f962",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1340,7 +1340,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/151/task.yaml",
       "statement_sha256": "ca6f4a91b252abc17c6ee84263885eb66130e61c77c5969d53e0232c6c09dfab",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1353,7 +1353,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/152/task.yaml",
       "statement_sha256": "836828a04946c44e0130fc6cab2d657f5c581c3a79eb13e206247433877807e8",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1366,7 +1366,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/153/task.yaml",
       "statement_sha256": "f2fb2c49e77ccb72d581b3e7e55292ee14ca9c313d4bf8fd3f543dc399b89894",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1379,7 +1379,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/154/task.yaml",
       "statement_sha256": "9bf3d7805eaccc028d8801bb317d0d8c819d627e6107ce510928fd365c56ea38",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1392,7 +1392,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/155/task.yaml",
       "statement_sha256": "cb189a4f5d48816d1a1be169560190bb8624ccd33d2c1f4e8de46ac60d589c65",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1405,7 +1405,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/156/task.yaml",
       "statement_sha256": "6da65a062b4e3991e421b2dd228572ab4f9e5ac699ef6e5bc51ddf76783c3792",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1418,7 +1418,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/157/task.yaml",
       "statement_sha256": "ea2eb1d864fb536d8e2d550bc515a9653c875abf95e2414b6037e951a71a49f4",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1431,7 +1431,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/158/task.yaml",
       "statement_sha256": "70ceb7fcd51b537b80e47aacce44b81b826f0d1eb9dd81083742002376ee4992",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1444,7 +1444,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/159/task.yaml",
       "statement_sha256": "d2879f85204de57e491f01179c4e92197ea95c642956ddf8c104a55606286773",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1457,7 +1457,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/160/task.yaml",
       "statement_sha256": "e80ab13806a2158959e38815113120961526eaee2f8fd3edbdabfa1e21432746",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1470,7 +1470,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/161/task.yaml",
       "statement_sha256": "dd360aabba60d195726426ae645a45ade5e89b2d84daee0e4280f92e26c61617",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1483,7 +1483,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/162/task.yaml",
       "statement_sha256": "b69f569957dc2cd7671e1c6c4e9b935cf90dea13827afa47914fe5f87dc5b301",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1496,7 +1496,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/163/task.yaml",
       "statement_sha256": "8c48548ccb78bc988cfa9b207d6b88fd0b21bfd803e75a1281126cb9c4cc2717",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1509,7 +1509,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/164/task.yaml",
       "statement_sha256": "1c30a4d7d687316c97445d71a39eb6dacb9e4fa746db4384df62cfffab5526cc",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1522,7 +1522,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/165/task.yaml",
       "statement_sha256": "24dfe03f9788b0215ee0f3ffc9b237b84c239c125e4695cec499d6b9046b3281",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1535,7 +1535,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/166/task.yaml",
       "statement_sha256": "92e6e3977e3a353969de2bbc7b97ead43b61f2b5cd98ec74c110a4995272436b",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1548,7 +1548,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/167/task.yaml",
       "statement_sha256": "7efe4993ec1d93d44093f66958d520e98499c8e638e8b2217b7ee488e3754665",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1561,7 +1561,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/168/task.yaml",
       "statement_sha256": "d14ef4f18281c889cefb27527ed6049df65bd65e7e38aef6ac23c485d4819338",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1574,7 +1574,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/169/task.yaml",
       "statement_sha256": "59cec835ef92201ad9444812961eecf82902122ee9e52ffdfebe5b29c9704bad",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1587,7 +1587,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/170/task.yaml",
       "statement_sha256": "5a6a1caffe1e05d3d67ccb2a49760fe417f15779774e7dd3556bebdd3a1f682e",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1600,7 +1600,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/171/task.yaml",
       "statement_sha256": "6498c1d0dddb11b5e50b4e2349d3e4d4f890628e46157ac3e7acf8bf2bdedf4d",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1613,7 +1613,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/174/task.yaml",
       "statement_sha256": "45f51ed183c4e518274370161c9254f90f4992fb541698ed1fd2d4c94f4f5215",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1626,7 +1626,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/175/task.yaml",
       "statement_sha256": "b4010bbdee1ba091be4389b6f5d47bd5211dbec6fb1460b82be078171dbcc450",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1639,7 +1639,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/176/task.yaml",
       "statement_sha256": "3a5d3a38fcc1dfd02aafd0eb02872c9868bfecb3f2904fe666590feb11fadf5a",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1652,7 +1652,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/177/task.yaml",
       "statement_sha256": "4113736829177aa8ae32c768dc3289b69bf01d9052c459db6cf863fa8795572c",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1665,7 +1665,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/178/task.yaml",
       "statement_sha256": "cd55a2b94cc725f02a51f2e1afc4ed6a5bff5e4c5e74d26fa3e36d029493228e",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1678,7 +1678,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/179/task.yaml",
       "statement_sha256": "850953d3fd00fd970ef8287c810d351dcbc02fdc64b7f3d79edff22cc85d7228",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1691,7 +1691,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/180/task.yaml",
       "statement_sha256": "9fe688fcb882d117730596081344d8509c637cbeb6563e16f0b7eab1cf3e4b48",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1704,7 +1704,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/181/task.yaml",
       "statement_sha256": "28728d57d479b646d7758c53fd62753fb8fc8a8787a9d19f716785ed7802c854",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1717,7 +1717,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/182/task.yaml",
       "statement_sha256": "87edf8b7d7c3e0fda01591a5c9778547cf1e793559213d2359b8af66dc0ea024",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1730,7 +1730,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/183/task.yaml",
       "statement_sha256": "e5408f29f807365936632241b48330f8222053784fb4e70fff82473105a7258c",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1743,7 +1743,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/184/task.yaml",
       "statement_sha256": "f1eb7226f34a56ce8a494f6c4176e5e8bf5fcf3bed62bdd105db11e7c4ecd745",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1756,7 +1756,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/185/task.yaml",
       "statement_sha256": "78165f23b661cf29bb615efe07b692df01421d237787c2175974a86365fe78c4",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1769,7 +1769,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/186/task.yaml",
       "statement_sha256": "150144fd55bc270765e5cdafd76f83951db7b0627b1c45a8775a53dd3e604471",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1782,7 +1782,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/187/task.yaml",
       "statement_sha256": "bb7351aa400d21c62ed642dbbf3c2bbef9c3056361cd48a27e4ff0f81488e1a0",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1795,7 +1795,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/188/task.yaml",
       "statement_sha256": "ab89f9fb7db8ba6eb0b8524fd873ee8a0643b7fcd025328ac4e044fcf4938923",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1808,7 +1808,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/189/task.yaml",
       "statement_sha256": "fe9405b60853c314f0668e972c25af83384d0e78bc5670b4fbf05e45c3572225",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1821,7 +1821,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/192/task.yaml",
       "statement_sha256": "a6c97d3243052ee8481201a5ccd5d71423be4fa589481c119fdb6adfbb130e19",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1834,7 +1834,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/193/task.yaml",
       "statement_sha256": "24e954c801f1f8347680ba11bfd973434af9b3250e9abb3478268d468d4b343f",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1847,7 +1847,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/203/task.yaml",
       "statement_sha256": "4994b88278498e80b7bb9c0768a64006698f85beca1e3c05e5c719126aa47c87",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1860,7 +1860,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/205/task.yaml",
       "statement_sha256": "4861204ba249ec8b00c32a77ce0debbc246827298aa2ac860ddcb58fd9e97e3e",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1873,7 +1873,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/207/task.yaml",
       "statement_sha256": "3cab8250c74bc5ef18fec950a6a3d5cf3a9dff4caa73f9d867100afeb02cf794",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1886,7 +1886,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/209/task.yaml",
       "statement_sha256": "9f412c3448a15d54acac2e78aefd38f1ef345cd77cc676cfa802f4900eaef80d",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1899,7 +1899,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/210/task.yaml",
       "statement_sha256": "010df1e0c47cd2f068706db3e4139a273f5b0d816074f23cbb4cb34ea5299824",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1912,7 +1912,7 @@
       "test_case_count": 4,
       "source_task": "examples/frontier_cs_algo/211/task.yaml",
       "statement_sha256": "855961ec28b4bfe81e1cc0c64725578abfc488eec66c9f9eb5da5ce9405f4660",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1925,7 +1925,7 @@
       "test_case_count": 4,
       "source_task": "examples/frontier_cs_algo/212/task.yaml",
       "statement_sha256": "5697b8c1c316f56ee9b6e3d7575e80b65b3d2739b8987ca2a3794b3f33d50f2b",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1938,7 +1938,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/213/task.yaml",
       "statement_sha256": "482a42ee9ba51c1624d40c2690565e97ac20cf46cd590e50809cf703d14e1d0e",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1951,7 +1951,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/214/task.yaml",
       "statement_sha256": "dc17f52c1e5bf4cb6d62847f2df5b21069e3e2b0f46f34ddfb94123761a7f2c0",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1964,7 +1964,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/217/task.yaml",
       "statement_sha256": "1676f3e6f180ae964505d4b2ad28cd1f7582551459065a3506a97b0be6ce8fe2",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1977,7 +1977,7 @@
       "test_case_count": 4,
       "source_task": "examples/frontier_cs_algo/220/task.yaml",
       "statement_sha256": "3b092b14ff150995913f0357aaee96f4483c41cf958a5063d7be7c91873758aa",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -1990,7 +1990,7 @@
       "test_case_count": 1,
       "source_task": "examples/frontier_cs_algo/222/task.yaml",
       "statement_sha256": "591114c96bb9e24adbfa04000108aed586fd7e8ac7c42955226a4560d1d4b05e",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -2003,7 +2003,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/225/task.yaml",
       "statement_sha256": "dc4c894ab58c94fff1e60786c7c850b42ec5808231e8ed4bfc0fa1e429200645",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -2016,7 +2016,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/227/task.yaml",
       "statement_sha256": "35455b9a3a0b6eeecf3160f5ae4b5c2e38bdb86a7fa655ac80fafc115d719e39",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -2029,7 +2029,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/228/task.yaml",
       "statement_sha256": "376fbdd7b83257f2311a198bf1162a773fd621662cb8d978824bb39af4a26877",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -2042,7 +2042,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/229/task.yaml",
       "statement_sha256": "4fc924f069c3bcd46498a1c585e2d4ca6a9a5c1f7181a2a187ef64a7ef64c525",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -2055,7 +2055,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/231/task.yaml",
       "statement_sha256": "580addf94e688a795c630cb87e76b11b06f2f92de94efac2d2d726ac8e017f55",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -2068,7 +2068,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/233/task.yaml",
       "statement_sha256": "8bd43f432ca4f16cdfe68e981ef18de5fa9e5116eb6067c2052f38fcc20e95a3",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -2081,7 +2081,7 @@
       "test_case_count": 4,
       "source_task": "examples/frontier_cs_algo/239/task.yaml",
       "statement_sha256": "94ae05228831b1f8ad6785f180ebf225150dc98509cd43d44ed1cb96cd2d771f",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -2094,7 +2094,7 @@
       "test_case_count": 5,
       "source_task": "examples/frontier_cs_algo/241/task.yaml",
       "statement_sha256": "900969ed8775f69ff1bc6433e9c1131329c6c3c5b6265f76b6501aa20e88699f",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -2107,7 +2107,7 @@
       "test_case_count": 4,
       "source_task": "examples/frontier_cs_algo/243/task.yaml",
       "statement_sha256": "9e9a921befa456b5cb1ab19e0c8999deb63ef8d5870f6902a4705cb989943260",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -2120,7 +2120,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/245/task.yaml",
       "statement_sha256": "6b8fc8c1f1525926f43c50801d254f6f766715ad31caae0b5092cb3514a7c1a9",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -2133,7 +2133,7 @@
       "test_case_count": 5,
       "source_task": "examples/frontier_cs_algo/247/task.yaml",
       "statement_sha256": "9cb0f5d2f36f713109de6d741044044c4d782be65da12db3c88c3518ddb27121",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -2146,7 +2146,7 @@
       "test_case_count": 4,
       "source_task": "examples/frontier_cs_algo/248/task.yaml",
       "statement_sha256": "3f9a636c776f20adff57fa918c0b8b14668edaf3c721a44592da154dfb9b3aaf",
-      "initial_program_sha256": "2dcb2d6da53d9545f255abd0e755cbba9eb20f1012094b905d98e2922313111e"
+      "initial_program_sha256": "be3448cea73f6c979647e75ee1b3294284f882a860f1136367262a2f5276690e"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -2159,7 +2159,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/249/task.yaml",
       "statement_sha256": "4d2c5cf3ce70b89c13ff5bb0f24b80184cefe7aa706e7496c6b1c37ef81c9f71",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -2172,7 +2172,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/252/task.yaml",
       "statement_sha256": "a88411e6cb7ffdf6c66b19bce2121633967389a77a6f4902e5ed210ee0937be0",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -2185,7 +2185,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/253/task.yaml",
       "statement_sha256": "40d4f89990df4a34e8098e1caa9233a6906bc251e546d0304e09aa66c24d2316",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -2198,7 +2198,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/254/task.yaml",
       "statement_sha256": "358a3f3ea9254471c0e0e47ff924cefa7bb2992687fdff9497c11b0a4a36f427",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -2211,7 +2211,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/255/task.yaml",
       "statement_sha256": "b1725a468a2069c4daa6c42e9ef1ad05759fb636dd65053fa1804f527e791c79",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -2224,7 +2224,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/256/task.yaml",
       "statement_sha256": "4c3022a6e921c92587ca929a3c4ec015cded667221ef0dd0296c8f8df9fa8389",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -2237,7 +2237,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/257/task.yaml",
       "statement_sha256": "965aecec331edf5a90928aaebc581f24b3c848696368065e0ca51074b7a893bb",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     },
     {
       "benchmark": "frontier_cs_algo",
@@ -2250,7 +2250,7 @@
       "test_case_count": 3,
       "source_task": "examples/frontier_cs_algo/258/task.yaml",
       "statement_sha256": "6cbaf502a661aea24971a87bcdcc0dd5b805396049f6e4d4e77eb1fc9d2ad515",
-      "initial_program_sha256": "d22ac8ace44ef36f0abaf97e510b09c912aec477e633ab7c3ee907dc32fa72c6"
+      "initial_program_sha256": "b9c3b08f9a2ce57af9b0e50f56bb5fc39f0b673ed618a8f40ade76b5a2dc91a3"
     }
   ]
 }

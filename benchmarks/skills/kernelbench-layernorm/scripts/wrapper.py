@@ -1,4 +1,3 @@
-# Copyright (c) Huawei Technologies Co., Ltd. 2026-2026. All rights reserved.
 """Backwards-compat wrapper for old Python-based evaluators with structured JSON output.
 
 Usage — add this to the bottom of your evaluator.py::
