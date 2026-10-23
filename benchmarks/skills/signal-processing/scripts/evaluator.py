@@ -1,4 +1,9 @@
 #!/usr/bin/env python
+# Copyright 2026 Google LLC
+#
+# This file is a modified version of Google's evaluator, originally released
+# as open source under the Apache License 2.0:
+# https://github.com/GoogleCloudPlatform/scientific-computing-examples/blob/main/alphaevolve-hpc/user_examples/signal_processing/evaluator.py
 """
 Signal Processing Evaluator
 
