@@ -61,7 +61,7 @@ evotrias --version
 
 ## Quick Start
 
-本节以 Claude Code 为例，使用仓库内置的 Circle Packing 基准演示完整的进化流程。该任务要求在单位正方形内放置 26 个互不重叠的圆，使其半径之和最大。
+本节使用仓库内置的 Circle Packing 基准演示完整的进化流程。该任务要求在单位正方形内放置 26 个互不重叠的圆，使其半径之和最大。
 
 **1. 安装任务依赖**
 
@@ -73,18 +73,21 @@ pip install -r FAST-Evolve/benchmarks/requirements/math.txt
 
 ```bash
 mkdir my-workspace && cd my-workspace
-evotrias setup claude
+evotrias setup
 ```
 
-该命令将 subagent、skill、MCP 配置与 hooks 安装至当前目录。使用其他编码智能体时，将 `claude` 替换为对应名称；省略名称则进入交互式选择界面。
+按照提示选择编码智能体（Claude Code 或 OpenCode）并完成安装，subagent、skill、MCP 配置与 hooks 将安装至当前目录。
 
 **3. 导入待进化任务**
 
 ```bash
+# Claude Code
 cp -r ../FAST-Evolve/benchmarks/skills/circle-packing .claude/skills/
+# OpenCode
+cp -r ../FAST-Evolve/benchmarks/skills/circle-packing .opencode/skills/
 ```
 
-任务以 skill 形式提供，需放入工作区的 skill 目录。不同编码智能体的 skill 目录不同，例如 OpenCode 为 `.opencode/skills/`。
+任务以 skill 形式提供，需放入上一步所选编码智能体的 skill 目录。
 
 **4. 启动进化**
 

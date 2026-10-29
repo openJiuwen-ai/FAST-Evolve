@@ -8,13 +8,13 @@
 
 ## 🌱 简介
 
-FAST-Evolve 是面向算法优化的一站式智能体进化工具链。给出优化目标和评测标准，它就能驱动 Coding Agent 自主探索优化方案，依据评测反馈持续迭代，让更优解不断涌现。
+FAST-Evolve 是面向算法优化的一站式智能体进化工具链。给出算法问题描述和评测标准，它就能驱动 Coding Agent 自主探索算法方案设计，依据评测反馈持续迭代，让更优解不断涌现。
 
 当前，FAST-Evolve 通过 **EvoTrias** 为编码智能体提供程序进化能力：将优化任务与评估器接入工作区，驱动智能体持续生成、评测和筛选候选程序。EvoTrias 已接入 Claude Code 和 OpenCode，详细用法见 [EvoTrias 文档](evo_trias/README.zh.md)。
 
 ## 🚀 快速开始
 
-以下以 Claude Code 和内置的 Circle Packing 任务为例。该任务要求在单位正方形内放置 26 个互不重叠的圆，使半径之和最大。
+以下以内置的 Circle Packing 任务为例。该任务要求在单位正方形内放置 26 个互不重叠的圆，使半径之和最大。
 
 准备 Python 3.11 或更高版本，并安装、配置好 Claude Code 及其模型服务。建议在 Python 虚拟环境中安装依赖。
 
@@ -29,12 +29,20 @@ evotrias --version
 
 ### 2. 创建工作区并导入任务
 
-在仓库的同级目录创建工作区，初始化 EvoTrias 并复制任务 skill：
+在仓库的同级目录创建工作区并初始化 EvoTrias：
 
 ```bash
 mkdir my-workspace && cd my-workspace
-evotrias setup claude
+evotrias setup
+```
+
+按照提示选择编码智能体并完成安装，然后将任务 skill 复制到所选智能体的 skill 目录：
+
+```bash
+# Claude Code
 cp -r ../FAST-Evolve/benchmarks/skills/circle-packing .claude/skills/
+# OpenCode
+cp -r ../FAST-Evolve/benchmarks/skills/circle-packing .opencode/skills/
 ```
 
 ### 3. 启动进化

@@ -8,13 +8,13 @@
 
 ## 🌱 Overview
 
-FAST-Evolve is an all-in-one agentic evolution toolchain for algorithm optimization. Given an objective and evaluation criteria, it drives coding agents to explore optimization strategies autonomously and iteratively refine them using evaluation feedback, yielding a steady stream of better solutions.
+FAST-Evolve is an all-in-one agentic evolution toolchain for algorithm optimization. Given a problem description and evaluation criteria, it drives coding agents to autonomously explore and evolve algorithm designs using evaluation feedback, yielding a steady stream of better solutions.
 
 FAST-Evolve currently provides program evolution capabilities for coding agents through **EvoTrias**. By integrating an optimization task and an evaluator into a workspace, it drives agents to continuously generate, evaluate, and select candidate programs. EvoTrias supports Claude Code and OpenCode. See the [EvoTrias documentation](evo_trias/README.md) for detailed usage.
 
 ## 🚀 Quick Start
 
-This example uses Claude Code and the built-in Circle Packing task, which aims to place 26 non-overlapping circles inside a unit square while maximizing the sum of their radii.
+This example uses the built-in Circle Packing task, which aims to place 26 non-overlapping circles inside a unit square while maximizing the sum of their radii.
 
 Prepare Python 3.11 or later, and install and configure Claude Code and its model service. We recommend installing dependencies in a Python virtual environment.
 
@@ -29,12 +29,20 @@ evotrias --version
 
 ### 2. Create a Workspace and Import the Task
 
-Create a workspace alongside the repository, initialize EvoTrias, and copy the task skill:
+Create a workspace alongside the repository and initialize EvoTrias:
 
 ```bash
 mkdir my-workspace && cd my-workspace
-evotrias setup claude
+evotrias setup
+```
+
+Follow the prompts to select a coding agent and complete the installation. Then copy the task skill into the selected agent's skills directory:
+
+```bash
+# Claude Code
 cp -r ../FAST-Evolve/benchmarks/skills/circle-packing .claude/skills/
+# OpenCode
+cp -r ../FAST-Evolve/benchmarks/skills/circle-packing .opencode/skills/
 ```
 
 ### 3. Start Evolution
