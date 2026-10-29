@@ -61,7 +61,7 @@ evotrias --version
 
 ## Quick Start
 
-This section uses Claude Code and the built-in Circle Packing benchmark to walk through a complete evolution run. The task is to place 26 non-overlapping circles in a unit square so that the sum of their radii is maximized.
+This section uses the built-in Circle Packing benchmark to walk through a complete evolution run. The task is to place 26 non-overlapping circles in a unit square so that the sum of their radii is maximized.
 
 **1. Install task dependencies**
 
@@ -73,18 +73,21 @@ pip install -r FAST-Evolve/benchmarks/requirements/math.txt
 
 ```bash
 mkdir my-workspace && cd my-workspace
-evotrias setup claude
+evotrias setup
 ```
 
-This command installs the subagents, skills, MCP configuration, and hooks into the current directory. For another coding agent, replace `claude` with its name; omit the name to open an interactive selector.
+Follow the prompts to select a coding agent (Claude Code or OpenCode) and complete the installation. This installs the subagents, skills, MCP configuration, and hooks into the current directory.
 
 **3. Import the task to evolve**
 
 ```bash
+# Claude Code
 cp -r ../FAST-Evolve/benchmarks/skills/circle-packing .claude/skills/
+# OpenCode
+cp -r ../FAST-Evolve/benchmarks/skills/circle-packing .opencode/skills/
 ```
 
-Tasks are provided as skills and go into the workspace's skills directory. The directory differs by coding agent; for OpenCode, for example, it is `.opencode/skills/`.
+Tasks are provided as skills and go into the skills directory of the coding agent selected in the previous step.
 
 **4. Start evolution**
 
