@@ -9,6 +9,7 @@ dev = [
     "black>=22.0.0",
     "ruff>=0.17.0",
     "pyright>=1.1",
+    "pytest-html>=4.2.0",
 ]
 
 [tool.black]

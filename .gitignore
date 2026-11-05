@@ -236,4 +236,5 @@ benchmarks/skills/llm-sql/datasets/
 
 .vscode/
 
-azy_demo/
+# Unit test reports.
+outputs/
