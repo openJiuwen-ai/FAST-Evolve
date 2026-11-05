@@ -5,8 +5,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "evotrias"
-version = "0.1.0"
-description = "Agent Self-Evolution System for Optimization Benchmarks"
+version = "0.0.1"
+description = "EvoTrias is a program evolution plugin for coding agents."
 readme = "README.md"
 requires-python = ">=3.11"
 license = "Apache-2.0"
