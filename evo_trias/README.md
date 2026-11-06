@@ -6,10 +6,10 @@
 
 [![Python](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue)](../LICENSE)
-[![Release](https://img.shields.io/badge/release-GitCode-C71D23)](https://gitcode.com/openJiuwen/FAST-Evolve/releases)
+[![Release](https://img.shields.io/badge/release-GitHub-181717)](https://github.com/openJiuwen-ai/FAST-Evolve/releases)
 [![Project Page](https://img.shields.io/badge/project-evotrias.github.io-6E56CF)](https://evotrias.github.io/)
 
-**English** | [中文](README.zh.md) | [Website](https://evotrias.github.io/)
+**English** | [中文](https://gitcode.com/openJiuwen/FAST-Evolve/tree/main/evo_trias) | [Website](https://evotrias.github.io/)
 
 </div>
 
@@ -32,7 +32,7 @@
 | [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | ✅ Full support | Scheduler and permission hooks fully in effect; suited to long unattended runs |
 | [OpenCode](https://opencode.ai) | ✅ Supported | Core evolution workflow fully available; permission hooks in progress |
 | [Codex](https://github.com/openai/codex) | 🗓️ Planned | — |
-| [JiuwenSwarm](https://gitcode.com/openJiuwen/jiuwenswarm) | 🗓️ Planned | — |
+| [JiuwenSwarm](https://github.com/openJiuwen-ai/jiuwenswarm) | 🗓️ Planned | — |
 
 ## Documentation
 
@@ -49,7 +49,7 @@
 ## Installation
 
 ```bash
-git clone https://gitcode.com/openJiuwen/FAST-Evolve.git
+git clone https://github.com/openJiuwen-ai/FAST-Evolve.git
 pip install ./FAST-Evolve/evo_trias
 ```
 

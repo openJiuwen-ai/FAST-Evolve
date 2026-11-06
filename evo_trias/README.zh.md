@@ -9,7 +9,7 @@
 [![Release](https://img.shields.io/badge/release-GitCode-C71D23)](https://gitcode.com/openJiuwen/FAST-Evolve/releases)
 [![Project Page](https://img.shields.io/badge/project-evotrias.github.io-6E56CF)](https://evotrias.github.io/)
 
-[English](README.md) | **中文** | [官网](https://evotrias.github.io/)
+[English](https://github.com/openJiuwen-ai/FAST-Evolve/tree/main/evo_trias) | **中文** | [官网](https://evotrias.github.io/)
 
 </div>
 

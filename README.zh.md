@@ -2,7 +2,7 @@
 
 <img src="assets/fast-evolve-banner.png" alt="FAST-Evolve" width="600">
 
-[English](README.md) | **中文**
+[English](https://github.com/openJiuwen-ai/FAST-Evolve) | **中文**
 
 </div>
 
@@ -10,7 +10,7 @@
 
 FAST-Evolve 是面向算法优化的一站式智能体进化工具链。给出算法问题描述和评测标准，它就能驱动 Coding Agent 自主探索算法方案设计，依据评测反馈持续迭代，让更优解不断涌现。
 
-当前，FAST-Evolve 通过 **EvoTrias** 为编码智能体提供程序进化能力：将优化任务与评估器接入工作区，驱动智能体持续生成、评测和筛选候选程序。EvoTrias 已接入 Claude Code 和 OpenCode，详细用法见 [EvoTrias 文档](evo_trias/README.zh.md)。
+当前，FAST-Evolve 通过 **EvoTrias** 为编码智能体提供程序进化能力：将优化任务与评估器接入工作区，驱动智能体持续生成、评测和筛选候选程序。EvoTrias 已接入 Claude Code 和 OpenCode，详细用法见 [EvoTrias 文档](evo_trias)。
 
 ## 🚀 快速开始
 
@@ -59,7 +59,7 @@ evotrias
 
 确认运行参数后，EvoTrias 将从两个初始方向开展探索，最多并行执行两个任务，在 10 个任务的预算内持续迭代。运行期间可通过输出的仪表盘地址查看进展，结束后在工作区的 `runs/<run_id>/run_summary.md` 查看总结。
 
-如需接入自定义优化任务或使用其他编码智能体，请参阅 [EvoTrias 文档](evo_trias/README.zh.md)和[基准任务示例](benchmarks/skills/)。
+如需接入自定义优化任务或使用其他编码智能体，请参阅 [EvoTrias 文档](evo_trias)和[基准任务示例](benchmarks/skills/)。
 
 ## 🏗️ 架构简介
 
@@ -85,10 +85,10 @@ EvoTrias 将进化过程分为治理、提案和裁决三个部分：
 
 欢迎通过 [Issue](https://gitcode.com/openJiuwen/FAST-Evolve/issues) 反馈问题、提出建议，或通过 [Pull Request](https://gitcode.com/openJiuwen/FAST-Evolve/pulls) 贡献代码、文档和基准任务。
 
-提交贡献前，请阅读 [openJiuwen 社区贡献指南](https://gitcode.com/openJiuwen/community/blob/main/CONTRIBUTING.md)，并按[签署指南](https://gitcode.com/openJiuwen/community/blob/main/cla/cla使用指南.md)完成 CLA 签署。开发时请先 fork 本仓库，从最新的 `main` 创建分支，完成修改与验证后提交 Pull Request。
+提交贡献前，请阅读 [openJiuwen 社区贡献指南](https://gitcode.com/openJiuwen/community/blob/main/README_CN.md)，并按[签署指南](https://gitcode.com/openJiuwen/community/blob/main/cla/cla使用指南.md)完成 CLA 签署。开发时请先 fork 本仓库，从最新的 `main` 创建分支，完成修改与验证后提交 Pull Request。
 
 ## License
 
-本项目基于 [Apache License 2.0](https://gitcode.com/openJiuwen/FAST-Evolve/tree/main/LICENSE) 开源。
+本项目基于 [Apache License 2.0](LICENSE) 开源。
 
 本产品仅作为流程编排工具，不包含 AI 模型能力；用户在连接 AI 模型用于特定业务场景时，需自行承担欧盟 AI 法案等相关合规义务。
