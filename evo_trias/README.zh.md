@@ -80,6 +80,8 @@ evotrias setup
 
 **3. 导入待进化任务**
 
+根据上一步所选的编码智能体，执行下方对应的一条命令：
+
 ```bash
 # Claude Code
 cp -r ../FAST-Evolve/benchmarks/skills/circle-packing .claude/skills/
@@ -111,3 +113,7 @@ evotrias
 本项目基于 [Apache License 2.0](../LICENSE) 开源。
 
 本产品仅作为流程编排工具，不包含 AI 模型能力；用户在连接 AI 模型用于特定业务场景时，需自行承担欧盟 AI 法案等相关合规义务。
+
+---
+
+由华为泰勒实验室开发。

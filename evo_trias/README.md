@@ -80,6 +80,8 @@ Follow the prompts to select a coding agent (Claude Code or OpenCode) and comple
 
 **3. Import the task to evolve**
 
+Run only the command below that matches the coding agent selected in the previous step:
+
 ```bash
 # Claude Code
 cp -r ../FAST-Evolve/benchmarks/skills/circle-packing .claude/skills/
@@ -111,3 +113,7 @@ Once the run parameters are confirmed, EvoTrias creates a run directory under `r
 This project is licensed under the [Apache License 2.0](../LICENSE).
 
 This product serves solely as a workflow orchestration tool and does not embed any AI model capabilities. When users integrate AI models for specific business scenarios, they shall bear full responsibility for compliance obligations under the EU AI Act and other relevant regulatory frameworks.
+
+---
+
+Developed by Taylor Lab, Huawei Technologies Co., Ltd.
