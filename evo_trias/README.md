@@ -10,7 +10,7 @@
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB)](pyproject.toml)
 [![License](https://img.shields.io/badge/License-Apache--2.0-7057C2)](../LICENSE)
 
-**English** | [中文](https://gitcode.com/openJiuwen/FAST-Evolve/tree/main/evo_trias) | [Website](https://evotrias.github.io/)
+**English** | [中文](https://gitcode.com/openJiuwen/FAST-Evolve/tree/main/evo_trias)
 
 </div>
 
@@ -119,11 +119,8 @@ If you find EvoTrias helpful, please cite our paper:
 
 ```bibtex
 @misc{ai2026evotrias,
-  title         = {Where Autonomy Belongs: A Separation of Powers
-                   for Agentic Program Evolution},
-  author        = {Zhengyang Ai and Tong Liu and Jingxian Tang
-                   and Xiaobing Du and Tao Xiao and Fengshi Zhang
-                   and Zishuo Li and Xiaodong Ai and Pinyan Lu},
+  title         = {Where Autonomy Belongs: A Separation of Powers for Agentic Program Evolution},
+  author        = {Zhengyang Ai and Tong Liu and Jingxian Tang and Xiaobing Du and Tao Xiao and Fengshi Zhang and Zishuo Li and Xiaodong Ai and Pinyan Lu},
   year          = {2026},
   journal       = {arXiv preprint arXiv:2611.15309},
   url           = {https://arxiv.org/abs/2611.15309},
