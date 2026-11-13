@@ -16,7 +16,7 @@ FAST-Evolve currently provides program evolution capabilities for coding agents 
 
 This example uses the built-in Circle Packing task, which aims to place 26 non-overlapping circles inside a unit square while maximizing the sum of their radii.
 
-Prepare Python 3.11 or later, and install and configure Claude Code and its model service. We recommend installing dependencies in a Python virtual environment.
+Prepare Python 3.11 or later, and install and configure your chosen coding agent (Claude Code or OpenCode) and its model service. We recommend installing dependencies in a Python virtual environment.
 
 ### 1. Get the Code and Install
 
@@ -36,7 +36,7 @@ mkdir my-workspace && cd my-workspace
 evotrias setup
 ```
 
-Follow the prompts to select a coding agent and complete the installation. Then copy the task skill into the selected agent's skills directory:
+Follow the prompts to select a coding agent and complete the installation. Then run only the command below that matches your selected agent to copy the task skill into its skills directory:
 
 ```bash
 # Claude Code
@@ -92,3 +92,7 @@ Before contributing, read the [openJiuwen community contribution guidelines](htt
 This project is licensed under the [Apache License 2.0](LICENSE).
 
 This product serves solely as a workflow orchestration tool and does not embed any AI model capabilities. When users integrate AI models for specific business scenarios, they shall bear full responsibility for compliance obligations under the EU AI Act and other relevant regulatory frameworks.
+
+---
+
+Developed by Taylor Lab, Huawei Technologies Co., Ltd.

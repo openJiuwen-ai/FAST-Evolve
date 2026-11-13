@@ -4,18 +4,23 @@
 
 **为编码智能体赋予程序进化能力**
 
-[![Python](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](../LICENSE)
-[![Release](https://img.shields.io/badge/release-GitCode-C71D23)](https://gitcode.com/openJiuwen/FAST-Evolve/releases)
-[![Project Page](https://img.shields.io/badge/project-evotrias.github.io-6E56CF)](https://evotrias.github.io/)
+[![arXiv](https://img.shields.io/badge/arXiv-2611.15309-B31B1B)](https://arxiv.org/abs/2611.15309)
+[![Paper PDF](https://img.shields.io/badge/Paper-PDF-B31B1B)](https://arxiv.org/pdf/2611.15309)
+[![Project webpage](https://img.shields.io/badge/Project-webpage-00A6AC)](https://evotrias.github.io/)
+[![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB)](pyproject.toml)
+[![License](https://img.shields.io/badge/License-Apache--2.0-7057C2)](../LICENSE)
 
-[English](https://github.com/openJiuwen-ai/FAST-Evolve/tree/main/evo_trias) | **中文** | [官网](https://evotrias.github.io/)
+[English](https://github.com/openJiuwen-ai/FAST-Evolve/tree/main/evo_trias) | **中文**
 
 </div>
 
 ## 项目定位
 
 **EvoTrias** 是一个面向编码智能体的程序进化插件。只需提供优化任务与评估器，即可驱动现有编码智能体持续生成、评测和筛选候选程序，并在当前最优解的基础上迭代优化。
+
+## 🔥 News
+
+- 2026.11 📄 我们的论文 [《Where Autonomy Belongs: A Separation of Powers for Agentic Program Evolution》](https://arxiv.org/abs/2611.15309) 已在 arXiv 上线。
 
 ## 核心特性
 
@@ -80,6 +85,8 @@ evotrias setup
 
 **3. 导入待进化任务**
 
+根据上一步所选的编码智能体，执行下方对应的一条命令：
+
 ```bash
 # Claude Code
 cp -r ../FAST-Evolve/benchmarks/skills/circle-packing .claude/skills/
@@ -106,8 +113,26 @@ evotrias
 > [!TIP]
 > 如需优化自定义问题，可将其编写为 skill：在 `SKILL.md` 中说明优化目标、候选程序的产出路径及评估器的调用方式，并放入工作区 skill 目录。[`benchmarks/skills/`](../benchmarks/skills/) 下的各基准任务可作为编写参考。
 
+## ✨ Reference
+
+如果 EvoTrias 对你的研究或工作有所帮助，欢迎引用我们的论文：
+
+```bibtex
+@misc{ai2026evotrias,
+  title         = {Where Autonomy Belongs: A Separation of Powers for Agentic Program Evolution},
+  author        = {Zhengyang Ai and Tong Liu and Jingxian Tang and Xiaobing Du and Tao Xiao and Fengshi Zhang and Zishuo Li and Xiaodong Ai and Pinyan Lu},
+  year          = {2026},
+  journal       = {arXiv preprint arXiv:2611.15309},
+  url           = {https://arxiv.org/abs/2611.15309},
+}
+```
+
 ## License
 
 本项目基于 [Apache License 2.0](../LICENSE) 开源。
 
 本产品仅作为流程编排工具，不包含 AI 模型能力；用户在连接 AI 模型用于特定业务场景时，需自行承担欧盟 AI 法案等相关合规义务。
+
+---
+
+由华为泰勒实验室开发。
