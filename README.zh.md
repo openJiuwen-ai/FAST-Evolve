@@ -16,7 +16,7 @@ FAST-Evolve 是面向算法优化的一站式智能体进化工具链。给出�
 
 以下以内置的 Circle Packing 任务为例。该任务要求在单位正方形内放置 26 个互不重叠的圆，使半径之和最大。
 
-准备 Python 3.11 或更高版本，并安装、配置好 Claude Code 及其模型服务。建议在 Python 虚拟环境中安装依赖。
+准备 Python 3.11 或更高版本，并安装、配置好要使用的编码智能体（Claude Code 或 OpenCode）及其模型服务。建议在 Python 虚拟环境中安装依赖。
 
 ### 1. 获取代码并安装
 
@@ -36,7 +36,7 @@ mkdir my-workspace && cd my-workspace
 evotrias setup
 ```
 
-按照提示选择编码智能体并完成安装，然后将任务 skill 复制到所选智能体的 skill 目录：
+按照提示选择编码智能体并完成安装，然后执行下方与所选智能体对应的一条命令，将任务 skill 复制到其 skill 目录：
 
 ```bash
 # Claude Code
@@ -92,3 +92,7 @@ EvoTrias 将进化过程分为治理、提案和裁决三个部分：
 本项目基于 [Apache License 2.0](LICENSE) 开源。
 
 本产品仅作为流程编排工具，不包含 AI 模型能力；用户在连接 AI 模型用于特定业务场景时，需自行承担欧盟 AI 法案等相关合规义务。
+
+---
+
+由华为泰勒实验室开发。
