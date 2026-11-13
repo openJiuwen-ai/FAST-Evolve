@@ -4,10 +4,11 @@
 
 **Program evolution for coding agents**
 
-[![Python](https://img.shields.io/badge/python-3.11%2B-3776AB?logo=python&logoColor=white)](pyproject.toml)
-[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](../LICENSE)
-[![Release](https://img.shields.io/badge/release-GitHub-181717)](https://github.com/openJiuwen-ai/FAST-Evolve/releases)
-[![Project Page](https://img.shields.io/badge/project-evotrias.github.io-6E56CF)](https://evotrias.github.io/)
+[![arXiv](https://img.shields.io/badge/arXiv-2611.15309-B31B1B)](https://arxiv.org/abs/2611.15309)
+[![Paper PDF](https://img.shields.io/badge/Paper-PDF-B31B1B)](https://arxiv.org/pdf/2611.15309)
+[![Project webpage](https://img.shields.io/badge/Project-webpage-00A6AC)](https://evotrias.github.io/)
+[![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB)](pyproject.toml)
+[![License](https://img.shields.io/badge/License-Apache--2.0-7057C2)](../LICENSE)
 
 **English** | [中文](https://gitcode.com/openJiuwen/FAST-Evolve/tree/main/evo_trias) | [Website](https://evotrias.github.io/)
 
@@ -16,6 +17,10 @@
 ## Overview
 
 **EvoTrias** is a program evolution plugin for coding agents. Given an optimization task and an evaluator, it drives an existing coding agent to generate, evaluate, and select candidate programs continuously, iterating from the current best solution.
+
+## 🔥 News
+
+- 2026.11 📄 Our paper ["Where Autonomy Belongs: A Separation of Powers for Agentic Program Evolution"](https://arxiv.org/abs/2611.15309) is now available on arXiv.
 
 ## Key Features
 
@@ -107,6 +112,23 @@ Once the run parameters are confirmed, EvoTrias creates a run directory under `r
 
 > [!TIP]
 > To optimize your own problem, write it as a skill: describe the optimization objective, the output path of candidate programs, and how to invoke the evaluator in `SKILL.md`, then place it in the workspace's skills directory. The benchmark tasks under [`benchmarks/skills/`](../benchmarks/skills/) serve as references.
+
+## ✨ Reference
+
+If you find EvoTrias helpful, please cite our paper:
+
+```bibtex
+@misc{ai2026evotrias,
+  title         = {Where Autonomy Belongs: A Separation of Powers
+                   for Agentic Program Evolution},
+  author        = {Zhengyang Ai and Tong Liu and Jingxian Tang
+                   and Xiaobing Du and Tao Xiao and Fengshi Zhang
+                   and Zishuo Li and Xiaodong Ai and Pinyan Lu},
+  year          = {2026},
+  journal       = {arXiv preprint arXiv:2611.15309},
+  url           = {https://arxiv.org/abs/2611.15309},
+}
+```
 
 ## License
 
