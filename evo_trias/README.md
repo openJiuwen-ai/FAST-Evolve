@@ -123,19 +123,25 @@ Once the run parameters are confirmed, EvoTrias creates a run directory under `r
 
 On the Math and ADRS benchmarks reported in our [paper](https://arxiv.org/abs/2611.15309), EvoTrias achieves the best mean result on 9 of 12 tasks with GLM-5.2. The comparison below includes OpenEvolve, EvoX, AdaEvolve, and CORAL with one or four agents.
 
-![Mean results on Math and ADRS with GLM-5.2](../assets/evotrias-results.png)
+<p align="center">
+  <img src="../assets/evotrias-results.png" alt="Mean results on Math and ADRS with GLM-5.2" width="70%">
+</p>
 
 ### Notes: Learning from Individual Attempts
 
 Notes capture what helped or hurt in an attempt and under what conditions. Governance requests them for substantial fitness changes or failures, then supplies relevant Notes to later tasks; the example below shows positive and negative Notes triggered by changes relative to the parent.
 
-![Positive and negative Notes triggered during evolution](../assets/evotrias-notes.png)
+<p align="center">
+  <img src="../assets/evotrias-notes.png" alt="Positive and negative Notes triggered during evolution" width="70%">
+</p>
 
 ### Meta-guidance: Exploring Beyond a Plateau
 
 When progress stalls, Meta-guidance proposes new directions from the search history. Each direction has a limited number of uses and starts from the current best candidate; the example below shows three guidance rounds and the improvements they produce.
 
-![Three Meta-guidance rounds during a plateaued search](../assets/evotrias-meta-guidance.png)
+<p align="center">
+  <img src="../assets/evotrias-meta-guidance.png" alt="Three Meta-guidance rounds during a plateaued search" width="70%">
+</p>
 
 ## ✨ Reference
 

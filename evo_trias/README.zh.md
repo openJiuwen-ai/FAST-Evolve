@@ -123,19 +123,25 @@ evotrias
 
 在[论文](https://arxiv.org/abs/2611.15309)报告的 Math 和 ADRS 基准上，采用 GLM-5.2 的 EvoTrias 在 12 个任务中的 9 个取得了最优平均结果。下图展示了与 OpenEvolve、EvoX、AdaEvolve 以及单智能体和四智能体 CORAL 的对比。
 
-![GLM-5.2 下 Math 和 ADRS 基准的平均结果](../assets/evotrias-results.png)
+<p align="center">
+  <img src="../assets/evotrias-results.png" alt="GLM-5.2 下 Math 和 ADRS 基准的平均结果" width="70%">
+</p>
 
 ### Notes：从单次尝试中积累经验
 
 Notes 记录一次尝试中哪些策略有效、哪些无效，以及相应的适用条件。治理层在适应度显著变化或发生失败时请求生成 Notes，并将相关经验提供给后续任务；下图展示了相对父代的变化如何触发正向与负向 Notes。
 
-![进化过程中正向与负向 Notes 的触发示例](../assets/evotrias-notes.png)
+<p align="center">
+  <img src="../assets/evotrias-notes.png" alt="进化过程中正向与负向 Notes 的触发示例" width="70%">
+</p>
 
 ### Meta-guidance：在停滞时探索新方向
 
 当搜索停滞时，Meta-guidance 根据搜索历史提出新的探索方向。每个方向具有有限的使用次数，并从当前最优候选出发开展尝试；下图展示了三轮策略引导及其带来的改进。
 
-![搜索停滞时三轮 Meta-guidance 的探索过程](../assets/evotrias-meta-guidance.png)
+<p align="center">
+  <img src="../assets/evotrias-meta-guidance.png" alt="搜索停滞时三轮 Meta-guidance 的探索过程" width="70%">
+</p>
 
 ## ✨ Reference
 
