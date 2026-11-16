@@ -2,13 +2,14 @@
 
 <img src="../assets/evotrias-banner.png" alt="EvoTrias" width="500">
 
-**为编码智能体赋予程序进化能力**
-
 [![arXiv](https://img.shields.io/badge/arXiv-2611.15309-B31B1B)](https://arxiv.org/abs/2611.15309)
 [![Paper PDF](https://img.shields.io/badge/Paper-PDF-B31B1B)](https://arxiv.org/pdf/2611.15309)
-[![Project webpage](https://img.shields.io/badge/Project-webpage-00A6AC)](https://evotrias.github.io/)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB)](pyproject.toml)
 [![License](https://img.shields.io/badge/License-Apache--2.0-7057C2)](../LICENSE)
+
+**为编码智能体赋予程序进化能力**
+
+**[🌐 前往官网 →](https://evotrias.github.io/)**
 
 [English](https://github.com/openJiuwen-ai/FAST-Evolve/tree/main/evo_trias) | **中文**
 
@@ -21,6 +22,7 @@
 ## 🔥 News
 
 - 2026.11 📄 我们的论文 [《Where Autonomy Belongs: A Separation of Powers for Agentic Program Evolution》](https://arxiv.org/abs/2611.15309) 已在 arXiv 上线。
+- 2026.10 🌐 [EvoTrias 官网](https://evotrias.github.io/)正式上线！
 
 ## 核心特性
 
@@ -110,8 +112,36 @@ evotrias
 
 确认运行参数后，EvoTrias 在 `runs/` 下创建运行目录并输出仪表盘地址，随后从多个初始方向并行探索，再围绕当前最优解持续进化，直至任务预算耗尽。运行总结位于 `runs/<run_id>/run_summary.md`。
 
+![EvoTrias 仪表盘展示 Signal Processing 任务的运行情况](../assets/evotrias-dashboard.png)
+
+*仪表盘示例：Signal Processing 任务的一次运行。*
+
 > [!TIP]
 > 如需优化自定义问题，可将其编写为 skill：在 `SKILL.md` 中说明优化目标、候选程序的产出路径及评估器的调用方式，并放入工作区 skill 目录。[`benchmarks/skills/`](../benchmarks/skills/) 下的各基准任务可作为编写参考。
+
+## 📊 实验结果与搜索经验
+
+在[论文](https://arxiv.org/abs/2611.15309)报告的 Math 和 ADRS 基准上，采用 GLM-5.2 的 EvoTrias 在 12 个任务中的 9 个取得了最优平均结果。下图展示了与 OpenEvolve、EvoX、AdaEvolve 以及单智能体和四智能体 CORAL 的对比。
+
+<p align="center">
+  <img src="../assets/evotrias-results.png" alt="GLM-5.2 下 Math 和 ADRS 基准的平均结果" width="70%">
+</p>
+
+### Notes：从单次尝试中积累经验
+
+Notes 记录一次尝试中哪些策略有效、哪些无效，以及相应的适用条件。治理层在适应度显著变化或发生失败时请求生成 Notes，并将相关经验提供给后续任务；下图展示了相对父代的变化如何触发正向与负向 Notes。
+
+<p align="center">
+  <img src="../assets/evotrias-notes.png" alt="进化过程中正向与负向 Notes 的触发示例" width="70%">
+</p>
+
+### Meta-guidance：在停滞时探索新方向
+
+当搜索停滞时，Meta-guidance 根据搜索历史提出新的探索方向。每个方向具有有限的使用次数，并从当前最优候选出发开展尝试；下图展示了三轮策略引导及其带来的改进。
+
+<p align="center">
+  <img src="../assets/evotrias-meta-guidance.png" alt="搜索停滞时三轮 Meta-guidance 的探索过程" width="70%">
+</p>
 
 ## ✨ Reference
 
