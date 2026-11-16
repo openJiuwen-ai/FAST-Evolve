@@ -2,13 +2,14 @@
 
 <img src="../assets/evotrias-banner.png" alt="EvoTrias" width="500">
 
-**Program evolution for coding agents**
-
 [![arXiv](https://img.shields.io/badge/arXiv-2611.15309-B31B1B)](https://arxiv.org/abs/2611.15309)
 [![Paper PDF](https://img.shields.io/badge/Paper-PDF-B31B1B)](https://arxiv.org/pdf/2611.15309)
-[![Project webpage](https://img.shields.io/badge/Project-webpage-00A6AC)](https://evotrias.github.io/)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB)](pyproject.toml)
 [![License](https://img.shields.io/badge/License-Apache--2.0-7057C2)](../LICENSE)
+
+**Program evolution for coding agents**
+
+**[🌐 Visit the website →](https://evotrias.github.io/)**
 
 **English** | [中文](https://gitcode.com/openJiuwen/FAST-Evolve/tree/main/evo_trias)
 
@@ -21,6 +22,7 @@
 ## 🔥 News
 
 - 2026.11 📄 Our paper ["Where Autonomy Belongs: A Separation of Powers for Agentic Program Evolution"](https://arxiv.org/abs/2611.15309) is now available on arXiv.
+- 2026.10 🌐 The [EvoTrias website](https://evotrias.github.io/) is live!
 
 ## Key Features
 
@@ -110,8 +112,30 @@ In the launched session, submit the evolution request through the `evolve` skill
 
 Once the run parameters are confirmed, EvoTrias creates a run directory under `runs/` and prints the dashboard URL. It then explores several initial directions in parallel and keeps evolving from the current best solution until the task budget is exhausted. The run summary is written to `runs/<run_id>/run_summary.md`.
 
+![EvoTrias dashboard showing a Signal Processing run](../assets/evotrias-dashboard.png)
+
+*Dashboard example from a Signal Processing run.*
+
 > [!TIP]
 > To optimize your own problem, write it as a skill: describe the optimization objective, the output path of candidate programs, and how to invoke the evaluator in `SKILL.md`, then place it in the workspace's skills directory. The benchmark tasks under [`benchmarks/skills/`](../benchmarks/skills/) serve as references.
+
+## 📊 Experimental Results and Search Experience
+
+On the Math and ADRS benchmarks reported in our [paper](https://arxiv.org/abs/2611.15309), EvoTrias achieves the best mean result on 9 of 12 tasks with GLM-5.2. The comparison below includes OpenEvolve, EvoX, AdaEvolve, and CORAL with one or four agents.
+
+![Mean results on Math and ADRS with GLM-5.2](../assets/evotrias-results.png)
+
+### Notes: Learning from Individual Attempts
+
+Notes capture what helped or hurt in an attempt and under what conditions. Governance requests them for substantial fitness changes or failures, then supplies relevant Notes to later tasks; the example below shows positive and negative Notes triggered by changes relative to the parent.
+
+![Positive and negative Notes triggered during evolution](../assets/evotrias-notes.png)
+
+### Meta-guidance: Exploring Beyond a Plateau
+
+When progress stalls, Meta-guidance proposes new directions from the search history. Each direction has a limited number of uses and starts from the current best candidate; the example below shows three guidance rounds and the improvements they produce.
+
+![Three Meta-guidance rounds during a plateaued search](../assets/evotrias-meta-guidance.png)
 
 ## ✨ Reference
 
